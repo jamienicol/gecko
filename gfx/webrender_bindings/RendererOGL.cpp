@@ -290,6 +290,9 @@ void RendererOGL::Pause() { mCompositor->Pause(); }
 bool RendererOGL::Resume() { return mCompositor->Resume(); }
 
 bool RendererOGL::IsPaused() { return mCompositor->IsPaused(); }
+void RendererOGL::SetClearColor(wr::ColorF aColor) {
+  return mCompositor->SetClearColor(aColor);
+}
 
 layers::SyncObjectHost* RendererOGL::GetSyncObject() const {
   return mCompositor->GetSyncObject();

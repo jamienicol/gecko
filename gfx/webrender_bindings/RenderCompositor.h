@@ -69,6 +69,9 @@ class RenderCompositor {
 
   virtual void Pause() = 0;
   virtual bool Resume() = 0;
+
+  virtual void SetClearColor(wr::ColorF aColor) {}
+
   // Called when WR rendering is skipped
   virtual void Update() {}
 

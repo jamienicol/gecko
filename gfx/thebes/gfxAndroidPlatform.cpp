@@ -13,6 +13,7 @@
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
 #include "mozilla/jni/Utils.h"
+#include "mozilla/layers/AndroidSurfaceControl.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
@@ -99,12 +100,16 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
 gfxAndroidPlatform::~gfxAndroidPlatform() {
   FT_Done_Library(gPlatformFTLibrary);
   gPlatformFTLibrary = nullptr;
+  if (XRE_IsParentProcess()) {
+    layers::AndroidSurfaceControlApi::Shutdown();
+  }
   layers::AndroidHardwareBufferManager::Shutdown();
   layers::AndroidHardwareBufferApi::Shutdown();
 }
 
 void gfxAndroidPlatform::InitAcceleration() {
   gfxPlatform::InitAcceleration();
+  bool useSurfaceControl = false;
   if (XRE_IsParentProcess() && jni::GetAPIVersion() >= 26) {
     if (StaticPrefs::gfx_use_ahardwarebuffer_content_AtStartup()) {
       gfxVars::SetUseAHardwareBufferContent(true);
@@ -112,11 +117,17 @@ void gfxAndroidPlatform::InitAcceleration() {
     if (StaticPrefs::webgl_enable_ahardwarebuffer()) {
       gfxVars::SetUseAHardwareBufferSharedSurface(true);
     }
+    if (jni::GetAPIVersion() >= 29) {
+      useSurfaceControl = true;
+    }
   }
   if (gfx::gfxVars::UseAHardwareBufferContent() ||
-      gfxVars::UseAHardwareBufferSharedSurface()) {
+      gfxVars::UseAHardwareBufferSharedSurface() || useSurfaceControl) {
     layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
+  }
+  if (XRE_IsParentProcess() && useSurfaceControl) {
+    layers::AndroidSurfaceControlApi::Init();
   }
 }
 

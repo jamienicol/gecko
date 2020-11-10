@@ -467,9 +467,13 @@ void RenderThread::SetClearColor(wr::WindowId aWindowId, wr::ColorF aColor) {
 
   auto it = mRenderers.find(aWindowId);
   MOZ_ASSERT(it != mRenderers.end());
-  if (it != mRenderers.end()) {
-    wr_renderer_set_clear_color(it->second->GetRenderer(), aColor);
+  if (it == mRenderers.end()) {
+    return;
   }
+  auto& renderer = it->second;
+
+  wr_renderer_set_clear_color(renderer->GetRenderer(), aColor);
+  renderer->SetClearColor(aColor);
 }
 
 void RenderThread::SetProfilerUI(wr::WindowId aWindowId,

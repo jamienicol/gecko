@@ -13,6 +13,7 @@
 #include "GLReadTexImageHelper.h"
 #include "GLLibraryEGL.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/layers/LayersSurfaces.h"
 
 using namespace mozilla;
 using namespace mozilla::gl;

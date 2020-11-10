@@ -106,6 +106,8 @@ class RendererOGL {
   /// This can be called on the render thread only.
   bool IsPaused();
 
+  void SetClearColor(wr::ColorF aColor);
+
   /// This can be called on the render thread only.
   void CheckGraphicsResetStatus(const char* aCaller, bool aForce);
 
