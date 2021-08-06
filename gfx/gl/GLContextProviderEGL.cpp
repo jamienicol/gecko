@@ -628,6 +628,10 @@ RefPtr<GLContextEGL> GLContextEGL::CreateGLContext(
     required_attribs.push_back(LOCAL_EGL_CONTEXT_MAJOR_VERSION);
     if (flags & CreateContextFlags::PREFER_ES3) {
       required_attribs.push_back(3);
+
+      required_attribs.push_back(LOCAL_EGL_CONTEXT_MINOR_VERSION);
+      required_attribs.push_back(1);
+
     } else {
       required_attribs.push_back(2);
     }
