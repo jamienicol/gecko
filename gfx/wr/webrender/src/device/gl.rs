@@ -217,18 +217,29 @@ impl VertexAttribute {
 
     fn bind_to_vao(
         &self,
+        device: &Device,
         attr_index: gl::GLuint,
-        divisor: gl::GLuint,
-        stride: gl::GLint,
+        binding_index: gl::GLuint,
+        stride: gl::GLsizei,
         offset: gl::GLuint,
-        gl: &dyn gl::Gl,
     ) {
-        gl.enable_vertex_attrib_array(attr_index);
-        gl.vertex_attrib_divisor(attr_index, divisor);
+        device.gl.enable_vertex_attrib_array(attr_index);
+        if device.capabilities.supports_vertex_attrib_format {
+            device.gl.vertex_attrib_binding(attr_index, binding_index);
+        }
 
-        match self.kind {
-            VertexAttributeKind::F32 => {
-                gl.vertex_attrib_pointer(
+        match (device.capabilities.supports_vertex_attrib_format, &self.kind) {
+            (true, VertexAttributeKind::F32) => {
+                device.gl.vertex_attrib_format(
+                    attr_index,
+                    self.count as gl::GLint,
+                    gl::FLOAT,
+                    false,
+                    offset,
+                );
+            }
+            (false, VertexAttributeKind::F32) => {
+                device.gl.vertex_attrib_pointer(
                     attr_index,
                     self.count as gl::GLint,
                     gl::FLOAT,
@@ -237,8 +248,17 @@ impl VertexAttribute {
                     offset,
                 );
             }
-            VertexAttributeKind::U8Norm => {
-                gl.vertex_attrib_pointer(
+            (true, VertexAttributeKind::U8Norm) => {
+                device.gl.vertex_attrib_format(
+                    attr_index,
+                    self.count as gl::GLint,
+                    gl::UNSIGNED_BYTE,
+                    true,
+                    offset,
+                );
+            }
+            (false, VertexAttributeKind::U8Norm) => {
+                device.gl.vertex_attrib_pointer(
                     attr_index,
                     self.count as gl::GLint,
                     gl::UNSIGNED_BYTE,
@@ -247,8 +267,17 @@ impl VertexAttribute {
                     offset,
                 );
             }
-            VertexAttributeKind::U16Norm => {
-                gl.vertex_attrib_pointer(
+            (true, VertexAttributeKind::U16Norm) => {
+                device.gl.vertex_attrib_format(
+                    attr_index,
+                    self.count as gl::GLint,
+                    gl::UNSIGNED_SHORT,
+                    true,
+                    offset,
+                );
+            }
+            (false, VertexAttributeKind::U16Norm) => {
+                device.gl.vertex_attrib_pointer(
                     attr_index,
                     self.count as gl::GLint,
                     gl::UNSIGNED_SHORT,
@@ -257,8 +286,16 @@ impl VertexAttribute {
                     offset,
                 );
             }
-            VertexAttributeKind::I32 => {
-                gl.vertex_attrib_i_pointer(
+            (true, VertexAttributeKind::I32) => {
+                device.gl.vertex_attrib_i_format(
+                    attr_index,
+                    self.count as gl::GLint,
+                    gl::INT,
+                    offset,
+                );
+            }
+            (false, VertexAttributeKind::I32) => {
+                device.gl.vertex_attrib_i_pointer(
                     attr_index,
                     self.count as gl::GLint,
                     gl::INT,
@@ -266,8 +303,16 @@ impl VertexAttribute {
                     offset,
                 );
             }
-            VertexAttributeKind::U16 => {
-                gl.vertex_attrib_i_pointer(
+            (true, VertexAttributeKind::U16) => {
+                device.gl.vertex_attrib_i_format(
+                    attr_index,
+                    self.count as gl::GLint,
+                    gl::UNSIGNED_SHORT,
+                    offset,
+                );
+            }
+            (false, VertexAttributeKind::U16) => {
+                device.gl.vertex_attrib_i_pointer(
                     attr_index,
                     self.count as gl::GLint,
                     gl::UNSIGNED_SHORT,
@@ -280,6 +325,13 @@ impl VertexAttribute {
 }
 
 impl VertexDescriptor {
+    fn main_stride(&self) -> u32 {
+        self.vertex_attributes
+            .iter()
+            .map(|attr| attr.size_in_bytes())
+            .sum()
+    }
+
     fn instance_stride(&self) -> u32 {
         self.instance_attributes
             .iter()
@@ -288,41 +340,90 @@ impl VertexDescriptor {
     }
 
     fn bind_attributes(
+        device: &Device,
         attributes: &[VertexAttribute],
         start_index: usize,
-        divisor: u32,
-        gl: &dyn gl::Gl,
-        vbo: VBOId,
-        mut offset: u32,
+        binding_index: usize,
+        mut offset: usize,
     ) {
-        vbo.bind(gl);
-
-        let stride: u32 = attributes
+        let stride = attributes
             .iter()
-            .map(|attr| attr.size_in_bytes())
+            .map(|attr| attr.size_in_bytes() as gl::GLsizei)
             .sum();
 
         for (i, attr) in attributes.iter().enumerate() {
             let attr_index = (start_index + i) as gl::GLuint;
-            attr.bind_to_vao(attr_index, divisor, stride as _, offset, gl);
-            offset += attr.size_in_bytes();
+            attr.bind_to_vao(device, attr_index, binding_index as gl::GLuint, stride, offset as gl::GLuint);
+            offset += attr.size_in_bytes() as usize;
         }
     }
 
-    fn bind_main_attributes(&self, gl: &dyn gl::Gl, vbo: VBOId) {
-        Self::bind_attributes(self.vertex_attributes, 0, 0, gl, vbo, 0);
+    fn specify_attrib_formats(&self, device: &Device, instance_divisor: u32) {
+        if device.capabilities.supports_vertex_attrib_format {
+            device.gl.vertex_binding_divisor(0, 0);
+            Self::bind_attributes(
+                device,
+                self.vertex_attributes,
+                0, // main attribute indices start at 0
+                0, // main buffer will be bound at index 0
+                0,
+            );
+
+            if !self.instance_attributes.is_empty() {
+                device.gl.vertex_binding_divisor(1, instance_divisor);
+                Self::bind_attributes(
+                    device,
+                    self.instance_attributes,
+                    self.vertex_attributes.len(), // instance attribute indices start after main attributes
+                    1, // instance buffer will be bound at index 1
+                    0,
+                );
+            }
+        } else {
+            // If we do not support glVertexAttribFormat, then there isn't much to do here: we must
+            // specify the format at the same time as binding to the buffer with glVertexAttribPointer.
+            // We can, however, set the divisors now.
+            for attr_index in 0..self.vertex_attributes.len() {
+                device.gl.vertex_attrib_divisor(attr_index as gl::GLuint, 0);
+            }
+            for attr_index in self.vertex_attributes.len()..self.vertex_attributes.len() + self.instance_attributes.len() {
+                device.gl.vertex_attrib_divisor(attr_index as gl::GLuint, instance_divisor);
+            }
+        }
     }
 
-    fn bind_instance_attributes(&self, gl: &dyn gl::Gl, vbo: VBOId, offset: u32, instance_divisor: u32) {
-        if !self.instance_attributes.is_empty() {
+    fn bind_main_attrib_buffer(&self, device: &Device, vbo: VBOId, offset: usize) {
+        if device.capabilities.supports_vertex_attrib_format {
+            device.gl.bind_vertex_buffer(0, vbo.0, offset as gl::GLintptr, self.main_stride() as gl::GLsizei);
+        } else {
+            vbo.bind(device.gl());
+
             Self::bind_attributes(
-                self.instance_attributes,
-                self.vertex_attributes.len(),
-                instance_divisor,
-                gl,
-                vbo,
+                device,
+                self.vertex_attributes,
+                0, // main attribute indices start at 0
+                0, // main buffer will be bound at index 0
                 offset,
             );
+        }
+    }
+
+    fn bind_instance_attrib_buffer(&self, device: &Device, vbo: VBOId, offset: usize) {
+        if !self.instance_attributes.is_empty() {
+            if device.capabilities.supports_vertex_attrib_format {
+                vbo.bind(device.gl());
+                device.gl.bind_vertex_buffer(1, vbo.0, offset as gl::GLintptr, self.instance_stride() as gl::GLsizei);
+            } else {
+                vbo.bind(device.gl());
+
+                Self::bind_attributes(
+                    device,
+                    self.instance_attributes,
+                    self.vertex_attributes.len(), // instance attribute indices start after main attributes
+                    1, // instance buffer is at binding index 1
+                    offset,
+                );
+            }
         }
     }
 }
@@ -1153,6 +1254,9 @@ pub struct Capabilities {
     pub supports_image_external_essl3: bool,
     /// Whether the VAO must be rebound after an attached VBO has been orphaned.
     pub requires_vao_rebind_after_orphaning: bool,
+    /// Whether the driver supports using glVertexAttribFormat and glBindVertexBuffer,
+    /// rather than glVertexAttribPointer.
+    pub supports_vertex_attrib_format: bool,
     /// The name of the renderer, as reported by GL
     pub renderer_name: String,
 }
@@ -1892,6 +1996,9 @@ impl Device {
         // an attached buffer has been orphaned.
         let requires_vao_rebind_after_orphaning = is_adreno_3xx;
 
+        // TODO: calculate this value correctly
+        let supports_vertex_attrib_format = true;
+
         Device {
             gl,
             base_gl: None,
@@ -1926,6 +2033,7 @@ impl Device {
                 uses_native_antialiasing,
                 supports_image_external_essl3,
                 requires_vao_rebind_after_orphaning,
+                supports_vertex_attrib_format,
                 renderer_name,
             },
 
@@ -3379,12 +3487,10 @@ impl Device {
 
         self.bind_vao_impl(vao_id);
 
-        // Bind the IBO and main VBO to the VAO. We cannot bind the instance VBO yet as
-        // it is allocated dynamically. In the future where supported we may use
-        // glVertexAttribFormat to specify the format here, and use glBindVertexBuffer
-        // to bind the VBO whenever it is updated.
+        // Bind the IBO and main VBO to the VAO.
         ibo_id.bind(self.gl());
-        descriptor.bind_main_attributes(self.gl(), main_vbo_id);
+        descriptor.specify_attrib_formats(self, instance_divisor);
+        descriptor.bind_main_attrib_buffer(self, main_vbo_id, 0);
 
         VAO {
             id: vao_id,
@@ -3407,13 +3513,21 @@ impl Device {
         self.bind_vao_impl(vao_id);
 
         let mut attrib_index = 0;
-        for stream in streams {
+        for (stream_index, stream) in streams.iter().enumerate() {
+            if self.capabilities.supports_vertex_attrib_format {
+                let stride = stream.attributes
+                    .iter()
+                    .map(|attr| attr.size_in_bytes() as gl::GLsizei)
+                    .sum();
+                self.gl.bind_vertex_buffer(stream_index as gl::GLuint, stream.vbo.0, 0, stride);
+            } else {
+                stream.vbo.bind(self.gl());
+            }
             VertexDescriptor::bind_attributes(
+                self,
                 stream.attributes,
                 attrib_index,
-                0,
-                self.gl(),
-                stream.vbo,
+                stream_index,
                 0,
             );
             attrib_index += stream.attributes.len();
@@ -3556,7 +3670,7 @@ impl Device {
         debug_assert_eq!(vao.instance_stride as usize, mem::size_of::<V>());
 
         if let Ok((vbo, offset)) = vbo_pool.fill_data(self, instances, repeat) {
-            vao.descriptor.bind_instance_attributes(self.gl(), vbo, offset as u32, vao.instance_divisor);
+            vao.descriptor.bind_instance_attrib_buffer(self, vbo, offset);
 
             // On some devices the VAO must be manually unbound and rebound after an attached buffer has
             // been orphaned. Failure to do so appeared to result in the orphaned buffer's contents
