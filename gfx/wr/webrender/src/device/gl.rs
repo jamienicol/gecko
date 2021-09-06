@@ -485,6 +485,11 @@ impl<T> Drop for VBO<T> {
     }
 }
 
+struct MappedVBO {
+    id: VBOId,
+    mapping: ptr::NonNull<mem::MaybeUninit<u8>>,
+}
+
 /// A pool which allocates and recycles vertex buffers, and allows packing per-instance
 /// vertex data for multiple draw calls in to large fixed-size buffers.
 pub struct InstanceVBOPool {
@@ -492,7 +497,7 @@ pub struct InstanceVBOPool {
     buffer_size: usize,
     /// The currently in use buffer. Data is added to this buffer until it is full, at
     /// which point an available buffer is recycled or a new buffer is allocated.
-    current_vbo: Option<VBOId>,
+    current_vbo: Option<MappedVBO>,
     /// The current offset in to the current VBO.
     current_offset: usize,
     /// The pool of allocated VBOs. The first Vec contains buffers that are available to
@@ -528,17 +533,26 @@ impl InstanceVBOPool {
 
         let target = gl::ARRAY_BUFFER;
 
+        // Ensure we write this data at the correct alignment
+        self.current_offset = round_up_to_multiple(self.current_offset, NonZeroUsize::new(mem::size_of::<V>()).unwrap());
+
         // If we do not have a current buffer, or the current buffer does not have room
         // for the data, then find a new buffer. First look for a buffer that can be
         // recycled, and if none can be found then allocate a new buffer.
         if self.current_vbo.is_none() || self.current_offset + required_size > self.buffer_size {
+            if let Some(old_vbo) = self.current_vbo.take() {
+                old_vbo.id.bind(device.gl());
+                device.gl.unmap_buffer(target);
+
+                // Add the buffer we have just filled to the back of the pool so that it
+                // can later be recycled.
+                self.vbos.last_mut().unwrap().push(old_vbo.id);
+            }
+
             let (new_vbo, needs_alloc) = match self.vbos.first_mut().unwrap().pop() {
                 Some(vbo) => (vbo, false),
                 None => (VBOId(device.gl.gen_buffers(1)[0]), true),
             };
-
-            let old_vbo = mem::replace(&mut self.current_vbo, Some(new_vbo));
-            self.current_offset = 0;
 
             new_vbo.bind(device.gl());
             if needs_alloc {
@@ -550,35 +564,31 @@ impl InstanceVBOPool {
                 );
             }
 
-            if let Some(old_vbo) = old_vbo {
-                // Add the buffer we have just filled to the back of the pool so that it
-                // can later be recycled.
-                self.vbos.last_mut().unwrap().push(old_vbo);
-            }
+            let ptr = device.gl.map_buffer_range(
+                target,
+                0,
+                self.buffer_size as gl::GLsizeiptr,
+                gl::MAP_WRITE_BIT,
+            ) as *mut _;
+
+            let mapping = ptr::NonNull::new(ptr).ok_or_else(|| {
+                error!("Failed to map VBO of size {} bytes.", self.buffer_size);
+            })?;
+
+            self.current_vbo = Some(MappedVBO {
+                id: new_vbo,
+                mapping,
+            });
+            self.current_offset = 0;
         }
 
-        self.current_vbo.unwrap().bind(device.gl());
+        let current_vbo = self.current_vbo.as_mut().unwrap();
+        current_vbo.id.bind(device.gl());
 
-        // Map a region of the buffer to write our data to. We use MAP_UNSYNCHRONIZED_BIT otherwise
-        // it can be very expensive for the driver to repeatedly map small regions whilst
-        // interspersed with draw calls. This is safe because we never re-use the same region of the
-        // buffer before recycling, and if the buffer has been recycled it has been at least 3
-        // frames since it was last used.
-        // Future improvements could include using glBufferStorage and MAP_PERSISTENT_BIT on
-        // supported devices to avoid continually mapping and unmapping.
-        let ptr = device.gl.map_buffer_range(
-            target,
-            self.current_offset as gl::GLintptr,
-            required_size as gl::GLsizeiptr,
-            gl::MAP_WRITE_BIT | gl::MAP_UNSYNCHRONIZED_BIT,
-        ) as *mut V;
-        let ptr = ptr::NonNull::new(ptr).ok_or_else(|| {
-            error!("Failed to map instance data VBO of {} bytes", self.buffer_size);
-        })?;
-
-        let dst = unsafe {
-            slice::from_raw_parts_mut(ptr.as_ptr(), data.len() * repeat.map(NonZeroUsize::get).unwrap_or(1))
-        };
+        let mut dst = slice::from_raw_parts_mut(
+            current_vbo.mapping.as_ptr().offset(self.current_offset as isize).cast::<V>(),
+            data.len() * repeat.map(NonZeroUsize::get).unwrap_or(1)
+        );
 
         match repeat {
             Some(repeat) => {
@@ -591,16 +601,26 @@ impl InstanceVBOPool {
             None => dst.clone_from_slice(data)
         }
 
-        device.gl.unmap_buffer(target);
-
         let old_offset = self.current_offset;
         self.current_offset += required_size;
 
-        Ok((self.current_vbo.unwrap(), old_offset))
+        Ok((self.current_vbo.id, old_offset))
+    }
+
+    pub fn flush(&mut self, device: &mut Device) {
+        if let Some(current_vbo) = self.current_vbo.take() {
+            current_vbo.id.bind(device.gl());
+            device.gl.unmap_buffer(gl::ARRAY_BUFFER);
+
+            self.vbos.last_mut().unwrap().push(current_vbo.id);
+        }
     }
 
     /// Must be called at the end of each frame to handle buffer recycling.
     pub fn end_frame(&mut self) {
+
+        // FIXME: use fences instead!!!!!
+
         let (first, rest) = self.vbos.split_first_mut().unwrap();
         rest.rotate_left(1);
         first.append(rest.last_mut().unwrap());
@@ -625,9 +645,7 @@ impl InstanceVBOPool {
     }
 
     pub fn deinit(&mut self, device: &mut Device) {
-        if let Some(vbo) = self.current_vbo.take() {
-            device.gl.delete_buffers(&[vbo.0]);
-        }
+        // FIXME: assert current_vbo is none if not unwinding
         for vbo in self.vbos.iter_mut().flat_map(|v| v.drain(..)) {
             device.gl.delete_buffers(&[vbo.0]);
         }
