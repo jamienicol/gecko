@@ -3261,7 +3261,7 @@ impl Renderer {
             None,
         );
         let mut current_textures = BatchTextures::empty();
-        let mut instances = Vec::new();
+        let mut instances = InstanceData::default();
 
         self.shaders
             .borrow_mut()
@@ -3416,15 +3416,17 @@ impl Renderer {
                 shader_params != current_shader_params;
 
             if flush_batch {
-                if !instances.is_empty() {
-                    // FIXME: stage instances
-                    // self.draw_instanced_batch(
-                    //     &instances,
-                    //     VertexArrayKind::Composite,
-                    //     &current_textures,
-                    //     stats,
-                    // );
-                    instances.clear();
+                if !instances.as_unstaged().is_empty() {
+                    // FIXME: stage instances in advance
+                    self.stage_instanced_batch(&mut instances, VertexArrayKind::Composite);
+                    self.instance_vbo_pool.flush(&mut self.device);
+                    self.draw_instanced_batch(
+                        instances.as_staged(),
+                        VertexArrayKind::Composite,
+                        &current_textures,
+                        stats,
+                    );
+                    instances = InstanceData::default();
                 }
             }
 
@@ -3446,18 +3448,20 @@ impl Renderer {
             current_textures = textures;
 
             // Add instance to current batch
-            instances.push(instance);
+            instances.as_unstaged_mut().push(instance);
         }
 
         // Flush the last batch
-        if !instances.is_empty() {
+        if !instances.as_unstaged().is_empty() {
             // FIXME: stage instances in advance
-            // self.draw_instanced_batch(
-            //     &instances,
-            //     VertexArrayKind::Composite,
-            //     &current_textures,
-            //     stats,
-            // );
+            self.stage_instanced_batch(&mut instances, VertexArrayKind::Composite);
+            self.instance_vbo_pool.flush(&mut self.device);
+            self.draw_instanced_batch(
+                instances.as_staged(),
+                VertexArrayKind::Composite,
+                &current_textures,
+                stats,
+            );
         }
     }
 
