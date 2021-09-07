@@ -553,14 +553,14 @@ fn copy_from_staging_to_cache_using_draw_calls(
 
         if (src_changed || dst_changed) && !copy_instances.is_empty() {
 
-            renderer.draw_instanced_batch(
-                &copy_instances,
-                VertexArrayKind::Composite,
-                // We bind the staging texture manually because it isn't known
-                // to the texture resolver.
-                &BatchTextures::empty(),
-                &mut dummy_stats,
-            );
+            // renderer.draw_instanced_batch(
+            //     &copy_instances,
+            //     VertexArrayKind::Composite,
+            //     // We bind the staging texture manually because it isn't known
+            //     // to the texture resolver.
+            //     &BatchTextures::empty(),
+            //     &mut dummy_stats,
+            // );
 
             stats.num_draw_calls += 1;
             copy_instances.clear();
@@ -635,14 +635,14 @@ fn copy_from_staging_to_cache_using_draw_calls(
     }
 
     if !copy_instances.is_empty() {
-        renderer.draw_instanced_batch(
-            &copy_instances,
-            VertexArrayKind::Composite,
-            // We bind the staging texture manually because it isn't known
-            // to the texture resolver.
-            &BatchTextures::empty(),
-            &mut dummy_stats,
-        );
+        // renderer.draw_instanced_batch(
+        //     &copy_instances,
+        //     VertexArrayKind::Composite,
+        //     // We bind the staging texture manually because it isn't known
+        //     // to the texture resolver.
+        //     &BatchTextures::empty(),
+        //     &mut dummy_stats,
+        // );
 
         stats.num_draw_calls += 1;
     }

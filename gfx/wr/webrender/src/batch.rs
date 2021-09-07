@@ -25,7 +25,7 @@ use crate::prim_store::VECS_PER_SEGMENT;
 use crate::render_target::RenderTargetContext;
 use crate::render_task_graph::{RenderTaskId, RenderTaskGraph};
 use crate::render_task::RenderTaskAddress;
-use crate::renderer::{BlendMode, ShaderColorMode};
+use crate::renderer::{BlendMode, InstanceData, ShaderColorMode};
 use crate::renderer::MAX_VERTEX_TEXTURE_WIDTH;
 use crate::resource_cache::{GlyphFetchResult, ImageProperties, ImageRequest};
 use crate::space::SpaceMapper;
@@ -410,7 +410,7 @@ impl AlphaBatchList {
                     _ => 16,
                 };
                 let mut new_batch = PrimitiveBatch::new(key);
-                new_batch.instances.reserve(prealloc);
+                new_batch.instances.as_unstaged_mut().reserve(prealloc);
                 selected_batch_index = Some(self.batches.len());
                 self.batches.push(new_batch);
                 self.batch_rects.push(BatchRects::new());
@@ -425,7 +425,7 @@ impl AlphaBatchList {
         batch.features |= features;
         batch.key.textures.merge(&key.textures);
 
-        &mut batch.instances
+        batch.instances.as_unstaged_mut()
     }
 }
 
@@ -501,7 +501,7 @@ impl OpaqueBatchList {
         batch.features |= features;
         batch.key.textures.merge(&key.textures);
 
-        &mut batch.instances
+        batch.instances.as_unstaged_mut()
     }
 
     fn finalize(&mut self) {
@@ -512,7 +512,7 @@ impl OpaqueBatchList {
         //           build these in reverse and avoid having
         //           to reverse the instance array here.
         for batch in &mut self.batches {
-            batch.instances.reverse();
+            batch.instances.as_unstaged_mut().reverse();
         }
     }
 }
@@ -521,7 +521,7 @@ impl OpaqueBatchList {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct PrimitiveBatch {
     pub key: BatchKey,
-    pub instances: Vec<PrimitiveInstanceData>,
+    pub instances: InstanceData<PrimitiveInstanceData>,
     pub features: BatchFeatures,
 }
 
@@ -549,13 +549,13 @@ impl PrimitiveBatch {
     fn new(key: BatchKey) -> PrimitiveBatch {
         PrimitiveBatch {
             key,
-            instances: Vec::new(),
+            instances: InstanceData::Unstaged(Vec::new()),
             features: BatchFeatures::empty(),
         }
     }
 
     fn merge(&mut self, other: PrimitiveBatch) {
-        self.instances.extend(other.instances);
+        self.instances.as_unstaged_mut().extend(other.instances.as_unstaged().iter().cloned());
         self.features |= other.features;
         self.key.textures.merge(&other.key.textures);
     }
@@ -3307,18 +3307,18 @@ impl BrushBatchParameters {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct ClipBatchList {
     /// Rectangle draws fill up the rectangles with rounded corners.
-    pub slow_rectangles: Vec<ClipMaskInstanceRect>,
-    pub fast_rectangles: Vec<ClipMaskInstanceRect>,
+    pub slow_rectangles: InstanceData<ClipMaskInstanceRect>,
+    pub fast_rectangles: InstanceData<ClipMaskInstanceRect>,
     /// Image draws apply the image masking.
-    pub images: FastHashMap<(TextureSource, Option<DeviceIntRect>), Vec<ClipMaskInstanceImage>>,
-    pub box_shadows: FastHashMap<TextureSource, Vec<ClipMaskInstanceBoxShadow>>,
+    pub images: FastHashMap<(TextureSource, Option<DeviceIntRect>), InstanceData<ClipMaskInstanceImage>>,
+    pub box_shadows: FastHashMap<TextureSource, InstanceData<ClipMaskInstanceBoxShadow>>,
 }
 
 impl ClipBatchList {
     fn new() -> Self {
         ClipBatchList {
-            slow_rectangles: Vec::new(),
-            fast_rectangles: Vec::new(),
+            slow_rectangles: InstanceData::Unstaged(Vec::new()),
+            fast_rectangles: InstanceData::Unstaged(Vec::new()),
             images: FastHashMap::default(),
             box_shadows: FastHashMap::default(),
         }
@@ -3374,7 +3374,7 @@ impl ClipBatcher {
             clip_data,
         };
 
-        self.primary_clips.slow_rectangles.push(instance);
+        self.primary_clips.slow_rectangles.as_unstaged_mut().push(instance);
     }
 
     /// Where appropriate, draw a clip rectangle as a small series of tiles,
@@ -3451,7 +3451,7 @@ impl ClipBatcher {
                 // these pixels would be redundant - since this clip can't possibly
                 // affect the pixels in this tile, skip them!
                 if !world_device_rect.contains_box(&world_sub_rect) {
-                    clip_list.slow_rectangles.push(ClipMaskInstanceRect {
+                    clip_list.slow_rectangles.as_unstaged_mut().push(ClipMaskInstanceRect {
                         common: ClipMaskInstanceCommon {
                             sub_rect: normalized_sub_rect,
                             ..*common
@@ -3593,7 +3593,8 @@ impl ClipBatcher {
                         self.get_batch_list(is_first_clip)
                             .images
                             .entry((cache_item.texture_id, scissor))
-                            .or_insert_with(Vec::new)
+                            .or_default()
+                            .as_unstaged_mut()
                             .push(ClipMaskInstanceImage {
                                 common: ClipMaskInstanceCommon {
                                     sub_rect,
@@ -3659,7 +3660,8 @@ impl ClipBatcher {
                     self.get_batch_list(is_first_clip)
                         .box_shadows
                         .entry(texture)
-                        .or_insert_with(Vec::new)
+                        .or_default()
+                        .as_unstaged_mut()
                         .push(ClipMaskInstanceBoxShadow {
                             common,
                             resource_address: uv_rect_address,
@@ -3677,6 +3679,7 @@ impl ClipBatcher {
                 ClipItemKind::Rectangle { rect, mode: ClipMode::ClipOut } => {
                     self.get_batch_list(is_first_clip)
                         .slow_rectangles
+                        .as_unstaged_mut()
                         .push(ClipMaskInstanceRect {
                             common,
                             local_pos: rect.min,
@@ -3703,6 +3706,7 @@ impl ClipBatcher {
                         } else {
                             self.get_batch_list(is_first_clip)
                                 .slow_rectangles
+                                .as_unstaged_mut()
                                 .push(ClipMaskInstanceRect {
                                     common,
                                     local_pos: rect.min,
@@ -3721,9 +3725,9 @@ impl ClipBatcher {
                         clip_data: ClipData::rounded_rect(rect.size(), radius, mode),
                     };
                     if clip_instance.flags.contains(ClipNodeFlags::USE_FAST_PATH) {
-                        batch_list.fast_rectangles.push(instance);
+                        batch_list.fast_rectangles.as_unstaged_mut().push(instance);
                     } else {
-                        batch_list.slow_rectangles.push(instance);
+                        batch_list.slow_rectangles.as_unstaged_mut().push(instance);
                     }
 
                     true

@@ -64,7 +64,7 @@ use crate::device::{ProgramCache, ReadTarget, ShaderError, Texture, TextureFilte
 use crate::device::{UploadMethod, UploadPBOPool, VertexUsageHint};
 use crate::device::query::{GpuSampler, GpuTimer};
 #[cfg(feature = "capture")]
-use crate::device::FBOId;
+use crate::device::{FBOId, VBOId};
 use crate::debug_item::DebugItem;
 use crate::frame_builder::{Frame, ChasePrimitive, FrameBuilderConfig};
 use crate::glyph_cache::GlyphCache;
@@ -445,6 +445,57 @@ enum PartialPresentMode {
     Single {
         dirty_rect: DeviceRect,
     },
+}
+
+#[derive(Debug)]
+pub struct StagedInstanceData {
+    pub vbo: VBOId,
+    pub offset: usize,
+    pub count: usize,
+}
+
+impl serde::Serialize for StagedInstanceData {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        panic!("StagedInstanceData cannot be serialized")
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub enum InstanceData<T> {
+    Unstaged(Vec<T>),
+    Staged(Vec<StagedInstanceData>), // FIXME: SmallVec?
+}
+
+impl<T> InstanceData<T> {
+    pub fn as_unstaged(&self) -> &Vec<T> {
+        match self {
+            InstanceData::Unstaged(instances) => &instances,
+            InstanceData::Staged(_) => panic!(),
+        }
+    }
+
+    pub fn as_unstaged_mut(&mut self) -> &mut Vec<T> {
+        match self {
+            InstanceData::Unstaged(instances) => instances,
+            InstanceData::Staged(_) => panic!(),
+        }
+    }
+
+    pub fn as_staged(&self) -> &Vec<StagedInstanceData> {
+        match self {
+            InstanceData::Unstaged(_) => panic!(),
+            InstanceData::Staged(instances) => &instances,
+        }
+    }
+}
+
+impl<T> Default for InstanceData<T> {
+    fn default() -> Self {
+        InstanceData::Unstaged(Vec::new())
+    }
 }
 
 struct CacheTexture {
@@ -2431,23 +2482,18 @@ impl Renderer {
         }
     }
 
-    fn draw_instanced_batch<T: Clone>(
+    fn stage_instanced_batch<T: Clone>(
         &mut self,
         data: &[T],
-        vertex_array_kind: VertexArrayKind,
-        textures: &BatchTextures,
-        stats: &mut RendererStats,
-    ) {
-        self.bind_textures(textures);
+    ) -> Result<Vec<StagedInstanceData>, ()>
+    {
+        // FIXME: use a separate current buffer for each VertexArrayKind?
 
         // If we end up with an empty draw call here, that means we have
         // probably introduced unnecessary batch breaks during frame
         // building - so we should be catching this earlier and removing
         // the batch.
         debug_assert!(!data.is_empty());
-
-        let vao = &self.vaos[vertex_array_kind];
-        self.device.bind_vao(vao);
 
         let repeat = if self.enable_instancing {
             None
@@ -2462,21 +2508,46 @@ impl Renderer {
                 (mem::size_of::<T>() * repeat.map(NonZeroUsize::get).unwrap_or(1))
         };
 
+        let mut staged = Vec::new();
         for chunk in data.chunks(chunk_size) {
-            self.device
-                .update_vao_instances(vao, &mut self.instance_vbo_pool, chunk, repeat);
+            let (vbo, offset) = self.instance_vbo_pool.fill_data(&mut self.device, chunk, repeat)?;
+            staged.push(StagedInstanceData {
+                vbo,
+                offset,
+                count: chunk.len(),
+            });
+        }
+
+        Ok(staged)
+    }
+
+    fn draw_instanced_batch(
+        &mut self,
+        data: &[StagedInstanceData],
+        vertex_array_kind: VertexArrayKind,
+        textures: &BatchTextures,
+        stats: &mut RendererStats,
+    ) {
+        self.bind_textures(textures);
+
+        let vao = &self.vaos[vertex_array_kind];
+        self.device.bind_vao(vao);
+
+        for batch in data {
+            self.device.update_vao_instances(vao, batch.vbo, batch.offset);
 
             if self.enable_instancing {
                 self.device
-                    .draw_indexed_triangles_instanced_u16(6, chunk.len() as i32);
+                    .draw_indexed_triangles_instanced_u16(6, batch.count as i32);
             } else {
                 self.device
-                    .draw_indexed_triangles(6 * chunk.len() as i32);
+                    .draw_indexed_triangles(6 * batch.count as i32);
             }
             self.profile.inc(profiler::DRAW_CALLS);
             stats.total_draw_calls += 1;
         }
 
+        // FIXME: is this still correct?
         self.profile.add(profiler::VERTICES, 6 * data.len());
     }
 
@@ -2641,7 +2712,7 @@ impl Renderer {
 
     fn handle_scaling(
         &mut self,
-        scalings: &FastHashMap<TextureSource, Vec<ScalingInstance>>,
+        scalings: &FastHashMap<TextureSource, InstanceData<ScalingInstance>>,
         projection: &default::Transform3D<f32>,
         stats: &mut RendererStats,
     ) {
@@ -2666,7 +2737,7 @@ impl Renderer {
                 );
 
             self.draw_instanced_batch(
-                instances,
+                instances.as_staged(),
                 VertexArrayKind::Scale,
                 &BatchTextures::composite_rgb(*source),
                 stats,
@@ -2677,11 +2748,11 @@ impl Renderer {
     fn handle_svg_filters(
         &mut self,
         textures: &BatchTextures,
-        svg_filters: &[SvgFilterInstance],
+        svg_filters: &InstanceData<SvgFilterInstance>,
         projection: &default::Transform3D<f32>,
         stats: &mut RendererStats,
     ) {
-        if svg_filters.is_empty() {
+        if svg_filters.as_staged().is_empty() {
             return;
         }
 
@@ -2696,7 +2767,7 @@ impl Renderer {
         );
 
         self.draw_instanced_batch(
-            &svg_filters,
+            svg_filters.as_staged(),
             VertexArrayKind::SvgFilter,
             textures,
             stats,
@@ -2716,7 +2787,6 @@ impl Renderer {
         self.profile.inc(profiler::RENDERED_PICTURE_TILES);
         let _gm = self.gpu_profiler.start_marker("picture cache target");
         let framebuffer_kind = FramebufferKind::Other;
-
         {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_SETUP_TARGET);
             self.device.bind_draw_target(draw_target);
@@ -2753,12 +2823,13 @@ impl Renderer {
                         &mut self.renderer_errors,
                         &mut self.profile,
                     );
-                    self.draw_instanced_batch(
-                        &[instance],
-                        VertexArrayKind::Clear,
-                        &BatchTextures::empty(),
-                        stats,
-                    );
+                    // FIXME: need to stage this upfront
+                    // self.draw_instanced_batch(
+                    //     &[instance],
+                    //     VertexArrayKind::Clear,
+                    //     &BatchTextures::empty(),
+                    //     stats,
+                    // );
                     if clear_color.is_none() {
                         self.device.enable_color_write();
                     }
@@ -2838,7 +2909,7 @@ impl Renderer {
 
                     let _timer = self.gpu_profiler.start_timer(batch.key.kind.sampler_tag());
                     self.draw_instanced_batch(
-                        &batch.instances,
+                        batch.instances.as_staged(),
                         VertexArrayKind::Primitive,
                         &batch.key.textures,
                         stats
@@ -2937,7 +3008,7 @@ impl Renderer {
                 if let BatchKind::Brush(BrushBatchKind::MixBlend { task_id, backdrop_id }) = batch.key.kind {
                     // composites can't be grouped together because
                     // they may overlap and affect each other.
-                    debug_assert_eq!(batch.instances.len(), 1);
+                    debug_assert_eq!(batch.instances.as_staged().len(), 1);
                     self.handle_readback_composite(
                         draw_target,
                         uses_scissor,
@@ -2956,7 +3027,7 @@ impl Renderer {
                 );
 
                 self.draw_instanced_batch(
-                    &batch.instances,
+                    batch.instances.as_staged(),
                     VertexArrayKind::Primitive,
                     &batch.key.textures,
                     stats
@@ -2978,8 +3049,10 @@ impl Renderer {
                     // are all set up from the previous draw_instanced_batch call,
                     // so just issue a draw call here to avoid re-uploading the
                     // instances and re-binding textures etc.
+                    // FIXME: I think this was already broken in the case where a batch had to be split
+                    // (due to exceeding max VBO size or batching being disabled). It's definitely broken now.
                     self.device
-                        .draw_indexed_triangles_instanced_u16(6, batch.instances.len() as i32);
+                        .draw_indexed_triangles_instanced_u16(6, batch.instances.as_staged()[0].count as i32);
 
                     self.set_blend_mode_subpixel_with_bg_color_pass2(framebuffer_kind);
                     // re-binding the shader after the blend mode change
@@ -2992,8 +3065,10 @@ impl Renderer {
                     );
                     self.device.switch_mode(ShaderColorMode::SubpixelWithBgColorPass2 as _);
 
+                    // FIXME: I think this was already broken in the case where a batch had to be split
+                    // (due to exceeding max VBO size or batching being disabled). It's definitely broken now.
                     self.device
-                        .draw_indexed_triangles_instanced_u16(6, batch.instances.len() as i32);
+                        .draw_indexed_triangles_instanced_u16(6, batch.instances.as_staged()[0].count as i32);
                 }
 
                 if batch.key.blend_mode == BlendMode::SubpixelWithBgColor {
@@ -3149,12 +3224,13 @@ impl Renderer {
                 },
             };
 
-            self.draw_instanced_batch(
-                &[instance],
-                VertexArrayKind::Composite,
-                &textures,
-                &mut results.stats,
-            );
+            // FIXME: stage CompositeInstances in advance
+            // self.draw_instanced_batch(
+            //     &[instance],
+            //     VertexArrayKind::Composite,
+            //     &textures,
+            //     &mut results.stats,
+            // );
 
             self.compositor_config
                 .compositor()
@@ -3337,12 +3413,13 @@ impl Renderer {
 
             if flush_batch {
                 if !instances.is_empty() {
-                    self.draw_instanced_batch(
-                        &instances,
-                        VertexArrayKind::Composite,
-                        &current_textures,
-                        stats,
-                    );
+                    // FIXME: stage instances
+                    // self.draw_instanced_batch(
+                    //     &instances,
+                    //     VertexArrayKind::Composite,
+                    //     &current_textures,
+                    //     stats,
+                    // );
                     instances.clear();
                 }
             }
@@ -3370,12 +3447,13 @@ impl Renderer {
 
         // Flush the last batch
         if !instances.is_empty() {
-            self.draw_instanced_batch(
-                &instances,
-                VertexArrayKind::Composite,
-                &current_textures,
-                stats,
-            );
+            // FIXME: stage instances in advance
+            // self.draw_instanced_batch(
+            //     &instances,
+            //     VertexArrayKind::Composite,
+            //     &current_textures,
+            //     stats,
+            // );
         }
     }
 
@@ -3673,7 +3751,7 @@ impl Renderer {
 
     fn draw_blurs(
         &mut self,
-        blurs: &FastHashMap<TextureSource, Vec<BlurInstance>>,
+        blurs: &FastHashMap<TextureSource, InstanceData<BlurInstance>>,
         stats: &mut RendererStats,
     ) {
         for (texture, blurs) in blurs {
@@ -3682,7 +3760,7 @@ impl Renderer {
             );
 
             self.draw_instanced_batch(
-                blurs,
+                blurs.as_staged(),
                 VertexArrayKind::Blur,
                 &textures,
                 stats,
@@ -3703,7 +3781,7 @@ impl Renderer {
         }
 
         // draw rounded cornered rectangles
-        if !list.slow_rectangles.is_empty() {
+        if !list.slow_rectangles.as_staged().is_empty() {
             let _gm2 = self.gpu_profiler.start_marker("slow clip rectangles");
             self.shaders.borrow_mut().cs_clip_rectangle_slow.bind(
                 &mut self.device,
@@ -3713,13 +3791,13 @@ impl Renderer {
                 &mut self.profile,
             );
             self.draw_instanced_batch(
-                &list.slow_rectangles,
+                &list.slow_rectangles.as_staged(),
                 VertexArrayKind::ClipRect,
                 &BatchTextures::empty(),
                 stats,
             );
         }
-        if !list.fast_rectangles.is_empty() {
+        if !list.fast_rectangles.as_staged().is_empty() {
             let _gm2 = self.gpu_profiler.start_marker("fast clip rectangles");
             self.shaders.borrow_mut().cs_clip_rectangle_fast.bind(
                 &mut self.device,
@@ -3729,7 +3807,7 @@ impl Renderer {
                 &mut self.profile,
             );
             self.draw_instanced_batch(
-                &list.fast_rectangles,
+                &list.fast_rectangles.as_staged(),
                 VertexArrayKind::ClipRect,
                 &BatchTextures::empty(),
                 stats,
@@ -3743,7 +3821,7 @@ impl Renderer {
             self.shaders.borrow_mut().cs_clip_box_shadow
                 .bind(&mut self.device, projection, None, &mut self.renderer_errors, &mut self.profile);
             self.draw_instanced_batch(
-                items,
+                items.as_staged(),
                 VertexArrayKind::ClipBoxShadow,
                 &textures,
                 stats,
@@ -3776,7 +3854,7 @@ impl Renderer {
             self.shaders.borrow_mut().cs_clip_image
                 .bind(&mut self.device, projection, None, &mut self.renderer_errors, &mut self.profile);
             self.draw_instanced_batch(
-                items,
+                items.as_staged(),
                 VertexArrayKind::ClipImage,
                 &textures,
                 stats,
@@ -3861,12 +3939,13 @@ impl Renderer {
                     &mut self.renderer_errors,
                     &mut self.profile,
                 );
-                self.draw_instanced_batch(
-                    &instances,
-                    VertexArrayKind::Clear,
-                    &BatchTextures::empty(),
-                    stats,
-                );
+                // FIXME: stage instances beforehand
+                // self.draw_instanced_batch(
+                //     &instances,
+                //     VertexArrayKind::Clear,
+                //     &BatchTextures::empty(),
+                //     stats,
+                // );
             } else {
                 // TODO(gw): Applying a scissor rect and minimal clear here
                 // is a very large performance win on the Intel and nVidia
@@ -4017,12 +4096,13 @@ impl Renderer {
                     &mut self.renderer_errors,
                     &mut self.profile,
                 );
-                self.draw_instanced_batch(
-                    &instances,
-                    VertexArrayKind::Clear,
-                    &BatchTextures::empty(),
-                    stats,
-                );
+                // FIXME: stage instaces already
+                // self.draw_instanced_batch(
+                //     instances,
+                //     VertexArrayKind::Clear,
+                //     &BatchTextures::empty(),
+                //     stats,
+                // );
             } else {
                 for rect in &target.clears {
                     self.device.clear_target(
@@ -4042,15 +4122,15 @@ impl Renderer {
         }
 
         // Draw any borders for this target.
-        if !target.border_segments_solid.is_empty() ||
-           !target.border_segments_complex.is_empty()
+        if !target.border_segments_solid.as_staged().is_empty() ||
+           !target.border_segments_complex.as_staged().is_empty()
         {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_BORDER);
 
             self.set_blend(true, FramebufferKind::Other);
             self.set_blend_mode_premultiplied_alpha(FramebufferKind::Other);
 
-            if !target.border_segments_solid.is_empty() {
+            if !target.border_segments_solid.as_staged().is_empty() {
                 self.shaders.borrow_mut().cs_border_solid.bind(
                     &mut self.device,
                     &projection,
@@ -4060,14 +4140,14 @@ impl Renderer {
                 );
 
                 self.draw_instanced_batch(
-                    &target.border_segments_solid,
+                    &target.border_segments_solid.as_staged(),
                     VertexArrayKind::Border,
                     &BatchTextures::empty(),
                     stats,
                 );
             }
 
-            if !target.border_segments_complex.is_empty() {
+            if !target.border_segments_complex.as_staged().is_empty() {
                 self.shaders.borrow_mut().cs_border_segment.bind(
                     &mut self.device,
                     &projection,
@@ -4077,7 +4157,7 @@ impl Renderer {
                 );
 
                 self.draw_instanced_batch(
-                    &target.border_segments_complex,
+                    &target.border_segments_complex.as_staged(),
                     VertexArrayKind::Border,
                     &BatchTextures::empty(),
                     stats,
@@ -4088,7 +4168,7 @@ impl Renderer {
         }
 
         // Draw any line decorations for this target.
-        if !target.line_decorations.is_empty() {
+        if !target.line_decorations.as_staged().is_empty() {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_LINE_DECORATION);
 
             self.set_blend(true, FramebufferKind::Other);
@@ -4103,7 +4183,7 @@ impl Renderer {
             );
 
             self.draw_instanced_batch(
-                &target.line_decorations,
+                &target.line_decorations.as_staged(),
                 VertexArrayKind::LineDecoration,
                 &BatchTextures::empty(),
                 stats,
@@ -4113,7 +4193,7 @@ impl Renderer {
         }
 
         // Draw any fast path linear gradients for this target.
-        if !target.fast_linear_gradients.is_empty() {
+        if !target.fast_linear_gradients.as_staged().is_empty() {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_FAST_LINEAR_GRADIENT);
 
             self.set_blend(false, FramebufferKind::Other);
@@ -4127,7 +4207,7 @@ impl Renderer {
             );
 
             self.draw_instanced_batch(
-                &target.fast_linear_gradients,
+                target.fast_linear_gradients.as_staged(),
                 VertexArrayKind::FastLinearGradient,
                 &BatchTextures::empty(),
                 stats,
@@ -4135,7 +4215,7 @@ impl Renderer {
         }
 
         // Draw any linear gradients for this target.
-        if !target.linear_gradients.is_empty() {
+        if !target.linear_gradients.as_staged().is_empty() {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_LINEAR_GRADIENT);
 
             self.set_blend(false, FramebufferKind::Other);
@@ -4153,7 +4233,7 @@ impl Renderer {
             }
 
             self.draw_instanced_batch(
-                &target.linear_gradients,
+                target.linear_gradients.as_staged(),
                 VertexArrayKind::LinearGradient,
                 &BatchTextures::empty(),
                 stats,
@@ -4161,7 +4241,7 @@ impl Renderer {
         }
 
         // Draw any radial gradients for this target.
-        if !target.radial_gradients.is_empty() {
+        if !target.radial_gradients.as_staged().is_empty() {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_RADIAL_GRADIENT);
 
             self.set_blend(false, FramebufferKind::Other);
@@ -4179,7 +4259,7 @@ impl Renderer {
             }
 
             self.draw_instanced_batch(
-                &target.radial_gradients,
+                &target.radial_gradients.as_staged(),
                 VertexArrayKind::RadialGradient,
                 &BatchTextures::empty(),
                 stats,
@@ -4187,7 +4267,7 @@ impl Renderer {
         }
 
         // Draw any conic gradients for this target.
-        if !target.conic_gradients.is_empty() {
+        if !target.conic_gradients.as_staged().is_empty() {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_CONIC_GRADIENT);
 
             self.set_blend(false, FramebufferKind::Other);
@@ -4205,7 +4285,7 @@ impl Renderer {
             }
 
             self.draw_instanced_batch(
-                &target.conic_gradients,
+                target.conic_gradients.as_staged(),
                 VertexArrayKind::ConicGradient,
                 &BatchTextures::empty(),
                 stats,

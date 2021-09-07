@@ -25,6 +25,7 @@ use crate::render_backend::DataStores;
 use crate::render_task::{RenderTaskKind, RenderTaskAddress};
 use crate::render_task::{RenderTask, ScalingTask, SvgFilterInfo};
 use crate::render_task_graph::{RenderTaskGraph, RenderTaskId};
+use crate::renderer::InstanceData;
 use crate::resource_cache::ResourceCache;
 use crate::spatial_tree::SpatialNodeIndex;
 
@@ -211,10 +212,10 @@ impl<T: RenderTarget> RenderTargetList<T> {
 pub struct ColorRenderTarget {
     pub alpha_batch_containers: Vec<AlphaBatchContainer>,
     // List of blur operations to apply for this render target.
-    pub vertical_blurs: FastHashMap<TextureSource, Vec<BlurInstance>>,
-    pub horizontal_blurs: FastHashMap<TextureSource, Vec<BlurInstance>>,
-    pub scalings: FastHashMap<TextureSource, Vec<ScalingInstance>>,
-    pub svg_filters: Vec<(BatchTextures, Vec<SvgFilterInstance>)>,
+    pub vertical_blurs: FastHashMap<TextureSource, InstanceData<BlurInstance>>,
+    pub horizontal_blurs: FastHashMap<TextureSource, InstanceData<BlurInstance>>,
+    pub scalings: FastHashMap<TextureSource, InstanceData<ScalingInstance>>,
+    pub svg_filters: Vec<(BatchTextures, InstanceData<SvgFilterInstance>)>,
     pub blits: Vec<BlitJob>,
     alpha_tasks: Vec<RenderTaskId>,
     screen_size: DeviceIntSize,
@@ -453,9 +454,9 @@ impl RenderTarget for ColorRenderTarget {
 pub struct AlphaRenderTarget {
     pub clip_batcher: ClipBatcher,
     // List of blur operations to apply for this render target.
-    pub vertical_blurs: FastHashMap<TextureSource, Vec<BlurInstance>>,
-    pub horizontal_blurs: FastHashMap<TextureSource, Vec<BlurInstance>>,
-    pub scalings: FastHashMap<TextureSource, Vec<ScalingInstance>>,
+    pub vertical_blurs: FastHashMap<TextureSource, InstanceData<BlurInstance>>,
+    pub horizontal_blurs: FastHashMap<TextureSource, InstanceData<BlurInstance>>,
+    pub scalings: FastHashMap<TextureSource, InstanceData<ScalingInstance>>,
     pub zero_clears: Vec<RenderTaskId>,
     pub one_clears: Vec<RenderTaskId>,
     pub texture_id: CacheTextureId,
@@ -597,16 +598,16 @@ pub struct PictureCacheTarget {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct TextureCacheRenderTarget {
     pub target_kind: RenderTargetKind,
-    pub horizontal_blurs: FastHashMap<TextureSource, Vec<BlurInstance>>,
+    pub horizontal_blurs: FastHashMap<TextureSource, InstanceData<BlurInstance>>,
     pub blits: Vec<BlitJob>,
-    pub border_segments_complex: Vec<BorderInstance>,
-    pub border_segments_solid: Vec<BorderInstance>,
+    pub border_segments_complex: InstanceData<BorderInstance>,
+    pub border_segments_solid: InstanceData<BorderInstance>,
     pub clears: Vec<DeviceIntRect>,
-    pub line_decorations: Vec<LineDecorationJob>,
-    pub fast_linear_gradients: Vec<FastLinearGradientInstance>,
-    pub linear_gradients: Vec<LinearGradientInstance>,
-    pub radial_gradients: Vec<RadialGradientInstance>,
-    pub conic_gradients: Vec<ConicGradientInstance>,
+    pub line_decorations: InstanceData<LineDecorationJob>,
+    pub fast_linear_gradients: InstanceData<FastLinearGradientInstance>,
+    pub linear_gradients: InstanceData<LinearGradientInstance>,
+    pub radial_gradients: InstanceData<RadialGradientInstance>,
+    pub conic_gradients: InstanceData<ConicGradientInstance>,
 }
 
 impl TextureCacheRenderTarget {
@@ -615,14 +616,14 @@ impl TextureCacheRenderTarget {
             target_kind,
             horizontal_blurs: FastHashMap::default(),
             blits: vec![],
-            border_segments_complex: vec![],
-            border_segments_solid: vec![],
+            border_segments_complex: InstanceData::default(),
+            border_segments_solid: InstanceData::default(),
             clears: vec![],
-            line_decorations: vec![],
-            fast_linear_gradients: vec![],
-            linear_gradients: vec![],
-            radial_gradients: vec![],
-            conic_gradients: vec![],
+            line_decorations: InstanceData::default(),
+            fast_linear_gradients: InstanceData::default(),
+            linear_gradients: InstanceData::default(),
+            radial_gradients: InstanceData::default(),
+            conic_gradients: InstanceData::default(),
         }
     }
 
@@ -642,7 +643,7 @@ impl TextureCacheRenderTarget {
             RenderTaskKind::LineDecoration(ref info) => {
                 self.clears.push(target_rect);
 
-                self.line_decorations.push(LineDecorationJob {
+                self.line_decorations.as_unstaged_mut().push(LineDecorationJob {
                     task_rect: target_rect.to_f32(),
                     local_size: info.local_size,
                     style: info.style as i32,
@@ -684,23 +685,23 @@ impl TextureCacheRenderTarget {
                     //           the render task data instead of per instance.
                     instance.task_origin = task_origin;
                     if instance.flags & STYLE_MASK == STYLE_SOLID {
-                        self.border_segments_solid.push(instance);
+                        self.border_segments_solid.as_unstaged_mut().push(instance);
                     } else {
-                        self.border_segments_complex.push(instance);
+                        self.border_segments_complex.as_unstaged_mut().push(instance);
                     }
                 }
             }
             RenderTaskKind::FastLinearGradient(ref task_info) => {
-                self.fast_linear_gradients.push(task_info.to_instance(&target_rect));
+                self.fast_linear_gradients.as_unstaged_mut().push(task_info.to_instance(&target_rect));
             }
             RenderTaskKind::LinearGradient(ref task_info) => {
-                self.linear_gradients.push(task_info.to_instance(&target_rect, gpu_cache));
+                self.linear_gradients.as_unstaged_mut().push(task_info.to_instance(&target_rect, gpu_cache));
             }
             RenderTaskKind::RadialGradient(ref task_info) => {
-                self.radial_gradients.push(task_info.to_instance(&target_rect, gpu_cache));
+                self.radial_gradients.as_unstaged_mut().push(task_info.to_instance(&target_rect, gpu_cache));
             }
             RenderTaskKind::ConicGradient(ref task_info) => {
-                self.conic_gradients.push(task_info.to_instance(&target_rect, gpu_cache));
+                self.conic_gradients.as_unstaged_mut().push(task_info.to_instance(&target_rect, gpu_cache));
             }
             RenderTaskKind::Image(..) |
             RenderTaskKind::Cached(..) |
@@ -720,7 +721,7 @@ impl TextureCacheRenderTarget {
 }
 
 fn add_blur_instances(
-    instances: &mut FastHashMap<TextureSource, Vec<BlurInstance>>,
+    instances: &mut FastHashMap<TextureSource, InstanceData<BlurInstance>>,
     blur_direction: BlurDirection,
     task_address: RenderTaskAddress,
     src_task_id: RenderTaskId,
@@ -736,13 +737,14 @@ fn add_blur_instances(
 
     instances
         .entry(source)
-        .or_insert(Vec::new())
+        .or_default()
+        .as_unstaged_mut()
         .push(instance);
 }
 
 fn add_scaling_instances(
     task: &ScalingTask,
-    instances: &mut FastHashMap<TextureSource, Vec<ScalingInstance>>,
+    instances: &mut FastHashMap<TextureSource, InstanceData<ScalingInstance>>,
     target_task: &RenderTask,
     source_task: Option<&RenderTask>,
 ) {
@@ -757,7 +759,8 @@ fn add_scaling_instances(
 
     instances
         .entry(source)
-        .or_insert(Vec::new())
+        .or_default()
+        .as_unstaged_mut()
         .push(ScalingInstance {
             target_rect,
             source_rect,
@@ -765,7 +768,7 @@ fn add_scaling_instances(
 }
 
 fn add_svg_filter_instances(
-    instances: &mut Vec<(BatchTextures, Vec<SvgFilterInstance>)>,
+    instances: &mut Vec<(BatchTextures, InstanceData<SvgFilterInstance>)>,
     render_tasks: &RenderTaskGraph,
     filter: &SvgFilterInfo,
     task_id: RenderTaskId,
@@ -845,14 +848,14 @@ fn add_svg_filter_instances(
 
     for (ref mut batch_textures, ref mut batch) in instances.iter_mut() {
         if let Some(combined_textures) = batch_textures.combine_textures(textures) {
-            batch.push(instance);
+            batch.as_unstaged_mut().push(instance);
             // Update the batch textures to the newly combined batch textures
             *batch_textures = combined_textures;
             return;
         }
     }
 
-    instances.push((textures, vec![instance]));
+    instances.push((textures, InstanceData::Unstaged(vec![instance])));
 }
 
 // Information required to do a blit from a source to a target.

@@ -585,10 +585,12 @@ impl InstanceVBOPool {
         let current_vbo = self.current_vbo.as_mut().unwrap();
         current_vbo.id.bind(device.gl());
 
-        let mut dst = slice::from_raw_parts_mut(
-            current_vbo.mapping.as_ptr().offset(self.current_offset as isize).cast::<V>(),
-            data.len() * repeat.map(NonZeroUsize::get).unwrap_or(1)
-        );
+        let mut dst = unsafe {
+            slice::from_raw_parts_mut(
+                current_vbo.mapping.as_ptr().offset(self.current_offset as isize).cast::<V>(),
+                data.len() * repeat.map(NonZeroUsize::get).unwrap_or(1)
+            )
+        };
 
         match repeat {
             Some(repeat) => {
@@ -604,7 +606,7 @@ impl InstanceVBOPool {
         let old_offset = self.current_offset;
         self.current_offset += required_size;
 
-        Ok((self.current_vbo.id, old_offset))
+        Ok((current_vbo.id, old_offset))
     }
 
     pub fn flush(&mut self, device: &mut Device) {
@@ -3736,28 +3738,24 @@ impl Device {
         self.update_vbo_data(vao.main_vbo_id, vertices, usage_hint)
     }
 
-    pub fn update_vao_instances<V: Clone>(
+    pub fn update_vao_instances(
         &mut self,
         vao: &VAO,
-        vbo_pool: &mut InstanceVBOPool,
-        instances: &[V],
-        // if `Some(count)`, each instance is repeated `count` times
-        repeat: Option<NonZeroUsize>,
+        vbo: VBOId,
+        offset: usize,
     ) {
         debug_assert_eq!(self.bound_vao, vao.id);
-        debug_assert_eq!(vao.instance_stride as usize, mem::size_of::<V>());
+        // debug_assert_eq!(vao.instance_stride as usize, mem::size_of::<V>());
 
-        if let Ok((vbo, offset)) = vbo_pool.fill_data(self, instances, repeat) {
-            vao.descriptor.bind_instance_attrib_buffer(self, vbo, offset);
+        vao.descriptor.bind_instance_attrib_buffer(self, vbo, offset);
 
-            // On some devices the VAO must be manually unbound and rebound after an attached buffer has
-            // been orphaned. Failure to do so appeared to result in the orphaned buffer's contents
-            // being used for the subsequent draw call, rather than the new buffer's contents.
-            if self.capabilities.requires_vao_rebind_after_orphaning {
-                self.bind_vao_impl(0);
-                self.bind_vao_impl(vao.id);
-            }
-        }
+            // // On some devices the VAO must be manually unbound and rebound after an attached buffer has
+            // // been orphaned. Failure to do so appeared to result in the orphaned buffer's contents
+            // // being used for the subsequent draw call, rather than the new buffer's contents.
+            // if self.capabilities.requires_vao_rebind_after_orphaning {
+            //     self.bind_vao_impl(0);
+            //     self.bind_vao_impl(vao.id);
+            // }
     }
 
     pub fn update_vao_indices<I>(&mut self, vao: &VAO, indices: &[I], usage_hint: VertexUsageHint) {
