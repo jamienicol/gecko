@@ -2484,16 +2484,20 @@ impl Renderer {
 
     fn stage_instanced_batch<T: Clone>(
         &mut self,
-        data: &[T],
-    ) -> Result<Vec<StagedInstanceData>, ()>
-    {
+        data: &mut InstanceData<T>,
+        _vertex_array_kind: VertexArrayKind,
+    ) {
         // FIXME: use a separate current buffer for each VertexArrayKind?
+
+        // FIXME: assert unstaged
 
         // If we end up with an empty draw call here, that means we have
         // probably introduced unnecessary batch breaks during frame
         // building - so we should be catching this earlier and removing
         // the batch.
-        debug_assert!(!data.is_empty());
+        // FIXME: took re-enable this assertion we probably need to check most things aren't empty before calling stage_instanced_batch
+        // like we do before draw_intanced_batch. but not for alphabatchcontainers presumably, where this catches batching bugs?
+        // debug_assert!(!data.as_unstaged().is_empty());
 
         let repeat = if self.enable_instancing {
             None
@@ -2509,8 +2513,8 @@ impl Renderer {
         };
 
         let mut staged = Vec::new();
-        for chunk in data.chunks(chunk_size) {
-            let (vbo, offset) = self.instance_vbo_pool.fill_data(&mut self.device, chunk, repeat)?;
+        for chunk in data.as_unstaged().chunks(chunk_size) {
+            let (vbo, offset) = self.instance_vbo_pool.fill_data(&mut self.device, chunk, repeat).unwrap();
             staged.push(StagedInstanceData {
                 vbo,
                 offset,
@@ -2518,7 +2522,7 @@ impl Renderer {
             });
         }
 
-        Ok(staged)
+        *data = InstanceData::Staged(staged);
     }
 
     fn draw_instanced_batch(
@@ -4582,6 +4586,104 @@ impl Renderer {
         }
     }
 
+    fn stage_instance_data(&mut self, frame: &mut Frame) {
+        // println!("stage_instance_data() frame_has_been_rendered: {}", frame.has_been_rendered);
+        if frame.has_been_rendered {
+            // FIXME: need to ensure buffer data remains valid until the frame has been released
+            return;
+        }
+
+        // FIXME: share code to iterate passes, rather than duplicating logic here and draw_frame()
+        for pass in frame.passes.iter_mut() {
+            for (_, target) in pass.texture_cache.iter_mut() {
+                // FIXME: stage clear instances if clear_caches_with_quads
+
+                self.stage_instanced_batch(&mut target.border_segments_solid, VertexArrayKind::Border);
+                self.stage_instanced_batch(&mut target.border_segments_complex, VertexArrayKind::Border);
+                self.stage_instanced_batch(&mut target.line_decorations, VertexArrayKind::LineDecoration);
+                self.stage_instanced_batch(&mut target.fast_linear_gradients, VertexArrayKind::FastLinearGradient);
+                self.stage_instanced_batch(&mut target.linear_gradients, VertexArrayKind::LinearGradient);
+                self.stage_instanced_batch(&mut target.radial_gradients, VertexArrayKind::RadialGradient);
+                self.stage_instanced_batch(&mut target.conic_gradients, VertexArrayKind::ConicGradient);
+                for horizontal_blurs in target.horizontal_blurs.values_mut() {
+                    self.stage_instanced_batch(horizontal_blurs, VertexArrayKind::Blur);
+                }
+            }
+
+            for target in pass.picture_cache.iter_mut() {
+                // FIXME: stage clear instances
+
+                self.stage_alpha_batch_container_instances(&mut target.alpha_batch_container)
+            }
+
+            for target in pass.alpha.targets.iter_mut() {
+                // FIXME: stage clear instances
+                for vertical_blurs in target.vertical_blurs.values_mut() {
+                    self.stage_instanced_batch(vertical_blurs, VertexArrayKind::Blur);
+                }
+                for horizontal_blurs in target.horizontal_blurs.values_mut() {
+                    self.stage_instanced_batch(horizontal_blurs, VertexArrayKind::Blur);
+                }
+                for scalings in target.scalings.values_mut() {
+                    self.stage_instanced_batch(scalings, VertexArrayKind::Scale);
+                }
+                for clips in &mut [&mut target.clip_batcher.primary_clips, &mut target.clip_batcher.secondary_clips] {
+                    self.stage_instanced_batch(&mut clips.slow_rectangles, VertexArrayKind::ClipRect);
+                    self.stage_instanced_batch(&mut clips.fast_rectangles, VertexArrayKind::ClipRect);
+                    for items in clips.box_shadows.values_mut() { // FIXME: is it okay that this not in same order as drawn?
+                        self.stage_instanced_batch(items, VertexArrayKind::ClipBoxShadow);
+                    }
+                    for items in clips.images.values_mut() { // FIXME: is it okay that this not in same order as drawn?
+                        self.stage_instanced_batch(items, VertexArrayKind::ClipImage);
+                    }
+                }
+            }
+
+            for target in pass.color.targets.iter_mut() {
+                for vertical_blurs in target.vertical_blurs.values_mut() {
+                    self.stage_instanced_batch(vertical_blurs, VertexArrayKind::Blur);
+                }
+                for horizontal_blurs in target.horizontal_blurs.values_mut() {
+                    self.stage_instanced_batch(horizontal_blurs, VertexArrayKind::Blur);
+                }
+                for scalings in target.scalings.values_mut() {
+                    self.stage_instanced_batch(scalings, VertexArrayKind::Scale);
+                }
+                for (_, ref mut svg_filters) in target.svg_filters.iter_mut() {
+                    self.stage_instanced_batch(svg_filters, VertexArrayKind::SvgFilter);
+
+                }
+                for alpha_batch_container in target.alpha_batch_containers.iter_mut() {
+                    self.stage_alpha_batch_container_instances(alpha_batch_container)
+                }
+            }
+        }
+    }
+
+    fn stage_alpha_batch_container_instances(&mut self, alpha_batch_container: &mut AlphaBatchContainer) {
+        if !alpha_batch_container.opaque_batches.is_empty()
+            && !self.debug_flags.contains(DebugFlags::DISABLE_OPAQUE_PASS)
+        {
+            for batch in alpha_batch_container.opaque_batches.iter_mut() {
+                if should_skip_batch(&batch.key.kind, self.debug_flags) {
+                    continue;
+                }
+                self.stage_instanced_batch(&mut batch.instances, VertexArrayKind::Primitive);
+            }
+        }
+
+        if !alpha_batch_container.alpha_batches.is_empty()
+            && !self.debug_flags.contains(DebugFlags::DISABLE_ALPHA_PASS)
+        {
+            for batch in alpha_batch_container.alpha_batches.iter_mut() {
+                if should_skip_batch(&batch.key.kind, self.debug_flags) {
+                    continue;
+                }
+                self.stage_instanced_batch(&mut batch.instances, VertexArrayKind::Primitive);
+            }
+        }
+    }
+
     fn draw_frame(
         &mut self,
         frame: &mut Frame,
@@ -4671,6 +4773,9 @@ impl Renderer {
                 );
             }
         }
+
+        self.stage_instance_data(frame);
+        self.instance_vbo_pool.flush(&mut self.device);
 
         for (_pass_index, pass) in frame.passes.iter_mut().enumerate() {
             #[cfg(not(target_os = "android"))]
