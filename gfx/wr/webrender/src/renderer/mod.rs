@@ -2813,7 +2813,7 @@ impl Renderer {
                     if clear_color.is_none() {
                         self.device.disable_color_write();
                     }
-                    let instance = ClearInstance {
+                    let _instance = ClearInstance {
                         rect: [
                             r.min.x as f32, r.min.y as f32,
                             r.max.x as f32, r.max.y as f32,
@@ -3094,7 +3094,7 @@ impl Renderer {
     fn update_external_native_surfaces(
         &mut self,
         external_surfaces: &[ResolvedExternalSurface],
-        results: &mut RenderResults,
+        _results: &mut RenderResults,
     ) {
         if external_surfaces.is_empty() {
             return;
@@ -3147,7 +3147,7 @@ impl Renderer {
                 self.device.ortho_far_plane(),
             );
 
-            let ( textures, instance ) = match surface.color_data {
+            let ( _textures, _instance ) = match surface.color_data {
                 ResolvedExternalSurfaceColorData::Yuv{
                         ref planes, color_space, format, channel_bit_depth, .. } => {
 
@@ -3939,7 +3939,7 @@ impl Renderer {
                         }
                     });
 
-                let instances = zeroes.chain(ones).collect::<Vec<_>>();
+                let _instances = zeroes.chain(ones).collect::<Vec<_>>();
                 self.shaders.borrow_mut().ps_clear.bind(
                     &mut self.device,
                     &projection,
@@ -4087,7 +4087,7 @@ impl Renderer {
 
             let color = [0.0, 0.0, 0.0, 0.0];
             if self.clear_caches_with_quads && !target.clears.is_empty() {
-                let instances = target.clears
+                let _instances = target.clears
                     .iter()
                     .map(|r| ClearInstance {
                         rect: [

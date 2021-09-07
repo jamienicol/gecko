@@ -25,7 +25,7 @@ use malloc_size_of::MallocSizeOfOps;
 use api::units::*;
 use api::{ExternalImageSource, PremultipliedColorF, ImageBufferKind, ImageRendering, ImageFormat};
 use crate::renderer::{
-    Renderer, VertexArrayKind, RendererStats, TextureSampler, TEXTURE_CACHE_DBG_CLEAR_COLOR
+    Renderer, RendererStats, TextureSampler, TEXTURE_CACHE_DBG_CLEAR_COLOR
 };
 use crate::internal_types::{
     FastHashMap, TextureUpdateSource, Swizzle, TextureCacheUpdate,
@@ -36,7 +36,7 @@ use crate::device::{
     TextureFilter,
 };
 use crate::gpu_types::{ZBufferId, CompositeInstance, CompositorTransform};
-use crate::batch::BatchTextures;
+// use crate::batch::BatchTextures;
 use crate::texture_pack::{GuillotineAllocator, FreeRectSlice};
 use crate::composite::{CompositeFeatures, CompositeSurfaceFormat};
 use crate::profiler;
@@ -527,7 +527,7 @@ fn copy_from_staging_to_cache_using_draw_calls(
     batch_upload_textures: &[Texture],
     batch_upload_copies: Vec<BatchUploadCopy>,
 ) {
-    let mut dummy_stats = RendererStats {
+    let mut _dummy_stats = RendererStats {
         total_draw_calls: 0,
         alpha_target_count: 0,
         color_target_count: 0,

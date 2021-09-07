@@ -585,7 +585,7 @@ impl InstanceVBOPool {
         let current_vbo = self.current_vbo.as_mut().unwrap();
         current_vbo.id.bind(device.gl());
 
-        let mut dst = unsafe {
+        let dst = unsafe {
             slice::from_raw_parts_mut(
                 current_vbo.mapping.as_ptr().offset(self.current_offset as isize).cast::<V>(),
                 data.len() * repeat.map(NonZeroUsize::get).unwrap_or(1)
@@ -871,7 +871,7 @@ pub struct VAO {
     descriptor: &'static VertexDescriptor,
     ibo_id: IBOId,
     main_vbo_id: VBOId,
-    instance_stride: usize,
+    // instance_stride: usize,
     instance_divisor: u32,
     owns_vertices_and_indices: bool,
 }
@@ -3562,7 +3562,7 @@ impl Device {
         ibo_id: IBOId,
         owns_vertices_and_indices: bool,
     ) -> VAO {
-        let instance_stride = descriptor.instance_stride() as usize;
+        let _instance_stride = descriptor.instance_stride() as usize;
         let vao_id = self.gl.gen_vertex_arrays(1)[0];
 
         self.bind_vao_impl(vao_id);
@@ -3577,7 +3577,7 @@ impl Device {
             descriptor,
             ibo_id,
             main_vbo_id,
-            instance_stride,
+            // instance_stride,
             instance_divisor,
             owns_vertices_and_indices,
         }
