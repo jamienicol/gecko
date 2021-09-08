@@ -2058,8 +2058,11 @@ impl Device {
         // an attached buffer has been orphaned.
         let requires_vao_rebind_after_orphaning = is_adreno_3xx;
 
-        // TODO: calculate this value correctly
-        let supports_vertex_attrib_format = true;
+        // FIXME: can we support this on earlier versions with extensions?
+        let supports_vertex_attrib_format = match gl.get_type() {
+            gl::GlType::Gl => gl_version >= [4, 3],
+            gl::GlType::Gles => gl_version >= [3, 1],
+        };
 
         Device {
             gl,
