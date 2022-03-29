@@ -4553,6 +4553,9 @@ LayoutDeviceToParentLayerScale AsyncPanZoomController::GetCurrentPinchZoomScale(
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   AutoApplyAsyncTestAttributes testAttributeApplier(this, lock);
   CSSToParentLayerScale scale = GetEffectiveZoom(aMode, lock);
+  printf_stderr("scale: %s, devPixelsPerCSSPixel: %s\n",
+                mozilla::ToString(scale).c_str(),
+                mozilla::ToString(Metrics().GetDevPixelsPerCSSPixel()).c_str());
   return scale / Metrics().GetDevPixelsPerCSSPixel();
 }
 
