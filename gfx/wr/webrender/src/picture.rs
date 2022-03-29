@@ -3701,6 +3701,7 @@ impl SurfaceInfo {
         world_scale_factors: (f32, f32),
         local_scale: (f32, f32),
     ) -> Self {
+        warn!("SurfaceInfo::new() device_pixel_scale={:?}", device_pixel_scale);
         let map_surface_to_world = SpaceMapper::new_with_target(
             spatial_tree.root_reference_frame_index(),
             surface_spatial_node_index,
@@ -5671,6 +5672,8 @@ impl PicturePrimitive {
                             )
                             .scale_factors();
 
+                        warn!("parent_surface.world_scale_factors: {:?}", parent_surface.world_scale_factors);
+                        warn!("local_to_surface_scale_factors: {:?}", local_to_surface_scale_factors);
                         (
                             local_to_surface_scale_factors.0 * parent_surface.world_scale_factors.0,
                             local_to_surface_scale_factors.1 * parent_surface.world_scale_factors.1,
@@ -5685,6 +5688,8 @@ impl PicturePrimitive {
                             )
                             .scale_factors();
 
+                        warn!("local_to_surface_scale_factors: {:?}", local_to_surface_scale_factors);
+
                         (
                             local_to_surface_scale_factors.0,
                             local_to_surface_scale_factors.1,
@@ -5692,6 +5697,8 @@ impl PicturePrimitive {
 
                     }
                 };
+
+                warn!("world_scale_factors: {:?} spatial_node: {:?}", world_scale_factors, surface_spatial_node_index);
 
                 // Check if there is perspective or if an SVG filter is applied, and thus whether a new
                 // rasterization root should be established.
@@ -5733,6 +5740,7 @@ impl PicturePrimitive {
                         let scaling_factor = world_scale_factors.0.max(world_scale_factors.1).max(min_scale).min(max_scale);
 
                         let device_pixel_scale = Scale::new(scaling_factor);
+                        warn!("TileCache device_pixel_scale={:?}", device_pixel_scale);
 
                         (device_pixel_scale, surface_spatial_node_index, (1.0, 1.0), world_scale_factors)
                     }
@@ -5765,6 +5773,7 @@ impl PicturePrimitive {
                             };
 
                             let device_pixel_scale = Scale::new(world_scale_factors.0.max(world_scale_factors.1));
+                            warn!("Non-TileCache device_pixel_scale={:?}", device_pixel_scale);
 
                             (device_pixel_scale, surface_spatial_node_index, (1.0, 1.0), world_scale_factors)
                         }

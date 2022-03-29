@@ -256,6 +256,7 @@ impl SceneSpatialTree {
             true,
             true,
         );
+        warn!("new_reference_frame() uid: {:?}, transform: {:?}", LayoutTransform::identity(), SpatialNodeUid::root());
 
         tree.add_spatial_node(node, SpatialNodeUid::root());
 
@@ -510,6 +511,7 @@ impl SceneSpatialTree {
             _ => false,
         };
 
+        warn!("new_reference_frame() uid: {:?}, transform: {:?}", source_transform, uid);
         let node = SceneSpatialNode::new_reference_frame(
             Some(parent_index),
             transform_style,
@@ -1154,6 +1156,8 @@ impl SpatialTree {
             &mut self.coord_systems,
             scene_properties,
         );
+
+        warn!("update_node() {:?} transform: {:?}", node_index, node.content_transform);
 
         if !node.children.is_empty() {
             let mut child_state = self.update_state_stack.last().unwrap().clone();

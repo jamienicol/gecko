@@ -764,6 +764,9 @@ void APZCTreeManager::SampleForWebRender(const Maybe<VsyncId>& aVsyncId,
       LayoutDeviceToParentLayerScale zoom = apzc->GetCurrentPinchZoomScale(
           AsyncPanZoomController::eForCompositing);
 
+      printf_stderr("SampleForWebrender() zoom=%s\n",
+                    mozilla::ToString(zoom).c_str());
+
       AsyncTransform asyncVisualTransform = apzc->GetCurrentAsyncTransform(
           AsyncPanZoomController::eForCompositing,
           AsyncTransformComponents{AsyncTransformComponent::eVisual});
