@@ -220,6 +220,17 @@ public class GeckoDisplay {
     }
   }
 
+  @UiThread
+  public void surfaceRedrawNeeded(final Runnable drawingFinished) {
+    ThreadUtils.assertOnUiThread();
+
+    if (mSession.getDisplay() == this) {
+      mSession.onSurfaceRedrawNeeded(drawingFinished);
+    } else {
+      drawingFinished.run();
+    }
+  }
+
   /**
    * Update the position of the surface on the screen.
    *

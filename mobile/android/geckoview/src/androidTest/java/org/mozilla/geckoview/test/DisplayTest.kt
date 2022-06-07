@@ -20,4 +20,24 @@ class DisplayTest : BaseSessionTest() {
             mainSession.releaseDisplay(display)
         }
     }
+
+    @Test
+    fun surfaceRedrawNeeded() {
+
+    }
+
+    @Test
+    fun surfaceRedrawNeededDelayed() {
+
+    }
+
+    @Test
+    fun surfaceRedrawNeededAsync() {
+
+    }
+
+    @Test
+    fun surfaceRedrawNeededAsyncDelayed() {
+
+    }
 }

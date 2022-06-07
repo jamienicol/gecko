@@ -242,6 +242,12 @@ public class GeckoSession {
   private boolean mAttachedCompositor;
   private boolean mCompositorReady;
   private SurfaceInfo mSurfaceInfo;
+  // Keeps track of whether the compositor has completed its first paint following the previous
+  // resume/resize.
+  private boolean mHasFirstPaint;
+  // A callback to run when the compositor has completed its first paint following a resume/resize,
+  // used by the system to ensure it does not composite an invalid Surface.
+  private Runnable mSurfaceRedrawCallback;
 
   // All fields of coordinates are in screen units.
   private int mLeft;
@@ -5959,6 +5965,8 @@ public class GeckoSession {
     mWidth = surfaceInfo.mWidth;
     mHeight = surfaceInfo.mHeight;
 
+    mHasFirstPaint = false;
+
     if (mCompositorReady) {
       mCompositor.syncResumeResizeCompositor(
           surfaceInfo.mLeft,
@@ -5990,6 +5998,18 @@ public class GeckoSession {
     // While the surface was valid, we never became attached or the
     // compositor never became ready; clear the saved surface.
     mSurfaceInfo = null;
+
+    mSurfaceRedrawCallback = null;
+  }
+
+  /* package */ void onSurfaceRedrawNeeded(final Runnable drawingFinished) {
+    ThreadUtils.assertOnUiThread();
+
+    if (mHasFirstPaint) {
+      drawingFinished.run();
+    } else {
+      mSurfaceRedrawCallback = drawingFinished;
+    }
   }
 
   /* package */ void onScreenOriginChanged(final int left, final int top) {
@@ -6092,6 +6112,11 @@ public class GeckoSession {
         {
           if (mController != null) {
             mController.onFirstPaint();
+          }
+          mHasFirstPaint = true;
+          if (mSurfaceRedrawCallback != null) {
+            mSurfaceRedrawCallback.run();
+            mSurfaceRedrawCallback = null;
           }
           final ContentDelegate delegate = mContentHandler.getDelegate();
           if (delegate != null) {

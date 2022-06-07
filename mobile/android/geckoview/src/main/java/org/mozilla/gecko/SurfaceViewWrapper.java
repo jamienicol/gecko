@@ -117,7 +117,7 @@ public class SurfaceViewWrapper {
    * SurfaceViewWrapper.Listener
    */
   private class ListenerWrapper
-      implements TextureView.SurfaceTextureListener, SurfaceHolder.Callback {
+      implements TextureView.SurfaceTextureListener, SurfaceHolder.Callback2 {
     private Listener mListener;
 
     // TextureView doesn't provide getters for these so we keep track of them here
@@ -188,11 +188,26 @@ public class SurfaceViewWrapper {
         mListener.onSurfaceDestroyed();
       }
     }
+
+    @Override
+    public void surfaceRedrawNeeded(final SurfaceHolder holder) {
+      // FIXME: can we implement this version?
+    }
+
+    @Override
+    public void surfaceRedrawNeededAsync(
+        final SurfaceHolder holder, final Runnable drawingFinished) {
+      if (mListener != null) {
+        mListener.onSurfaceRedrawNeeded(drawingFinished);
+      }
+    }
   }
 
   public interface Listener {
     void onSurfaceChanged(Surface surface, SurfaceControl surfaceControl, int width, int height);
 
     void onSurfaceDestroyed();
+
+    void onSurfaceRedrawNeeded(final Runnable drawingFinished);
   }
 }

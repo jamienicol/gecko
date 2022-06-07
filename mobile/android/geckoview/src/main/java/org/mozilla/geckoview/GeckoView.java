@@ -157,6 +157,15 @@ public class GeckoView extends FrameLayout {
       mValid = false;
     }
 
+    @Override
+    public void onSurfaceRedrawNeeded(final Runnable drawingFinished) {
+      if (mDisplay != null) {
+        mDisplay.surfaceRedrawNeeded(drawingFinished);
+      } else {
+        drawingFinished.run();
+      }
+    }
+
     public void onGlobalLayout() {
       if (mDisplay == null) {
         return;
