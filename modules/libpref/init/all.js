@@ -4404,3 +4404,7 @@ pref("extensions.formautofill.loglevel", "Warn");
 pref("toolkit.osKeyStore.loglevel", "Warn");
 
 pref("extensions.formautofill.supportRTL", false);
+
+
+// pref("gfx.webrender.debug.dl.dump-content", true);
+pref("layout.display-list.dump-content", true);

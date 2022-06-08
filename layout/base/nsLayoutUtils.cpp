@@ -9861,22 +9861,37 @@ nsSize nsLayoutUtils::ExpandHeightForViewportUnits(nsPresContext* aPresContext,
 template <typename SizeType>
 /* static */ SizeType ExpandHeightForDynamicToolbarImpl(
     const nsPresContext* aPresContext, const SizeType& aSize) {
+  printf_stderr("jamiedbg ExpandHeightForDynamicToolbarImpl() %s\n",
+                mozilla::ToString(aSize).c_str());
   MOZ_ASSERT(aPresContext);
 
   LayoutDeviceIntSize displaySize;
   if (RefPtr<MobileViewportManager> MVM =
           aPresContext->PresShell()->GetMobileViewportManager()) {
     displaySize = MVM->DisplaySize();
+    printf_stderr("jamiedbg displaySize = MVM->DisplaySize() %s\n",
+                  mozilla::ToString(displaySize).c_str());
   } else if (!nsLayoutUtils::GetContentViewerSize(aPresContext, displaySize)) {
+    printf_stderr(
+        "jamiedbg GetContentViewerSize failed. early returning aSize %s\n",
+        mozilla::ToString(aSize).c_str());
     return aSize;
   }
 
   float toolbarHeightRatio =
-      mozilla::ScreenCoord(aPresContext->GetDynamicToolbarMaxHeight()) /
-      mozilla::ViewAs<mozilla::ScreenPixel>(
-          displaySize,
-          mozilla::PixelCastJustification::LayoutDeviceIsScreenForBounds)
-          .height;
+      displaySize.height
+          ? mozilla::ScreenCoord(aPresContext->GetDynamicToolbarMaxHeight()) /
+                mozilla::ViewAs<mozilla::ScreenPixel>(
+                    displaySize, mozilla::PixelCastJustification::
+                                     LayoutDeviceIsScreenForBounds)
+                    .height
+          : 0.0f;
+
+  printf_stderr(
+      "jamiedbg toolbarHeightRatio = GetDynamicToolbarMaxHeight() / "
+      "displaySize.height = %d / %d = %f\n",
+      aPresContext->GetDynamicToolbarMaxHeight().value, displaySize.height,
+      toolbarHeightRatio);
 
   SizeType expandedSize = aSize;
   static_assert(std::is_same_v<nsSize, SizeType> ||
@@ -9884,8 +9899,16 @@ template <typename SizeType>
   if constexpr (std::is_same_v<nsSize, SizeType>) {
     expandedSize.height =
         NSCoordSaturatingAdd(aSize.height, aSize.height * toolbarHeightRatio);
+    printf_stderr(
+        "jamiedbg expandedSize = aSize.height * toolbarHeightRatio = %d * %f = "
+        "%d\n",
+        aSize.height, toolbarHeightRatio, expandedSize.height);
   } else if (std::is_same_v<CSSSize, SizeType>) {
     expandedSize.height = aSize.height + aSize.height * toolbarHeightRatio;
+    printf_stderr(
+        "jamiedbg expandedSize = aSize.height * toolbarHeightRatio = %f * %f = "
+        "%f\n",
+        aSize.height, toolbarHeightRatio, expandedSize.height);
   }
   return expandedSize;
 }

@@ -3907,6 +3907,8 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   const bool isRootContent =
       mIsRoot && mOuter->PresContext()->IsRootContentDocumentCrossProcess();
 
+  printf_stderr("jamiedbg mScrollPort = %s\n",
+                mozilla::ToString(mScrollPort).c_str());
   nsRect effectiveScrollPort = mScrollPort;
   if (isRootContent && mOuter->PresContext()->HasDynamicToolbar()) {
     // Expand the scroll port to the size including the area covered by dynamic
@@ -3918,6 +3920,8 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     // transitions without changing our topmost window size.
     effectiveScrollPort.SizeTo(nsLayoutUtils::ExpandHeightForDynamicToolbar(
         mOuter->PresContext(), effectiveScrollPort.Size()));
+    printf_stderr("jamiedbg Sizing scroll port for dynamic toolbar: %s\n",
+                  mozilla::ToString(effectiveScrollPort).c_str());
   }
 
   // It's safe to get this value before the DecideScrollableLayer call below
@@ -4070,6 +4074,8 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       // with those items after they've been created.
       const ActiveScrolledRoot* asr = aBuilder->CurrentActiveScrolledRoot();
 
+      printf_stderr("jamiedbg ScrollFrameHelper::BuildDisplayList() clip: %s\n",
+                    mozilla::ToString(clipRect).c_str());
       DisplayItemClip newClip;
       newClip.SetTo(clipRect);
 
@@ -4132,6 +4138,11 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     // to the layout viewport (scrollPortClip). The composition bounds clip
     // (clipRect) will be applied to the zoom container itself in
     // MaybeCreateTopLayerAndWrapRootItems.
+    printf_stderr(
+        "jamiedbg ScrollFrameHelper::BuildDisplayList() "
+        "willBuildAsyncZoomContainer=%d, scrollPortClip=%s, clipRect=%s\n",
+        willBuildAsyncZoomContainer, mozilla::ToString(scrollPortClip).c_str(),
+        mozilla::ToString(clipRect).c_str());
     nsRect clipRectForContents =
         willBuildAsyncZoomContainer ? scrollPortClip : clipRect;
     if (mIsRoot) {

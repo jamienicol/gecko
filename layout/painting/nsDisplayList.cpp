@@ -2611,6 +2611,9 @@ nsDisplayItem::nsDisplayItem(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
 
   mClipChain = aBuilder->ClipState().GetCurrentCombinedClipChain(aBuilder);
 
+  printf_stderr("jamiedbg nsDisplayItem %p constructor() %p\n", this,
+                mClipChain.get());
+
   // The visible rect is for mCurrentFrame, so we have to use
   // mCurrentOffsetToReferenceFrame
   nsRect visible = aBuilder->GetVisibleRect() +
@@ -2645,6 +2648,8 @@ int32_t nsDisplayItem::ZIndex() const { return mFrame->ZIndex().valueOr(0); }
 
 void nsDisplayItem::SetClipChain(const DisplayItemClipChain* aClipChain,
                                  bool aStore) {
+  printf_stderr("jamiedbg nsDisplayItem %p SetClipChain() %p\n", this,
+                aClipChain);
   mClipChain = aClipChain;
 }
 

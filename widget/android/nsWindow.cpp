@@ -1249,6 +1249,8 @@ class LayerViewSupport final
       const GeckoSession::Compositor::LocalRef& aObj, int32_t aX, int32_t aY,
       int32_t aWidth, int32_t aHeight, jni::Object::Param aSurface,
       jni::Object::Param aSurfaceControl) {
+    printf_stderr("jamiedbg SyncResumeResizeCompositor() %dx%d\n", aWidth,
+                  aHeight);
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
 
     mWidth = aWidth;
