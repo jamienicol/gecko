@@ -25,8 +25,8 @@ namespace mozilla {
 void DisplayItemClip::SetTo(const nsRect& aRect) { SetTo(aRect, nullptr); }
 
 void DisplayItemClip::SetTo(const nsRect& aRect, const nscoord* aRadii) {
-  printf_stderr("jamiedbg DisplayItemClip::SetTo() %p %s\n", this,
-                mozilla::ToString(aRect).c_str());
+  // printf_stderr("jamiedbg DisplayItemClip::SetTo() %p %s\n", this,
+  //               mozilla::ToString(aRect).c_str());
   mHaveClipRect = true;
   mClipRect = aRect;
   if (aRadii) {

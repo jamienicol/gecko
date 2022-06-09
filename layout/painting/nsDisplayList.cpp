@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "DisplayItemClipChain.h"
 #include "gfxContext.h"
 #include "gfxUtils.h"
 #include "mozilla/DisplayPortUtils.h"
@@ -2611,9 +2612,6 @@ nsDisplayItem::nsDisplayItem(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
 
   mClipChain = aBuilder->ClipState().GetCurrentCombinedClipChain(aBuilder);
 
-  printf_stderr("jamiedbg nsDisplayItem %p constructor() %p\n", this,
-                mClipChain.get());
-
   // The visible rect is for mCurrentFrame, so we have to use
   // mCurrentOffsetToReferenceFrame
   nsRect visible = aBuilder->GetVisibleRect() +
@@ -2648,8 +2646,12 @@ int32_t nsDisplayItem::ZIndex() const { return mFrame->ZIndex().valueOr(0); }
 
 void nsDisplayItem::SetClipChain(const DisplayItemClipChain* aClipChain,
                                  bool aStore) {
-  printf_stderr("jamiedbg nsDisplayItem %p SetClipChain() %p\n", this,
-                aClipChain);
+  if (this->mType == DisplayItemType::TYPE_ASYNC_ZOOM) {
+    printf_stderr(
+        "jamiedbg nsDisplayAsyncZoom::SetClipChain() %p old=%s, new=%s\n", this,
+        DisplayItemClipChain::ToString(mClipChain).get(),
+        DisplayItemClipChain::ToString(aClipChain).get());
+  }
   mClipChain = aClipChain;
 }
 
@@ -5943,6 +5945,8 @@ nsDisplayAsyncZoom::nsDisplayAsyncZoom(
     : nsDisplayOwnLayer(aBuilder, aFrame, aList, aActiveScrolledRoot),
       mViewID(aViewID) {
   MOZ_COUNT_CTOR(nsDisplayAsyncZoom);
+  printf_stderr("jamiedbg nsDisplayAsyncZoom() %p mClipChain=%s\n", this,
+                DisplayItemClipChain::ToString(mClipChain).get());
 }
 
 #ifdef NS_BUILD_REFCNT_LOGGING

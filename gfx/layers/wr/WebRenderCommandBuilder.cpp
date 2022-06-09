@@ -1931,6 +1931,8 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
   FlattenedDisplayListIterator iter(aDisplayListBuilder, aDisplayList);
   while (iter.HasNext()) {
     nsDisplayItem* item = iter.GetNextItem();
+    printf_stderr("jamiedbg processing display item %p %s\n", item,
+                  item->Name());
 
     DisplayItemType itemType = item->GetType();
 

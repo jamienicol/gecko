@@ -8,6 +8,7 @@
 
 #include "DisplayItemClipChain.h"
 #include "FrameMetrics.h"
+#include "mozilla/ToString.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/layers/StackingContextHelper.h"
 #include "mozilla/layers/WebRenderLayerManager.h"
@@ -137,6 +138,8 @@ wr::WrSpatialId ClipManager::SpatialIdAfterOverride(
 wr::WrSpaceAndClipChain ClipManager::SwitchItem(nsDisplayListBuilder* aBuilder,
                                                 nsDisplayItem* aItem) {
   const DisplayItemClipChain* clip = aItem->GetClipChain();
+  printf_stderr("jamiedbg ClipManager::SwitchItem() item=%p, clipchain=%s\n",
+                aItem, DisplayItemClipChain::ToString(clip).get());
   if (mBuilder->GetInheritedClipChain() &&
       mBuilder->GetInheritedClipChain() != clip) {
     if (!clip) {
@@ -354,6 +357,8 @@ Maybe<wr::WrClipChainId> ClipManager::DefineClipChain(
   AutoTArray<wr::WrClipId, 6> allClipIds;
   // Iterate through the clips in the current item's clip chain, define them
   // in WR, and put their IDs into |clipIds|.
+  printf_stderr("jamiedbg ClipManager::DefineClipChain() %s\n",
+                DisplayItemClipChain::ToString(aChain).get());
   for (const DisplayItemClipChain* chain = aChain; chain;
        chain = chain->mParent) {
     ClipIdMap& cache = mCacheStack.top();
@@ -385,6 +390,11 @@ Maybe<wr::WrClipChainId> ClipManager::DefineClipChain(
 
     AutoTArray<wr::WrClipId, 4> chainClipIds;
 
+    printf_stderr(
+        "jamiedbg ClipManager::DefineClipRect() chain=%p, space=%s, "
+        "rect=%s\n",
+        chain, mozilla::ToString(space).c_str(),
+        mozilla::ToString(clip).c_str());
     auto rectClipId = mBuilder->DefineRectClip(space, wr::ToLayoutRect(clip));
     CLIP_LOG("cache[%p] <= %zu\n", chain, rectClipId);
     chainClipIds.AppendElement(rectClipId);

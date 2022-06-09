@@ -3881,9 +3881,13 @@ void ScrollFrameHelper::MaybeCreateTopLayerAndWrapRootItems(
     mozilla::layers::FrameMetrics::ViewID viewID =
         nsLayoutUtils::FindOrCreateIDFor(mScrolledFrame->GetContent());
 
+    printf_stderr("jamiedbg clipping zoom container clipRect=%s\n",
+                  mozilla::ToString(clipRect).c_str());
+
     DisplayListClipState::AutoSaveRestore clipState(aBuilder);
     clipState.ClipContentDescendants(aAsyncZoomClipRect, aRadii);
 
+    printf_stderr("jamiedbg Creating nsDisplayAsyncZoom\n");
     rootResultList.AppendNewToTop<nsDisplayAsyncZoom>(
         aBuilder, mOuter, &rootResultList,
         aBuilder->CurrentActiveScrolledRoot(), viewID);
@@ -4074,7 +4078,7 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       // with those items after they've been created.
       const ActiveScrolledRoot* asr = aBuilder->CurrentActiveScrolledRoot();
 
-      printf_stderr("jamiedbg ScrollFrameHelper::BuildDisplayList() clip: %s\n",
+      printf_stderr("jamiedbg clipping overflow rect: %s\n",
                     mozilla::ToString(clipRect).c_str());
       DisplayItemClip newClip;
       newClip.SetTo(clipRect);
@@ -4107,17 +4111,23 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   nsRect scrollPortClip =
       effectiveScrollPort + aBuilder->ToReferenceFrame(mOuter);
   nsRect clipRect = scrollPortClip;
+  printf_stderr("jamiedbg Setting clipRect to scrollPortClip %s\n",
+                mozilla::ToString(clipRect).c_str());
   // Our override of GetBorderRadii ensures we never have a radius at
   // the corners where we have a scrollbar.
   nscoord radii[8];
   const bool haveRadii = mOuter->GetPaddingBoxBorderRadii(radii);
   if (mIsRoot) {
     clipRect.SizeTo(nsLayoutUtils::CalculateCompositionSizeForFrame(mOuter));
+    printf_stderr("jamiedbg sizing clipRect to composition size %s\n",
+                  mozilla::ToString(clipRect).c_str());
     // The composition size is essentially in visual coordinates.
     // If we are hit-testing in layout coordinates, transform the clip rect
     // to layout coordinates to match.
     if (aBuilder->IsRelativeToLayoutViewport() && isRootContent) {
       clipRect = ViewportUtils::VisualToLayout(clipRect, mOuter->PresShell());
+      printf_stderr("jamiedbg Converting clipRect to layout coords %s\n",
+                    mozilla::ToString(clipRect).c_str());
     }
   }
 
@@ -4139,7 +4149,7 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     // (clipRect) will be applied to the zoom container itself in
     // MaybeCreateTopLayerAndWrapRootItems.
     printf_stderr(
-        "jamiedbg ScrollFrameHelper::BuildDisplayList() "
+        "jamiedbg clipping zoom container's contents "
         "willBuildAsyncZoomContainer=%d, scrollPortClip=%s, clipRect=%s\n",
         willBuildAsyncZoomContainer, mozilla::ToString(scrollPortClip).c_str(),
         mozilla::ToString(clipRect).c_str());

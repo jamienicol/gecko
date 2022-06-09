@@ -65,9 +65,6 @@ static void ApplyClip(nsDisplayListBuilder* aBuilder,
 void DisplayListClipState::ClipContainingBlockDescendants(
     nsDisplayListBuilder* aBuilder, const nsRect& aRect, const nscoord* aRadii,
     DisplayItemClipChain& aClipChainOnStack) {
-  printf_stderr(
-      "jamiedbg DisplayListClipState::ClipContainingBlockDescendants() %s\n",
-      mozilla::ToString(aRect).c_str());
   if (aRadii) {
     aClipChainOnStack.mClip.SetTo(aRect, aRadii);
   } else {
@@ -82,7 +79,7 @@ void DisplayListClipState::ClipContainingBlockDescendants(
 void DisplayListClipState::ClipContentDescendants(
     nsDisplayListBuilder* aBuilder, const nsRect& aRect, const nscoord* aRadii,
     DisplayItemClipChain& aClipChainOnStack) {
-  printf_stderr("jamiedbg DisplayListClipState::ClipContentDescendants() %s\n",
+  printf_stderr("jamiedbg ClipContentDescendants() rect=%s\n",
                 mozilla::ToString(aRect).c_str());
   if (aRadii) {
     aClipChainOnStack.mClip.SetTo(aRect, aRadii);
@@ -98,10 +95,6 @@ void DisplayListClipState::ClipContentDescendants(
     nsDisplayListBuilder* aBuilder, const nsRect& aRect,
     const nsRect& aRoundedRect, const nscoord* aRadii,
     DisplayItemClipChain& aClipChainOnStack) {
-  printf_stderr(
-      "jamiedbg DisplayListClipState::ClipContainingBlockDescendants() rounded "
-      "%s\n",
-      mozilla::ToString(aRect).c_str());
   if (aRadii) {
     aClipChainOnStack.mClip.SetTo(aRect, aRoundedRect, aRadii);
   } else {
