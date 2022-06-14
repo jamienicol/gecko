@@ -344,8 +344,13 @@ class AndroidVsyncSource final : public VsyncSource,
     // Use the timebase from the frame callback as the vsync time, unless it
     // is in the future.
     TimeStamp now = TimeStamp::Now();
+    if (now < aTimeStamp) {
+      printf_stderr("jamiedbg Timestamp in future. Using now %" PRIu64 "\n",
+                    now.mValue);
+    }
     TimeStamp vsyncTime = aTimeStamp < now ? aTimeStamp : now;
-    TimeStamp outputTime = vsyncTime + GetVsyncRate();
+    // FIXME: use 2 frames for output?
+    TimeStamp outputTime = vsyncTime + GetVsyncRate() + GetVsyncRate();
 
     NotifyVsync(vsyncTime, outputTime);
   }

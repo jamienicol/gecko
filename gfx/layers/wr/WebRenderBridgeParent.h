@@ -184,8 +184,8 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   // CompositorVsyncSchedulerOwner
   bool IsPendingComposite() override { return false; }
   void FinishPendingComposite() override {}
-  void CompositeToTarget(VsyncId aId, wr::RenderReasons aReasons,
-                         gfx::DrawTarget* aTarget,
+  void CompositeToTarget(VsyncId aId, const TimeStamp& aOutputTime,
+                         wr::RenderReasons aReasons, gfx::DrawTarget* aTarget,
                          const gfx::IntRect* aRect = nullptr) override;
   TimeDuration GetVsyncInterval() const override;
 
@@ -412,8 +412,8 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   void FlushFrameGeneration(wr::RenderReasons aReasons);
   void FlushFramePresentation();
 
-  void MaybeGenerateFrame(VsyncId aId, bool aForceGenerateFrame,
-                          wr::RenderReasons aReasons);
+  void MaybeGenerateFrame(VsyncId aId, const TimeStamp& aOutputTime,
+                          bool aForceGenerateFrame, wr::RenderReasons aReasons);
 
   VsyncId GetVsyncIdForEpoch(const wr::Epoch& aEpoch) {
     for (auto& id : mPendingTransactionIds) {

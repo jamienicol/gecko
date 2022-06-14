@@ -3464,6 +3464,9 @@ class GLContext : public GenericAtomicRefCounted, public SupportsWeakPtr {
    */
   virtual void SetDamage(const nsIntRegion& aDamageRegion) {}
 
+  // FIXME: comment
+  virtual void SetPresentationTime(const TimeStamp& aPresentationTime) {}
+
   /**
    * Get the buffer age. If it returns 0, that indicates the buffer state is
    * unknown and the entire frame should be redrawn.

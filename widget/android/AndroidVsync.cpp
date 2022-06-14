@@ -123,6 +123,8 @@ void AndroidVsync::NotifyVsync(int64_t aFrameTimeNanos) {
   // the internal ticks representation of TimeStamp_posix; both use the
   // monotonic clock and are in nanoseconds.
   TimeStamp timeStamp = TimeStamp::FromSystemTime(aFrameTimeNanos);
+  printf_stderr("jamiedbg AndroidVsync::NotifyVsync() %" PRIu64 "\n",
+                timeStamp.mValue);
 
   // Do not keep the lock held while calling OnVsync.
   nsTArray<Observer*> observers;

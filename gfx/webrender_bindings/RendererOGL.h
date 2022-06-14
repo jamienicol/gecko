@@ -59,7 +59,8 @@ class RendererOGL {
   void Update();
 
   /// This can be called on the render thread only.
-  RenderedFrameId UpdateAndRender(const Maybe<gfx::IntSize>& aReadbackSize,
+  RenderedFrameId UpdateAndRender(const TimeStamp& aOutputTime,
+                                  const Maybe<gfx::IntSize>& aReadbackSize,
                                   const Maybe<wr::ImageFormat>& aReadbackFormat,
                                   const Maybe<Range<uint8_t>>& aReadbackBuffer,
                                   bool* aNeedsYFlip, RendererStats* aOutStats);

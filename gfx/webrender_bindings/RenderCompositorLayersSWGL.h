@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "mozilla/HashFunctions.h"
+#include "mozilla/TimeStamp.h"
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/ScreenshotGrabber.h"
 #include "mozilla/webrender/RenderCompositor.h"
@@ -37,7 +38,8 @@ class RenderCompositorLayersSWGL : public RenderCompositor {
 
   bool BeginFrame() override;
   void CancelFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) override;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) override;
 
   bool SurfaceOriginIsTopLeft() override { return true; }
 

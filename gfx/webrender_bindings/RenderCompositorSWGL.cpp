@@ -244,7 +244,7 @@ void RenderCompositorSWGL::CommitMappedBuffer(bool aDirty) {
 void RenderCompositorSWGL::CancelFrame() { CommitMappedBuffer(false); }
 
 RenderedFrameId RenderCompositorSWGL::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
   // Dirty rects have already been set inside StartCompositing. We need to keep
   // those dirty rects exactly the same here so we supply the same exact region
   // to EndRemoteDrawingInRegion as for StartRemoteDrawingInRegion.

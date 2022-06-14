@@ -92,7 +92,8 @@ static const char* sEGLExtensionNames[] = {
     "EGL_NV_robustness_video_memory_purge",
     "EGL_EXT_image_dma_buf_import",
     "EGL_EXT_image_dma_buf_import_modifiers",
-    "EGL_MESA_image_dma_buf_export"};
+    "EGL_MESA_image_dma_buf_export",
+    "EGL_ANDROID_presentation_time"};
 
 PRLibrary* LoadApitraceLibrary() {
   const char* path = nullptr;
@@ -711,6 +712,11 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
     const SymLoadStruct symbols[] = {SYMBOL(QueryDevicesEXT), END_OF_SYMBOLS};
     (void)fnLoadSymbols(symbols);
   }
+  {
+    const SymLoadStruct symbols[] = {SYMBOL(PresentationTimeANDROID),
+                                     END_OF_SYMBOLS};
+    (void)fnLoadSymbols(symbols);
+  }
 
   return true;
 }
@@ -777,8 +783,8 @@ EglDisplay::EglDisplay(const PrivateUseOnly&, GLLibraryEGL& lib,
     NS_WARNING("Failed to query EGL display extensions!.");
     rawExtString = "";
   }
-  MarkExtensions(rawExtString, shouldDumpExts, "display", sEGLExtensionNames,
-                 &mAvailableExtensions);
+  MarkExtensions(rawExtString, /* shouldDumpExts */ true, "display",
+                 sEGLExtensionNames, &mAvailableExtensions);
 
   // -
 

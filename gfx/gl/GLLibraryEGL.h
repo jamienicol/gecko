@@ -113,6 +113,7 @@ enum class EGLExtension {
   EXT_image_dma_buf_import,
   EXT_image_dma_buf_import_modifiers,
   MESA_image_dma_buf_export,
+  ANDROID_presentation_time,
   Max
 };
 
@@ -484,6 +485,13 @@ class GLLibraryEGL final {
     WRAP(fExportDMABUFImageMESA(dpy, image, fds, strides, offsets));
   }
 
+  // ANDROID_presentation_time
+  EGLBoolean fPresentationTimeANDROID(EGLDisplay dpy, EGLSurface surface,
+                                      int64_t  // EGLnsecsANDROID
+                                          time) {
+    WRAP(fPresentationTimeANDROID(dpy, surface, time));
+  }
+
  public:
   // EGL_EXT_device_enumeration
   EGLBoolean fQueryDevicesEXT(EGLint max_devices, EGLDeviceEXT* devices,
@@ -643,6 +651,11 @@ class GLLibraryEGL final {
                                              EGLDeviceEXT* devices,
                                              EGLint* num_devices);
 
+    // ANDROID_presentation_time
+    EGLBoolean(GLAPIENTRY* fPresentationTimeANDROID)(EGLDisplay dpy,
+                                                     EGLSurface surface,
+                                                     int64_t  // EGLnsecsANDROID
+                                                         time);
   } mSymbols = {};
 };
 
@@ -914,6 +927,14 @@ class EglDisplay final {
                                 EGLint* offsets) const {
     MOZ_ASSERT(IsExtensionSupported(EGLExtension::MESA_image_dma_buf_export));
     return mLib->fExportDMABUFImage(mDisplay, image, fds, strides, offsets);
+  }
+
+  // ANDROID_presentation_time
+  EGLBoolean fPresentationTimeANDROID(
+      EGLDisplay dpy, EGLSurface surface,
+      int64_t /* FIXME EGLnsecsANDROID */ time) {
+    MOZ_ASSERT(IsExtensionSupported(EGLExtension::ANDROID_presentation_time));
+    return mLib->fPresentationTimeANDROID(dpy, surface, time);
   }
 };
 

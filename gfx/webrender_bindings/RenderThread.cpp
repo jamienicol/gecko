@@ -9,6 +9,7 @@
 #include "gfxPlatform.h"
 #include "GLContext.h"
 #include "RenderThread.h"
+#include "mozilla/TimeStamp.h"
 #include "nsThread.h"
 #include "nsThreadUtils.h"
 #include "transport/runnable_utils.h"
@@ -385,7 +386,8 @@ void RenderThread::HandleFrameOneDoc(wr::WindowId aWindowId, bool aRender) {
   // RenderTextureHost::Lock().
   HandleRenderTextureOps();
 
-  UpdateAndRender(aWindowId, frame.mStartId, frame.mStartTime, render,
+  UpdateAndRender(aWindowId, frame.mStartId, frame.mStartTime,
+                  frame.mOutputTime, render,
                   /* aReadbackSize */ Nothing(),
                   /* aReadbackFormat */ Nothing(),
                   /* aReadbackBuffer */ Nothing());
@@ -499,7 +501,7 @@ static void NotifyDidStartRender(layers::CompositorBridgeParent* aBridge) {
 
 void RenderThread::UpdateAndRender(
     wr::WindowId aWindowId, const VsyncId& aStartId,
-    const TimeStamp& aStartTime, bool aRender,
+    const TimeStamp& aStartTime, const TimeStamp& aOutputTime, bool aRender,
     const Maybe<gfx::IntSize>& aReadbackSize,
     const Maybe<wr::ImageFormat>& aReadbackFormat,
     const Maybe<Range<uint8_t>>& aReadbackBuffer, bool* aNeedsYFlip) {
@@ -535,8 +537,9 @@ void RenderThread::UpdateAndRender(
   wr::RenderedFrameId latestFrameId;
   RendererStats stats = {0};
   if (aRender) {
-    latestFrameId = renderer->UpdateAndRender(
-        aReadbackSize, aReadbackFormat, aReadbackBuffer, aNeedsYFlip, &stats);
+    latestFrameId =
+        renderer->UpdateAndRender(aOutputTime, aReadbackSize, aReadbackFormat,
+                                  aReadbackBuffer, aNeedsYFlip, &stats);
   } else {
     renderer->Update();
   }
@@ -659,7 +662,8 @@ void RenderThread::SetDestroyed(wr::WindowId aWindowId) {
 
 void RenderThread::IncPendingFrameCount(wr::WindowId aWindowId,
                                         const VsyncId& aStartId,
-                                        const TimeStamp& aStartTime) {
+                                        const TimeStamp& aStartTime,
+                                        const TimeStamp& aOutputTime) {
   auto windows = mWindowInfos.Lock();
   auto it = windows->find(AsUint64(aWindowId));
   if (it == windows->end()) {
@@ -668,7 +672,7 @@ void RenderThread::IncPendingFrameCount(wr::WindowId aWindowId,
   }
   it->second->mPendingFrameBuild++;
   it->second->mPendingFrames.push(
-      PendingFrameInfo{aStartTime, aStartId, false});
+      PendingFrameInfo{aStartTime, aStartId, aOutputTime, false});
 }
 
 void RenderThread::DecPendingFrameBuildCount(wr::WindowId aWindowId) {
@@ -1282,8 +1286,8 @@ extern "C" {
 
 void wr_notifier_wake_up(mozilla::wr::WrWindowId aWindowId,
                          bool aCompositeNeeded) {
-  mozilla::wr::RenderThread::Get()->IncPendingFrameCount(aWindowId, VsyncId(),
-                                                         TimeStamp::Now());
+  mozilla::wr::RenderThread::Get()->IncPendingFrameCount(
+      aWindowId, VsyncId(), TimeStamp::Now(), TimeStamp::Now());
   mozilla::wr::RenderThread::Get()->DecPendingFrameBuildCount(aWindowId);
   mozilla::wr::RenderThread::Get()->HandleFrameOneDoc(aWindowId,
                                                       aCompositeNeeded);

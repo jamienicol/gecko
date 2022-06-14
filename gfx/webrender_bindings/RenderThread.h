@@ -186,7 +186,8 @@ class RenderThread final {
 
   /// Can only be called from the render thread.
   void UpdateAndRender(wr::WindowId aWindowId, const VsyncId& aStartId,
-                       const TimeStamp& aStartTime, bool aRender,
+                       const TimeStamp& aStartTime,
+                       const TimeStamp& aOutputTime, bool aRender,
                        const Maybe<gfx::IntSize>& aReadbackSize,
                        const Maybe<wr::ImageFormat>& aReadbackFormat,
                        const Maybe<Range<uint8_t>>& aReadbackBuffer,
@@ -229,7 +230,8 @@ class RenderThread final {
   bool TooManyPendingFrames(wr::WindowId aWindowId);
   /// Can be called from any thread.
   void IncPendingFrameCount(wr::WindowId aWindowId, const VsyncId& aStartId,
-                            const TimeStamp& aStartTime);
+                            const TimeStamp& aStartTime,
+                            const TimeStamp& aOutputTime);
   /// Can be called from any thread.
   void DecPendingFrameBuildCount(wr::WindowId aWindowId);
 
@@ -340,6 +342,7 @@ class RenderThread final {
   struct PendingFrameInfo {
     TimeStamp mStartTime;
     VsyncId mStartId;
+    TimeStamp mOutputTime;
     bool mFrameNeedsRender = false;
   };
 

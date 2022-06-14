@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/layers/BuildConstants.h"
 #if defined(MOZ_WIDGET_GTK)
 #  define GET_NATIVE_WINDOW_FROM_REAL_WIDGET(aWidget) \
     ((EGLNativeWindowType)aWidget->GetNativeData(NS_NATIVE_EGL_WINDOW))
@@ -544,6 +545,18 @@ bool GLContextEGL::SwapBuffers() {
 
 void GLContextEGL::SetDamage(const nsIntRegion& aDamageRegion) {
   mDamageRegion = aDamageRegion;
+}
+
+void GLContextEGL::SetPresentationTime(const TimeStamp& aPresentationTime) {
+  if (mEgl->IsExtensionSupported(EGLExtension::ANDROID_presentation_time)) {
+    const EGLSurface surface =
+        mSurfaceOverride != EGL_NO_SURFACE ? mSurfaceOverride : mSurface;
+
+    printf_stderr("jamiedbg eglPresentationTimeANDROID() %" PRIu64 "\n",
+                  aPresentationTime.mValue);
+    mEgl->fPresentationTimeANDROID(mEgl->mDisplay, surface,
+                                   aPresentationTime.mValue);
+  }
 }
 
 void GLContextEGL::GetWSIInfo(nsCString* const out) const {

@@ -4449,3 +4449,5 @@ pref("extensions.formautofill.loglevel", "Warn");
 pref("toolkit.osKeyStore.loglevel", "Warn");
 
 pref("extensions.formautofill.supportRTL", false);
+
+pref("layers.gpu-process.enabled", false);

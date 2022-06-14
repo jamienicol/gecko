@@ -11,6 +11,7 @@
 #include "base/task.h"    // for CancelableTask, etc
 #include "base/thread.h"  // for Thread
 #include "gfxPlatform.h"  // for gfxPlatform
+#include "mozilla/TimeStamp.h"
 #ifdef MOZ_WIDGET_GTK
 #  include "gfxPlatformGtk.h"  // for gfxPlatform
 #endif
@@ -170,6 +171,9 @@ void CompositorVsyncScheduler::ScheduleComposition(wr::RenderReasons aReasons) {
 }
 
 void CompositorVsyncScheduler::NotifyVsync(const VsyncEvent& aVsync) {
+  printf_stderr("jamiedbg CompositorVsyncScheduler::NotifyVsync() id=%" PRIu64
+                ", t=%" PRIu64 ", output=%" PRIu64 "\n",
+                aVsync.mId.mId, aVsync.mTime.mValue, aVsync.mOutputTime.mValue);
   // Called from the vsync dispatch thread. When in the GPU Process, that's
   // the same as the compositor thread.
 #ifdef DEBUG
@@ -268,8 +272,8 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent,
     mLastComposeTime = SampleTime::FromVsync(aVsyncEvent.mTime);
 
     // Tell the owner to do a composite
-    mVsyncSchedulerOwner->CompositeToTarget(aVsyncEvent.mId, aReasons, nullptr,
-                                            nullptr);
+    mVsyncSchedulerOwner->CompositeToTarget(
+        aVsyncEvent.mId, aVsyncEvent.mOutputTime, aReasons, nullptr, nullptr);
 
     mVsyncNotificationsSkipped = 0;
 
@@ -306,7 +310,8 @@ void CompositorVsyncScheduler::ForceComposeToTarget(wr::RenderReasons aReasons,
 
   mLastComposeTime = SampleTime::FromNow();
   MOZ_ASSERT(mVsyncSchedulerOwner);
-  mVsyncSchedulerOwner->CompositeToTarget(VsyncId(), aReasons, aTarget, aRect);
+  mVsyncSchedulerOwner->CompositeToTarget(VsyncId(), TimeStamp::Now(), aReasons,
+                                          aTarget, aRect);
 }
 
 bool CompositorVsyncScheduler::NeedsComposite() {

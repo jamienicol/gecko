@@ -7,6 +7,7 @@
 #include "WebRenderAPI.h"
 
 #include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/TimeStamp.h"
 #include "mozilla/ipc/ByteBuf.h"
 #include "mozilla/webrender/RendererOGL.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -524,10 +525,11 @@ void WebRenderAPI::Readback(const TimeStamp& aStartTime, gfx::IntSize size,
     MOZ_COUNTED_DTOR_OVERRIDE(Readback)
 
     void Run(RenderThread& aRenderThread, WindowId aWindowId) override {
-      aRenderThread.UpdateAndRender(aWindowId, VsyncId(), mStartTime,
-                                    /* aRender */ true, Some(mSize),
-                                    wr::SurfaceFormatToImageFormat(mFormat),
-                                    Some(mBuffer), mNeedsYFlip);
+      // FIXME: what output time to use here?
+      aRenderThread.UpdateAndRender(
+          aWindowId, VsyncId(), mStartTime, TimeStamp::Now(),
+          /* aRender */ true, Some(mSize),
+          wr::SurfaceFormatToImageFormat(mFormat), Some(mBuffer), mNeedsYFlip);
       layers::AutoCompleteTask complete(mTask);
     }
 

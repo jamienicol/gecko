@@ -85,6 +85,8 @@ class GLContextEGL final : public GLContext {
 
   virtual void SetDamage(const nsIntRegion& aDamageRegion) override;
 
+  void SetPresentationTime(const TimeStamp& aPresentationTime) override;
+
   GLint GetBufferAge() const override;
 
   virtual void GetWSIInfo(nsCString* const out) const override;

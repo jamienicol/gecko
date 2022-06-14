@@ -567,6 +567,7 @@ class TimeStamp {
    *
    * When using a system clock, a value is system dependent.
    */
+ public:
   TimeStampValue mValue;
 };
 

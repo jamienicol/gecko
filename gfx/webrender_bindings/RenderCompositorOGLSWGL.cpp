@@ -171,10 +171,10 @@ bool RenderCompositorOGLSWGL::BeginFrame() {
 }
 
 RenderedFrameId RenderCompositorOGLSWGL::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
   mFullRender = false;
 
-  return RenderCompositorLayersSWGL::EndFrame(aDirtyRects);
+  return RenderCompositorLayersSWGL::EndFrame(aOutputTime, aDirtyRects);
 }
 
 void RenderCompositorOGLSWGL::HandleExternalImage(
