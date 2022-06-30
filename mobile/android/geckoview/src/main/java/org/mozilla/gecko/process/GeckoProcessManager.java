@@ -96,7 +96,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
             });
       } else {
         // The GPU process is disabled, so return the parent process allocator instance.
-        allocator.complete(RemoteSurfaceAllocator.getInstance());
+        allocator.complete(RemoteSurfaceAllocator.getInstance(0));
       }
       return allocator.poll(100);
     } catch (final Throwable e) {
@@ -326,14 +326,26 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
     private CompositorSurfaceManager mCompositorSurfaceManager;
     private ISurfaceAllocator mSurfaceAllocator;
 
+    // Unique ID used to identify each GPU process instance. Will always be non-zero,
+    // and unlike the process' pid cannot be the same value for successive instances.
+    private int mUniqueId;
+    // Static counter used to initialize each instance's mUniqueId
+    private static int sUniqueIdCounter = 0;
+
     public GpuProcessConnection(@NonNull final ServiceAllocator allocator) {
       super(allocator, GeckoProcessType.GPU);
+
+      // Initialize the unique ID, ensuring we skip 0.
+      if (sUniqueIdCounter == 0) {
+        sUniqueIdCounter++;
+      }
+      mUniqueId = sUniqueIdCounter++;
     }
 
     @Override
     protected void onBinderConnected(@NonNull final IChildProcess child) throws RemoteException {
       mCompositorSurfaceManager = new CompositorSurfaceManager(child.getCompositorSurfaceManager());
-      mSurfaceAllocator = child.getSurfaceAllocator();
+      mSurfaceAllocator = child.getSurfaceAllocator(mUniqueId);
     }
 
     public CompositorSurfaceManager getCompositorSurfaceManager() {
