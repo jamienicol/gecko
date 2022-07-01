@@ -334,12 +334,18 @@ class GeckoAppShellSupport final
   static jni::Object::LocalRef IsGpuProcessEnabled() {
     java::GeckoResult::GlobalRef result = java::GeckoResult::New();
 
-    NS_DispatchToMainThread(NS_NewRunnableFunction(
-        "GeckoAppShellSupport::IsGpuProcessEnabled", [result]() {
-          result->Complete(gfx::gfxConfig::IsEnabled(gfx::Feature::GPU_PROCESS)
-                               ? java::sdk::Boolean::TRUE()
-                               : java::sdk::Boolean::FALSE());
-        }));
+    auto completeCb = [result]() {
+      result->Complete(gfx::gfxConfig::IsEnabled(gfx::Feature::GPU_PROCESS)
+                           ? java::sdk::Boolean::TRUE()
+                           : java::sdk::Boolean::FALSE());
+    };
+
+    if (NS_IsMainThread()) {
+      completeCb();
+    } else {
+      NS_DispatchToMainThread(NS_NewRunnableFunction(
+          "GeckoAppShellSupport::IsGpuProcessEnabled", completeCb));
+    }
 
     return jni::Object::Ref::From(result);
   }

@@ -56,6 +56,7 @@
 #include "nsPrintfCString.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
+#  include "mozilla/java/SurfaceAllocatorWrappers.h"
 #  include "mozilla/java/SurfaceControlManagerWrappers.h"
 #  include "mozilla/widget/AndroidUiThread.h"
 #  include "mozilla/layers/UiCompositorControllerChild.h"
@@ -350,6 +351,10 @@ void GPUProcessManager::EnsureProtocolsReady() {
   EnsureCompositorManagerChild();
   EnsureImageBridgeChild();
   EnsureVRManager();
+
+#ifdef MOZ_WIDGET_ANDROID
+  java::SurfaceAllocator::Connect();
+#endif
 }
 
 void GPUProcessManager::EnsureCompositorManagerChild() {

@@ -184,6 +184,14 @@ class SurfaceFactory {
                                         gfx::ColorSpace2 cs) {
     return CreateSharedImpl({mDesc, size, cs});
   }
+
+ public:
+  // Returns whether the Factory is currently able to allocate Surfaces. This
+  // value may temporarily be false, for example during a GPU process restart
+  // before rendering has been reinitialized. In such a case the caller will be
+  // unable to allocate Surfaces, but rather than reporting errors up the stack
+  // should instead continue silently until this value becomes true again.
+  virtual bool CanAllocate() const { return true; }
 };
 
 template <typename T>

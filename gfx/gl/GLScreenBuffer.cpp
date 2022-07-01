@@ -47,11 +47,15 @@ UniquePtr<SwapChainPresenter> SwapChain::Acquire(
     mPool.pop();
   }
   if (!surf) {
-    auto uniquePtrSurf = mFactory->CreateShared(size, colorSpace);
-    if (!uniquePtrSurf) return nullptr;
-    surf.reset(uniquePtrSurf.release());
+    if (mFactory->CanAllocate()) {
+      auto uniquePtrSurf = mFactory->CreateShared(size, colorSpace);
+      if (!uniquePtrSurf) return nullptr;
+      surf.reset(uniquePtrSurf.release());
+    }
   }
-  mPool.push(surf);
+  if (surf) {
+    mPool.push(surf);
+  }
   while (mPool.size() > kPoolSize) {
     mPool.pop();
   }
