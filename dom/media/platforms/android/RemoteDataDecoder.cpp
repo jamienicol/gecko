@@ -22,6 +22,7 @@
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/gfx/Types.h"
 #include "mozilla/java/CodecProxyWrappers.h"
+#include "mozilla/java/GeckoResultWrappers.h"
 #include "mozilla/java/GeckoSurfaceWrappers.h"
 #include "mozilla/java/SampleBufferWrappers.h"
 #include "mozilla/java/SampleWrappers.h"
@@ -177,6 +178,32 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
       return InitPromise::CreateAndReject(NS_ERROR_OUT_OF_MEMORY, __func__);
     }
     mInputBufferInfo = bufferInfo;
+
+    // If we are not yet (re-)connected to the SurfaceAllocator, then await
+    // connection, and call Init again once connected.
+    if (!java::SurfaceAllocator::IsConnected()) {
+      // We must wait for the SurfaceAllocator's connected promise on the main
+      // thread so that GeckoResult can dispatch the result.
+      auto promise =
+          InvokeAsync(GetMainThreadSerialEventTarget(), __func__, []() {
+            auto result = java::GeckoResult::LocalRef(
+                java::SurfaceAllocator::OnConnected());
+            return MozPromise<bool, bool, false>::FromGeckoResult(result);
+          });
+
+      return promise->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self = RefPtr(this)](
+              const MozPromise<bool, bool, false>::ResolveOrRejectValue&
+                  aValue) {
+            bool connected = aValue.IsResolve() && aValue.ResolveValue();
+            if (connected) {
+              return self->Init();
+            }
+            return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                                __func__);
+          });
+    }
 
     mSurface =
         java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(

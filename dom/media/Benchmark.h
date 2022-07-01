@@ -15,6 +15,9 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
 #include "nsCOMPtr.h"
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/java/SurfaceAllocatorWrappers.h"
+#endif
 
 namespace mozilla {
 

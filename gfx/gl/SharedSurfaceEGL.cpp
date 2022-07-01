@@ -261,6 +261,10 @@ SurfaceFactory_SurfaceTexture::SurfaceFactory_SurfaceTexture(GLContext& gl)
     : SurfaceFactory({&gl, SharedSurfaceType::AndroidSurfaceTexture,
                       layers::TextureType::AndroidNativeWindow, true}) {}
 
+bool SurfaceFactory_SurfaceTexture::CanAllocate() const {
+  return java::SurfaceAllocator::IsConnected();
+}
+
 #endif  // MOZ_WIDGET_ANDROID
 
 }  // namespace gl

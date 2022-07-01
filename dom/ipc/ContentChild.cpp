@@ -225,6 +225,7 @@
 
 #if defined(MOZ_WIDGET_ANDROID)
 #  include "APKOpen.h"
+#  include "mozilla/java/SurfaceAllocatorWrappers.h"
 #endif
 
 #ifdef XP_WIN
@@ -1613,6 +1614,10 @@ mozilla::ipc::IPCResult ContentChild::RecvInitRendering(
   }
   RemoteDecoderManagerChild::InitForGPUProcess(std::move(aVideoManager));
 
+#ifdef MOZ_WIDGET_ANDROID
+  java::SurfaceAllocator::Connect();
+#endif
+
 #if defined(XP_MACOSX) && !defined(MOZ_SANDBOX)
   // Close all current connections to the WindowServer. This ensures that the
   // Activity Monitor will not label the content process as "Not responding"
@@ -1656,6 +1661,10 @@ mozilla::ipc::IPCResult ContentChild::RecvReinitRendering(
       browserChild->ReinitRendering();
     }
   }
+
+#ifdef MOZ_WIDGET_ANDROID
+  java::SurfaceAllocator::Connect();
+#endif
 
   // Notify any observers that the compositor has been reinitialized,
   // eg the ZoomConstraintsClients for documents in this process.

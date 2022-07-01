@@ -13,22 +13,40 @@ import org.mozilla.gecko.GeckoAppShell;
 import org.mozilla.gecko.annotation.WrapForJNI;
 import org.mozilla.gecko.process.GeckoProcessManager;
 import org.mozilla.gecko.process.GeckoServiceChildProcess;
+import org.mozilla.geckoview.GeckoResult;
 
 /* package */ final class SurfaceAllocator {
   private static final String LOGTAG = "SurfaceAllocator";
 
   private static ISurfaceAllocator sAllocator;
+  private static GeckoResult<Boolean> sConnectedPromise;
 
   // Keep a reference to all allocated Surfaces, so that we can release them if we lose the
   // connection to the allocator service.
   private static final LongSparseArray<GeckoSurface> sSurfaces =
       new LongSparseArray<GeckoSurface>();
 
-  private static synchronized void ensureConnection() {
-    if (sAllocator != null) {
-      return;
+  @WrapForJNI
+  public static synchronized boolean isConnected() {
+    return sAllocator != null;
+  }
+
+  @WrapForJNI
+  public static synchronized GeckoResult<Boolean> onConnected() {
+    if (isConnected()) {
+      final GeckoResult<Boolean> result = new GeckoResult<>();
+      result.complete(Boolean.TRUE);
+      return result;
     }
 
+    if (sConnectedPromise == null) {
+      sConnectedPromise = new GeckoResult<>();
+    }
+    return sConnectedPromise;
+  }
+
+  @WrapForJNI
+  public static synchronized void connect() {
     try {
       if (GeckoAppShell.isParentProcess()) {
         sAllocator = GeckoProcessManager.getInstance().getSurfaceAllocator();
@@ -36,33 +54,38 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
         sAllocator = GeckoServiceChildProcess.getSurfaceAllocator();
       }
 
-      if (sAllocator == null) {
-        Log.w(LOGTAG, "Failed to connect to RemoteSurfaceAllocator");
-        return;
-      }
-      sAllocator
-          .asBinder()
-          .linkToDeath(
-              new IBinder.DeathRecipient() {
-                @Override
-                public void binderDied() {
-                  Log.w(LOGTAG, "RemoteSurfaceAllocator died");
-                  synchronized (SurfaceAllocator.class) {
-                    // Our connection to the remote allocator has died, so all our surfaces are
-                    // invalid.  Release them all now. When their owners attempt to render in to
-                    // them they can detect they have been released and allocate new ones instead.
-                    for (int i = 0; i < sSurfaces.size(); i++) {
-                      sSurfaces.valueAt(i).release();
+      if (sAllocator != null) {
+        sAllocator
+            .asBinder()
+            .linkToDeath(
+                new IBinder.DeathRecipient() {
+                  @Override
+                  public void binderDied() {
+                    Log.w(LOGTAG, "RemoteSurfaceAllocator died");
+                    synchronized (SurfaceAllocator.class) {
+                      // Our connection to the remote allocator has died, so all our surfaces are
+                      // invalid.  Release them all now. When their owners attempt to render in to
+                      // them they can detect they have been released and allocate new ones instead.
+                      for (int i = 0; i < sSurfaces.size(); i++) {
+                        sSurfaces.valueAt(i).release();
+                      }
+                      sSurfaces.clear();
+                      sAllocator = null;
                     }
-                    sSurfaces.clear();
-                    sAllocator = null;
                   }
-                }
-              },
-              0);
+                },
+                0);
+      } else {
+        Log.w(LOGTAG, "Failed to connect to RemoteSurfaceAllocator");
+      }
     } catch (final RemoteException e) {
       Log.w(LOGTAG, "Failed to connect to RemoteSurfaceAllocator", e);
       sAllocator = null;
+    } finally {
+      if (sConnectedPromise != null) {
+        sConnectedPromise.complete(isConnected());
+        sConnectedPromise = null;
+      }
     }
   }
 
@@ -70,8 +93,6 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
   public static synchronized GeckoSurface acquireSurface(
       final int width, final int height, final boolean singleBufferMode) {
     try {
-      ensureConnection();
-
       if (sAllocator == null) {
         Log.w(LOGTAG, "Failed to acquire GeckoSurface: not connected");
         return null;

@@ -56,6 +56,7 @@
 #include "nsPrintfCString.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
+#  include "mozilla/java/SurfaceAllocatorWrappers.h"
 #  include "mozilla/java/SurfaceControlManagerWrappers.h"
 #  include "mozilla/widget/AndroidUiThread.h"
 #  include "mozilla/layers/UiCompositorControllerChild.h"
@@ -368,8 +369,15 @@ nsresult GPUProcessManager::EnsureGPUReady() {
 }
 
 bool GPUProcessManager::EnsureProtocolsReady() {
-  return EnsureCompositorManagerChild() && EnsureImageBridgeChild() &&
-         EnsureVRManager();
+  bool success = EnsureCompositorManagerChild() && EnsureImageBridgeChild() &&
+                 EnsureVRManager();
+
+#ifdef MOZ_WIDGET_ANDROID
+  // FIXME: success = success && ... ?
+  java::SurfaceAllocator::Connect();
+#endif
+
+  return success;
 }
 
 bool GPUProcessManager::EnsureCompositorManagerChild() {

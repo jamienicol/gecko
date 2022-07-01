@@ -168,6 +168,11 @@ void Benchmark::Dispose() {
 void Benchmark::Init() {
   MOZ_ASSERT(NS_IsMainThread());
   gfxVars::Initialize();
+#ifdef MOZ_WIDGET_ANDROID
+  // We must manually connect the SurfaceAllocator prior to decoding. In
+  // a non-gtest environment this would be handled by GPUProcessManager.
+  java::SurfaceAllocator::Connect();
+#endif
 }
 
 BenchmarkPlayback::BenchmarkPlayback(Benchmark* aGlobalState,

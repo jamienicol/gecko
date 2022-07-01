@@ -119,6 +119,8 @@ class SurfaceFactory_SurfaceTexture final : public SurfaceFactory {
       const SharedSurfaceDesc& desc) override {
     return SharedSurface_SurfaceTexture::Create(desc);
   }
+
+  bool CanAllocate() const override;
 };
 
 #endif  // MOZ_WIDGET_ANDROID
