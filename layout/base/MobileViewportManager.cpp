@@ -648,7 +648,8 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
 
   if (!mIsFirstPaint && mMobileViewportSize == viewport) {
     // Nothing changed, so no need to do a reflow
-    return;
+    printf_stderr("jamiedbg nothing changed\n");
+    // return;
   }
 
   // If it's the first-paint or the viewport changed, we need to update
