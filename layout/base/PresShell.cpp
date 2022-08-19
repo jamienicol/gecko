@@ -1969,6 +1969,7 @@ void PresShell::RefreshZoomConstraintsForScreenSizeChange() {
 
 nsresult PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
                                  ResizeReflowOptions aOptions) {
+  printf_stderr("jamiedbg PresShell::ResizeReflow()\n");
   if (mZoomConstraintsClient) {
     // If we have a ZoomConstraintsClient and the available screen area
     // changed, then we might need to disable double-tap-to-zoom, so notify
@@ -1991,6 +1992,7 @@ nsresult PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
 
 void PresShell::SimpleResizeReflow(nscoord aWidth, nscoord aHeight,
                                    ResizeReflowOptions aOptions) {
+  printf_stderr("jamiedbg PresShell::SimpleResizeReflow()\n");
   MOZ_ASSERT(aWidth != NS_UNCONSTRAINEDSIZE);
   MOZ_ASSERT(aHeight != NS_UNCONSTRAINEDSIZE);
   nsSize oldSize = mPresContext->GetVisibleArea().Size();
@@ -3882,6 +3884,7 @@ bool PresShell::ScrollFrameRectIntoView(nsIFrame* aFrame, const nsRect& aRect,
 }
 
 void PresShell::ScheduleViewManagerFlush() {
+  printf_stderr("jamiedbg PresShell::ScheduleViewManagerFlush()\n");
   if (MOZ_UNLIKELY(mIsDestroying)) {
     return;
   }
@@ -4231,6 +4234,7 @@ static inline void AssertFrameTreeIsSane(const PresShell& aPresShell) {
 }
 
 void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
+  printf_stderr("jamiedbg PresShell::DoFlushPendingNotifications()\n");
   // FIXME(emilio, bug 1530177): Turn into a release assert when bug 1530188 and
   // bug 1530190 are fixed.
   MOZ_DIAGNOSTIC_ASSERT(!mForbiddenToFlush, "This is bad!");
@@ -4653,6 +4657,7 @@ nsresult PresShell::RenderDocument(const nsRect& aRect,
                                    RenderDocumentFlags aFlags,
                                    nscolor aBackgroundColor,
                                    gfxContext* aThebesContext) {
+  printf_stderr("jamiedbg PresShell::RenderDocument()\n");
   NS_ENSURE_TRUE(!(aFlags & RenderDocumentFlags::IsUntrusted),
                  NS_ERROR_NOT_IMPLEMENTED);
 
@@ -6298,6 +6303,7 @@ void PresShell::RemoveFrameFromApproximatelyVisibleList(nsIFrame* aFrame) {
 }
 
 void PresShell::PaintAndRequestComposite(nsView* aView, PaintFlags aFlags) {
+  printf_stderr("jamiedbg PresShell::PaintAndRequestComposite()\n");
   if (!mIsActive) {
     return;
   }
@@ -6338,6 +6344,7 @@ void PresShell::SyncPaintFallback(nsView* aView) {
 }
 
 void PresShell::PaintInternal(nsView* aViewToPaint, PaintInternalFlags aFlags) {
+  printf_stderr("jamiedbg PresShell::PaintInternal()\n");
   nsCString url;
   nsIURI* uri = mDocument->GetDocumentURI();
   Document* contentRoot = GetPrimaryContentDocument();
@@ -6401,6 +6408,7 @@ void PresShell::PaintInternal(nsView* aViewToPaint, PaintInternalFlags aFlags) {
   }
 
   if (!renderer->BeginTransaction(url)) {
+    printf_stderr("jamiedbg BeginTransaction failed\n");
     return;
   }
 
@@ -6413,6 +6421,7 @@ void PresShell::PaintInternal(nsView* aViewToPaint, PaintInternalFlags aFlags) {
   if (frame) {
     if (!(aFlags & PaintInternalFlags::PaintSyncDecodeImages) &&
         !frame->HasAnyStateBits(NS_FRAME_UPDATE_LAYER_TREE)) {
+      printf_stderr("jamiedbg NS_FRAME_UPDATE_LAYER_TREE not set\n");
       if (layerManager) {
         layerManager->SetTransactionIdAllocator(presContext->RefreshDriver());
       }
@@ -6444,6 +6453,7 @@ void PresShell::PaintInternal(nsView* aViewToPaint, PaintInternalFlags aFlags) {
   }
 
   if (frame) {
+    printf_stderr("jamiedbg Painting directly in to widget\n");
     // We can paint directly into the widget using its layer manager.
     nsLayoutUtils::PaintFrame(nullptr, frame, nsRegion(), bgcolor,
                               nsDisplayListBuilderMode::Painting, flags);
@@ -9482,6 +9492,7 @@ bool PresShell::ScheduleReflowOffTimer() {
 
 bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
                          OverflowChangedTracker* aOverflowTracker) {
+  printf_stderr("jamiedbg PresShell::DoReflow()\n");
   [[maybe_unused]] nsIURI* uri = mDocument->GetDocumentURI();
   AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING_RELEVANT_FOR_JS(
       "Reflow", LAYOUT_Reflow, uri ? uri->GetSpecOrDefault() : "N/A"_ns);
@@ -9747,6 +9758,7 @@ void PresShell::DoVerifyReflow() {
 #define NS_LONG_REFLOW_TIME_MS 5000
 
 bool PresShell::ProcessReflowCommands(bool aInterruptible) {
+  printf_stderr("jamiedbg PresShell::ProcessReflowCommands()\n");
   if (mDirtyRoots.IsEmpty() && !mShouldUnsuppressPainting) {
     // Nothing to do; bail out
     return true;
@@ -9856,6 +9868,7 @@ bool PresShell::ProcessReflowCommands(bool aInterruptible) {
 }
 
 bool PresShell::DoFlushLayout(bool aInterruptible) {
+  printf_stderr("jamiedbg PresShell::DoFlushLayout()\n");
   mFrameConstructor->RecalcQuotesAndCounters();
   return ProcessReflowCommands(aInterruptible);
 }
@@ -11209,6 +11222,7 @@ void PresShell::MaybeReflowForInflationScreenSizeChange() {
 }
 
 void PresShell::CompleteChangeToVisualViewportSize() {
+  printf_stderr("jamiedbg PresShell::CompleteChangeToVisualViewportSize()\n");
   // This can get called during reflow, if the caller wants to get the latest
   // visual viewport size after scrollbars have been added/removed. In such a
   // case, we don't need to mark things as dirty because the things that we

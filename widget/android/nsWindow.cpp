@@ -1287,10 +1287,15 @@ class LayerViewSupport final
 
     class OnResumedEvent : public nsAppShell::Event {
       GeckoSession::Compositor::GlobalRef mCompositor;
+      int32_t mWidth;
+      int32_t mHeight;
 
      public:
-      explicit OnResumedEvent(GeckoSession::Compositor::GlobalRef&& aCompositor)
-          : mCompositor(std::move(aCompositor)) {}
+      explicit OnResumedEvent(GeckoSession::Compositor::GlobalRef&& aCompositor,
+                              int32_t aWidth, int32_t aHeight)
+          : mCompositor(std::move(aCompositor)),
+            mWidth(aWidth),
+            mHeight(aHeight) {}
 
       void Run() override {
         MOZ_ASSERT(NS_IsMainThread());
@@ -1316,14 +1321,17 @@ class LayerViewSupport final
           return;  // Already shut down.
         }
 
-        // When we get here, the compositor has already been told to
-        // resume. This means it's now safe for layer updates to occur.
-        // Since we might have prevented one or more draw events from
-        // occurring while the compositor was paused, we need to
-        // schedule a draw event now.
-        if (!lvs->mCompositorPaused) {
-          nsWindow* const gkWindow = win->GetNsWindow();
-          if (gkWindow) {
+        nsWindow* const gkWindow = win->GetNsWindow();
+        if (gkWindow) {
+          // Does adding this cause PresSehll::PaintINternal in the content
+          // process? gkWindow->Resize(mWidth, mHeight, false);
+
+          // When we get here, the compositor has already been told to
+          // resume. This means it's now safe for layer updates to occur.
+          // Since we might have prevented one or more draw events from
+          // occurring while the compositor was paused, we need to
+          // schedule a draw event now.
+          if (!lvs->mCompositorPaused) {
             gkWindow->RedrawAll();
           }
         }
@@ -1331,8 +1339,8 @@ class LayerViewSupport final
     };
 
     // Use priority queue for timing-sensitive event.
-    nsAppShell::PostEvent(
-        MakeUnique<LayerViewEvent>(MakeUnique<OnResumedEvent>(aObj)));
+    nsAppShell::PostEvent(MakeUnique<LayerViewEvent>(
+        MakeUnique<OnResumedEvent>(aObj, aWidth, aHeight)));
   }
 
   void BlockSurfaceControl() {
@@ -2089,8 +2097,10 @@ mozilla::widget::EventDispatcher* nsWindow::GetEventDispatcher() const {
 
 void nsWindow::RedrawAll() {
   if (mAttachedWidgetListener) {
+    printf_stderr("jamiedbg nsWindow::RedrawAll() attached widget listener\n");
     mAttachedWidgetListener->RequestRepaint();
   } else if (mWidgetListener) {
+    printf_stderr("jamiedbg nsWindow::RedrawAll() default widget listener\n");
     mWidgetListener->RequestRepaint();
   }
 }
@@ -2276,6 +2286,8 @@ void nsWindow::Resize(double aX, double aY, double aWidth, double aHeight,
                       bool aRepaint) {
   ALOG("nsWindow[%p]::Resize [%f %f %f %f] (repaint %d)", (void*)this, aX, aY,
        aWidth, aHeight, aRepaint);
+
+  printf_stderr("jamiedbg nsWindow::Resize() %fx%f\n", aWidth, aHeight);
 
   LayoutDeviceIntRect oldBounds = mBounds;
 
@@ -2530,6 +2542,8 @@ void GeckoViewSupport::OnUpdateSessionStore(
 }
 
 void nsWindow::OnSizeChanged(const gfx::IntSize& aSize) {
+  printf_stderr("jamiedbg nsWindow::OnSizeChanged() %s\n",
+                mozilla::ToString(aSize).c_str());
   ALOG("nsWindow: %p OnSizeChanged [%d %d]", (void*)this, aSize.width,
        aSize.height);
 

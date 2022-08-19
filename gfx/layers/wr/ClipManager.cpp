@@ -138,8 +138,8 @@ wr::WrSpatialId ClipManager::SpatialIdAfterOverride(
 wr::WrSpaceAndClipChain ClipManager::SwitchItem(nsDisplayListBuilder* aBuilder,
                                                 nsDisplayItem* aItem) {
   const DisplayItemClipChain* clip = aItem->GetClipChain();
-  printf_stderr("jamiedbg ClipManager::SwitchItem() item=%p, clipchain=%s\n",
-                aItem, DisplayItemClipChain::ToString(clip).get());
+  // printf_stderr("jamiedbg ClipManager::SwitchItem() item=%p, clipchain=%s\n",
+  //               aItem, DisplayItemClipChain::ToString(clip).get());
   if (mBuilder->GetInheritedClipChain() &&
       mBuilder->GetInheritedClipChain() != clip) {
     if (!clip) {

@@ -2676,6 +2676,7 @@ void nsRefreshDriver::Tick(VsyncId aId, TimeStamp aNowTime,
   double phasePaint = 0.0;
   bool dispatchTasksAfterTick = false;
   if (mViewManagerFlushIsPending) {
+    printf_stderr("jamiedbg nsRefreshDriver::Tick() flush is pending\n");
     AutoRecordPhase paintRecord(&phasePaint);
     nsCString transactionId;
     if (profiler_thread_is_being_profiled_for_markers()) {
@@ -3027,6 +3028,7 @@ bool nsRefreshDriver::IsRefreshObserver(nsARefreshObserver* aObserver,
 #endif
 
 void nsRefreshDriver::ScheduleViewManagerFlush() {
+  printf_stderr("jamiedbg nsRefreshDriver::ScheduleViewManagerFlush()\n");
   NS_ASSERTION(mPresContext->IsRoot(),
                "Should only schedule view manager flush on root prescontexts");
   mViewManagerFlushIsPending = true;

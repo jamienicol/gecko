@@ -3882,7 +3882,7 @@ void ScrollFrameHelper::MaybeCreateTopLayerAndWrapRootItems(
         nsLayoutUtils::FindOrCreateIDFor(mScrolledFrame->GetContent());
 
     printf_stderr("jamiedbg clipping zoom container clipRect=%s\n",
-                  mozilla::ToString(clipRect).c_str());
+                  mozilla::ToString(aAsyncZoomClipRect).c_str());
 
     DisplayListClipState::AutoSaveRestore clipState(aBuilder);
     clipState.ClipContentDescendants(aAsyncZoomClipRect, aRadii);

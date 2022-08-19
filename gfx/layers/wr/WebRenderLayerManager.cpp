@@ -227,6 +227,7 @@ bool WebRenderLayerManager::BeginTransactionWithTarget(gfxContext* aTarget,
 }
 
 bool WebRenderLayerManager::BeginTransaction(const nsCString& aURL) {
+  printf_stderr("jamiedbg WebRenderLayerManager::BeginTransaction()\n");
   if (!WrBridge()->IPCOpen()) {
     gfxCriticalNote << "IPC Channel is already torn down unexpectedly\n";
     return false;
@@ -246,6 +247,9 @@ bool WebRenderLayerManager::BeginTransaction(const nsCString& aURL) {
 }
 
 bool WebRenderLayerManager::EndEmptyTransaction(EndTransactionFlags aFlags) {
+  printf_stderr(
+      "jamiedbg WebRenderLayerManager::EndEmptyTransaction() flags=0x%x\n",
+      aFlags);
   // If we haven't sent a display list (since creation or since the last time we
   // sent ClearDisplayList to the parent) then we can't do an empty transaction
   // because the parent doesn't have a display list for us and we need to send a
@@ -330,6 +334,9 @@ void WebRenderLayerManager::EndTransactionWithoutLayer(
     nsDisplayList* aDisplayList, nsDisplayListBuilder* aDisplayListBuilder,
     WrFiltersHolder&& aFilters, WebRenderBackgroundData* aBackground,
     const double aGeckoDLBuildTime) {
+  printf_stderr(
+      "jamiedbg WebRenderLayerManager::EndTransactionWithoutLayer()\n");
+
   AUTO_PROFILER_TRACING_MARKER("Paint", "RenderLayers", GRAPHICS);
 
   // Since we don't do repeat transactions right now, just set the time

@@ -305,6 +305,9 @@ void MobileViewportManager::UpdateResolutionForFirstPaint(
 void MobileViewportManager::UpdateResolutionForViewportSizeChange(
     const CSSSize& aViewportSize,
     const Maybe<float>& aDisplayWidthChangeRatio) {
+  printf_stderr(
+      "jamiedbg "
+      "MobileViewportManager::UpdateResolutionForViewportSizeChange()\n");
   ScreenIntSize displaySize = ViewAs<ScreenPixel>(
       mDisplaySize, PixelCastJustification::LayoutDeviceIsScreenForBounds);
   nsViewportInfo viewportInfo = mContext->GetViewportInfo(displaySize);
@@ -589,6 +592,7 @@ void MobileViewportManager::UpdateSizesBeforeReflow() {
 }
 
 void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
+  printf_stderr("jamiedbg MobileViewportManager::RefreshViewportSize()\n");
   // This function gets called by the various triggers that may result in a
   // change of the CSS viewport. In some of these cases (e.g. the meta-viewport
   // tag changes) we want to update the resolution and in others (e.g. the full
@@ -605,6 +609,7 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
   // only do the resolution update in the right scenarios.
 
   if (!mContext) {
+    printf_stderr("jamiedbg no context\n");
     return;
   }
 
@@ -632,6 +637,7 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
           mDisplaySize.height);
   if (mDisplaySize.width == 0 || mDisplaySize.height == 0) {
     // We can't do anything useful here, we should just bail out
+    printf_stderr("jamiedbg size == 0\n");
     return;
   }
 
@@ -680,6 +686,7 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
   mMobileViewportSize = viewport;
 
   if (mManagerType == ManagerType::VisualViewportOnly) {
+    printf_stderr("jamiedbg visual only\n");
     MVM_LOG("%p: Visual-only, so aborting before reflow\n", this);
     mIsFirstPaint = false;
     return;

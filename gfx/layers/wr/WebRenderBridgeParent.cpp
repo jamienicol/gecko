@@ -1323,6 +1323,7 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvEmptyTransaction(
     const TimeStamp& aVsyncStartTime, const TimeStamp& aRefreshStartTime,
     const TimeStamp& aTxnStartTime, const nsACString& aTxnURL,
     const TimeStamp& aFwdTime, nsTArray<CompositionPayload>&& aPayloads) {
+  printf_stderr("jamiedbg WebRenderBridgeParent::RecvEmptyTransaction()\n");
   if (mDestroyed) {
     for (const auto& op : aToDestroy) {
       DestroyActor(op);
@@ -1386,8 +1387,10 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvEmptyTransaction(
                            /* aUseForTelemetry */ scheduleAnyComposite);
 
   if (scheduleAnyComposite) {
+    printf_stderr("jamedbg ScheduleGenerateFrame()\n");
     ScheduleGenerateFrame(renderReasons);
   } else if (sendDidComposite) {
+    printf_stderr("jamedbg sendDidComposite\n");
     // The only thing in the pending transaction id queue should be the entry
     // we just added, and now we're going to pretend we rendered it
     MOZ_ASSERT(mPendingTransactionIds.size() == 1);

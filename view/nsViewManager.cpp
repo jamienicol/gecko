@@ -336,6 +336,7 @@ void nsViewManager::Refresh(nsView* aView,
 
 void nsViewManager::ProcessPendingUpdatesForView(nsView* aView,
                                                  bool aFlushDirtyRegion) {
+  printf_stderr("jamiedbg nsViewManager::ProcessPendingUpdatesForView()\n");
   NS_ASSERTION(IsRootVM(), "Updates will be missed");
   if (!aView) {
     return;
@@ -400,6 +401,7 @@ void nsViewManager::ProcessPendingUpdatesRecurse(
 }
 
 void nsViewManager::ProcessPendingUpdatesPaint(nsIWidget* aWidget) {
+  printf_stderr("jamiedbg nsViewManager::ProcessPendingUpdatesPaint()\n");
   if (aWidget->NeedsPaint()) {
     // If an ancestor widget was hidden and then shown, we could
     // have a delayed resize to handle.
@@ -932,6 +934,7 @@ void nsViewManager::IsPainting(bool& aIsPainting) {
 }
 
 void nsViewManager::ProcessPendingUpdates() {
+  printf_stderr("jamiedbg nsViewManager::ProcessPendingUpdates()\n");
   if (!IsRootVM()) {
     RefPtr<nsViewManager> rootViewManager = RootViewManager();
     rootViewManager->ProcessPendingUpdates();

@@ -7273,6 +7273,7 @@ static void InvalidateRenderingObservers(nsIFrame* aDisplayRoot,
 static void SchedulePaintInternal(
     nsIFrame* aDisplayRoot, nsIFrame* aFrame,
     nsIFrame::PaintType aType = nsIFrame::PAINT_DEFAULT) {
+  printf_stderr("jamiedbg SchedulePaintInternal()\n");
   MOZ_ASSERT(aDisplayRoot == nsLayoutUtils::GetDisplayRootFrame(aFrame));
   nsPresContext* pres = aDisplayRoot->PresContext()->GetRootPresContext();
 
@@ -7445,6 +7446,7 @@ bool nsIFrame::IsInvalid(nsRect& aRect) {
 }
 
 void nsIFrame::SchedulePaint(PaintType aType, bool aFrameChanged) {
+  printf_stderr("jamiedbg nsIFrame::SchedulePaint()\n");
   nsIFrame* displayRoot = nsLayoutUtils::GetDisplayRootFrame(this);
   InvalidateRenderingObservers(displayRoot, this, aFrameChanged);
   SchedulePaintInternal(displayRoot, this, aType);

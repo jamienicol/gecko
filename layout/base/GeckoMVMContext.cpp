@@ -194,6 +194,7 @@ void GeckoMVMContext::UpdateDisplayPortMargins() {
 }
 
 void GeckoMVMContext::Reflow(const CSSSize& aNewSize) {
+  printf_stderr("jamiedbg GeckoMVMContext::Reflow()\n");
   MOZ_ASSERT(mPresShell);
 
   RefPtr<PresShell> presShell = mPresShell;
