@@ -118,7 +118,8 @@ class NativeLayerAndroid final : public NativeLayer {
 
   void Update(ASurfaceTransaction* aTransaction, ASurfaceControl* aParent,
               std::map<ASurfaceControl*,
-                       NativeLayerRootAndroid::ReleasedSurface>& aPrevBuffers);
+                       NativeLayerRootAndroid::ReleasedSurface>& aPrevBuffers,
+              int z);
   void Remove(ASurfaceTransaction* aTransaction,
               std::map<ASurfaceControl*,
                        NativeLayerRootAndroid::ReleasedSurface>& aPrevSurfaces);

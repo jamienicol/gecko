@@ -130,8 +130,10 @@ bool NativeLayerRootAndroid::CommitToScreen() {
   // api->ASurfaceTransaction_setColor(transaction, mSurfaceControl.get(), 1.0,
   //                                   0.0, 0.0, 1.0, ADATASPACE_SRGB);
 
+  int z = 0;
   for (RefPtr<NativeLayerAndroid>& layer : mSublayers) {
-    layer->Update(transaction, mSurfaceControl.get(), prevSurfaces);
+    layer->Update(transaction, mSurfaceControl.get(), prevSurfaces, z);
+    z++;
   }
 
   printf_stderr("jamiedbg prevBuffers:\n");
@@ -448,8 +450,9 @@ void NativeLayerAndroid::AttachExternalImage(
 void NativeLayerAndroid::Update(
     ASurfaceTransaction* aTransaction, ASurfaceControl* aParent,
     std::map<ASurfaceControl*, NativeLayerRootAndroid::ReleasedSurface>&
-        aPrevSurfaces) {
-    printf_stderr("jamiedbg NativeLayerAndroid::Update() %p\n", this);
+        aPrevSurfaces,
+    int z) {
+  printf_stderr("jamiedbg NativeLayerAndroid::Update() %p\n", this);
   auto api = AndroidSurfaceControlApi::Get();
   api->ASurfaceTransaction_reparent(aTransaction, mSurfaceControl.get(),
                                     aParent);
@@ -535,6 +538,8 @@ void NativeLayerAndroid::Update(
                                          src, dest,
                                          ANATIVEWINDOW_TRANSFORM_IDENTITY);
   }
+
+  api->ASurfaceTransaction_setZOrder(aTransaction, mSurfaceControl.get(), z);
 }
 
 void NativeLayerAndroid::Remove(
