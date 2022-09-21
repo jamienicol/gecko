@@ -11,6 +11,7 @@
 #include "mozilla/layers/SurfacePoolAndroid.h"
 #include "mozilla/webrender/RenderThread.h"
 #include "nsDebug.h"
+#include "nsTArray.h"
 #include <android/data_space.h>
 #include <android/native_window.h>
 #include <android/surface_control.h>
@@ -79,12 +80,13 @@ void NativeLayerRootAndroid::RemoveLayer(NativeLayer* aLayer) {
 void NativeLayerRootAndroid::SetLayers(
     const nsTArray<RefPtr<NativeLayer>>& aLayers) {
   MutexAutoLock lock(mMutex);
-  printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %zu\n",
-                aLayers.Length());
+  // printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %zu\n",
+  //               aLayers.Length());
 
   nsTArray<RefPtr<NativeLayerAndroid>> newSublayers(aLayers.Length());
   for (const RefPtr<NativeLayer>& sublayer : aLayers) {
-    printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %p\n", sublayer.get());
+    // printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %p\n",
+    // sublayer.get());
     RefPtr<NativeLayerAndroid> layer = sublayer->AsNativeLayerAndroid();
     newSublayers.AppendElement(layer);
   }
@@ -174,9 +176,9 @@ void NativeLayerRootAndroid::OnTransactionComplete(
     ASurfaceControl* surfaceControl = surfaceControls[i];
     const auto& released = releasedSurfaces.find(surfaceControl);
     if (released == releasedSurfaces.end()) {
-      printf_stderr(
-          "jamiedbg ASurfaceControl %p not present in releasedSurfaces",
-          surfaceControl);
+      // printf_stderr(
+      //     "jamiedbg ASurfaceControl %p not present in releasedSurfaces",
+      //     surfaceControl);
     } else {
       int releaseFence =
           api->ASurfaceTransactionStats_getPreviousReleaseFenceFd(
@@ -400,15 +402,21 @@ void NativeLayerAndroid::HandlePartialUpdate(
   copyRegion.SubOut(mDirtyRegion);
 
   if (!copyRegion.IsEmpty()) {
-    if (mSurfacePoolHandle->gl()) {
-      mSurfacePoolHandle->gl()->MakeCurrent();
+    auto& gl = mSurfacePoolHandle->gl();
+    if (gl) {
+      gl->MakeCurrent();
+      // FIXME: different function to obtain read-only framebuffer?
+      // which doesn't need to wait on release fence?
       Maybe<GLuint> sourceFB = mFrontBuffer->GetFramebuffer(false);
       Maybe<GLuint> destFB = mInProgressBuffer->GetFramebuffer(false);
+      // FIXME: handle error?
+      MOZ_RELEASE_ASSERT(sourceFB);
+      MOZ_RELEASE_ASSERT(destFB);
+      // FIXME: single blit with bounds instead of multiple?
       for (auto iter = copyRegion.RectIter(); !iter.Done(); iter.Next()) {
         gfx::IntRect r = iter.Get();
-        MOZ_RELEASE_ASSERT(sourceFB && destFB);
-        mSurfacePoolHandle->gl()->BlitHelper()->BlitFramebufferToFramebuffer(
-            sourceFB.value(), destFB.value(), r, r, LOCAL_GL_NEAREST);
+        gl->BlitHelper()->BlitFramebufferToFramebuffer(*sourceFB, *destFB, r, r,
+                                                       LOCAL_GL_NEAREST);
       }
     } else {
       RefPtr<gfx::DataSourceSurface> dataSourceSurface =
@@ -474,6 +482,23 @@ void NativeLayerAndroid::Update(
                     mSurfaceControl.get(), mFrontBuffer.get(), fence);
       api->ASurfaceTransaction_setBuffer(aTransaction, mSurfaceControl.get(),
                                          mFrontBuffer->GetBuffer(), fence);
+
+      // FIXME use individual rects in region instead of bounds
+      if (!mDirtyRegion.IsEmpty()) {
+        AutoTArray<ARect, 4> damage;
+        damage.SetCapacity(mDirtyRegion.GetNumRects());
+        for (auto iter = mDirtyRegion.RectIter(); !iter.Done(); iter.Next()) {
+          damage.AppendElement(ARect{
+              .left = (int32_t)mDirtyRegion.GetBounds().x,
+              .top = (int32_t)mDirtyRegion.GetBounds().y,
+              .right = (int32_t)mDirtyRegion.GetBounds().XMost(),
+              .bottom = (int32_t)mDirtyRegion.GetBounds().YMost(),
+          });
+        }
+        api->ASurfaceTransaction_setDamageRegion(
+            aTransaction, mSurfaceControl.get(), &damage[0], damage.Length());
+        mDirtyRegion.SetEmpty();
+      }
     } else {
       printf_stderr("jamiedbg SurfaceControl %p keeping buffer %p\n",
                     mSurfaceControl.get(), mFrontBuffer.get());
@@ -501,8 +526,6 @@ void NativeLayerAndroid::Update(
   }
 
   // FIXME: handle flip/rotate transforms
-
-  // FIXME: set damage region
 
   auto transform2DInversed = transform2D.Inverse();
   gfx::Rect bufferClip =
