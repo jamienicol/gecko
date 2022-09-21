@@ -1208,7 +1208,11 @@ impl Tile {
                 (frame_context.config.gpu_supports_render_target_partial_update, true)
             }
             CompositorKind::Native { capabilities, .. } => {
-                (capabilities.max_update_rects > 0, false)
+                (
+                    capabilities.max_update_rects > 0
+                        && frame_context.config.gpu_supports_render_target_partial_update,
+                    false,
+                )
             }
         };
 
