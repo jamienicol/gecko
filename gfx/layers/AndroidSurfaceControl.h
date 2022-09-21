@@ -183,7 +183,7 @@ template <>
 class DefaultDelete<ASurfaceControl> {
  public:
   void operator()(ASurfaceControl* aPtr) const {
-    printf_stderr("jamiedbg Calling ASurfaceControl_release()\n");
+    // printf_stderr("jamiedbg Calling ASurfaceControl_release()\n");
     layers::AndroidSurfaceControlApi::Get()->ASurfaceControl_release(aPtr);
   }
 };

@@ -99,12 +99,12 @@ RenderedFrameId RenderCompositorNative::EndFrame(
 }
 
 void RenderCompositorNative::Pause() {
-  printf_stderr("jamiedbg RenderCompositorNative::Pause()\n");
+  // printf_stderr("jamiedbg RenderCompositorNative::Pause()\n");
   mNativeLayerRoot = nullptr;
 }
 
 bool RenderCompositorNative::Resume() {
-  printf_stderr("jamiedbg RenderCompositorNative::Resume()\n");
+  // printf_stderr("jamiedbg RenderCompositorNative::Resume()\n");
   mNativeLayerRoot = mWidget->GetNativeLayerRoot();
   return mNativeLayerRoot != nullptr;
 }
@@ -151,9 +151,9 @@ bool RenderCompositorNative::MaybeReadback(
     return false;
   }
 
-  printf_stderr("jamiedbg aReadbackFormat: %d\n", aReadbackFormat);
+  // printf_stderr("jamiedbg aReadbackFormat: %d\n", aReadbackFormat);
   // MOZ_RELEASE_ASSERT(aReadbackFormat == wr::ImageFormat::BGRA8);
-  printf_stderr("jamiedbg didn't crash\n");
+  // printf_stderr("jamiedbg didn't crash\n");
   if (!mNativeLayerRootSnapshotter) {
     mNativeLayerRootSnapshotter = mNativeLayerRoot->CreateSnapshotter();
 
@@ -334,7 +334,8 @@ void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
 
 void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
                                                    wr::ColorF aColor) {
-  printf_stderr("jamiedbg RenderCompositorNative::CreateBackdropSurface()\n");
+  // printf_stderr("jamiedbg
+  // RenderCompositorNative::CreateBackdropSurface()\n");
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   gfx::DeviceColor color(aColor.r, aColor.g, aColor.b, aColor.a);
@@ -399,8 +400,8 @@ void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
   auto layerCursor = surface.mNativeLayers.find(TileKey(aX, aY));
   MOZ_RELEASE_ASSERT(layerCursor != surface.mNativeLayers.end());
   RefPtr<layers::NativeLayer> layer = std::move(layerCursor->second);
-  printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() %p\n",
-                layer.get());
+  // printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() %p\n",
+  //               layer.get());
   surface.mNativeLayers.erase(layerCursor);
   mTotalTilePixelCount -= gfx::IntRect({}, layer->GetSize()).Area();
 
