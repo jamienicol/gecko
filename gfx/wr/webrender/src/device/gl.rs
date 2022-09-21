@@ -1724,7 +1724,7 @@ impl Device {
         // See bug 1663355.
         let is_mali_g = renderer_name.starts_with("Mali-G");
         let is_mali_t = renderer_name.starts_with("Mali-T");
-        let supports_render_target_partial_update = !is_mali_g && !is_mali_t;
+        let supports_render_target_partial_update = true; // !is_mali_g && !is_mali_t;
 
         let supports_shader_storage_object = match gl.get_type() {
             // see https://www.g-truc.net/post-0734.html
