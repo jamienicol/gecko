@@ -29,8 +29,10 @@ class RenderTextureHost;
 namespace layers {
 
 class NativeLayer;
+class NativeLayerAndroid;
 class NativeLayerCA;
 class NativeLayerWayland;
+class NativeLayerRootAndroid;
 class NativeLayerRootCA;
 class NativeLayerRootWayland;
 class NativeLayerRootSnapshotter;
@@ -46,6 +48,7 @@ class NativeLayerRoot {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(NativeLayerRoot)
 
+  virtual NativeLayerRootAndroid* AsNativeLayerRootAndroid() { return nullptr; }
   virtual NativeLayerRootCA* AsNativeLayerRootCA() { return nullptr; }
   virtual NativeLayerRootWayland* AsNativeLayerRootWayland() { return nullptr; }
 
@@ -129,6 +132,7 @@ class NativeLayer {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(NativeLayer)
 
+  virtual NativeLayerAndroid* AsNativeLayerAndroid() { return nullptr; }
   virtual NativeLayerCA* AsNativeLayerCA() { return nullptr; }
   virtual NativeLayerWayland* AsNativeLayerWayland() { return nullptr; }
 

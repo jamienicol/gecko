@@ -38,6 +38,7 @@ class RenderCompositorNative : public RenderCompositor {
   RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
   void Pause() override;
   bool Resume() override;
+  bool IsPaused() override;
 
   layers::WebRenderCompositor CompositorType() const override;
 

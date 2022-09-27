@@ -8,6 +8,7 @@
 
 #include "GLContext.h"
 #include "GLContextProvider.h"
+#include "mozilla/Assertions.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -19,6 +20,12 @@
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "RenderCompositorRecordedFrame.h"
+#include "nsDebug.h"
+#include "mozilla/ToString.h"
+
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/layers/NativeLayerAndroid.h"
+#endif
 
 namespace mozilla::wr {
 
@@ -27,11 +34,10 @@ extern LazyLogModule gRenderThreadLog;
 
 RenderCompositorNative::RenderCompositorNative(
     const RefPtr<widget::CompositorWidget>& aWidget, gl::GLContext* aGL)
-    : RenderCompositor(aWidget),
-      mNativeLayerRoot(GetWidget()->GetNativeLayerRoot()) {
+    : RenderCompositor(aWidget) {
   LOG("RenderCompositorNative::RenderCompositorNative()");
 
-#if defined(XP_MACOSX) || defined(MOZ_WAYLAND)
+#if defined(XP_MACOSX) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   auto pool = RenderThread::Get()->SharedSurfacePool();
   if (pool) {
     mSurfacePoolHandle = pool->GetHandleForGL(aGL);
@@ -45,13 +51,16 @@ RenderCompositorNative::~RenderCompositorNative() {
 
   Pause();
   mProfilerScreenshotGrabber.Destroy();
-  mNativeLayerRoot->SetLayers({});
+  if (mNativeLayerRoot) {
+    mNativeLayerRoot->SetLayers({});
+  }
   mNativeLayerForEntireWindow = nullptr;
   mNativeLayerRootSnapshotter = nullptr;
   mNativeLayerRoot = nullptr;
 }
 
 bool RenderCompositorNative::BeginFrame() {
+  printf_stderr("jamiedbg RenderCompositorNative::BeginFrame()\n");
   if (!MakeCurrent()) {
     gfxCriticalNote << "Failed to make render context current, can't draw.";
     return false;
@@ -59,15 +68,20 @@ bool RenderCompositorNative::BeginFrame() {
 
   gfx::IntSize bufferSize = GetBufferSize().ToUnknownSize();
   if (!ShouldUseNativeCompositor()) {
+    // FIXME: is this the best place to call this?
+    mSurfacePoolHandle->OnBeginFrame();
+
     if (bufferSize.IsEmpty()) {
       return false;
     }
     if (mNativeLayerForEntireWindow &&
         mNativeLayerForEntireWindow->GetSize() != bufferSize) {
+      printf_stderr("jamiedbg Window sized changed, removing old layer\n");
       mNativeLayerRoot->RemoveLayer(mNativeLayerForEntireWindow);
       mNativeLayerForEntireWindow = nullptr;
     }
     if (!mNativeLayerForEntireWindow) {
+      printf_stderr("jamiedbg Creating native layer for window\n");
       mNativeLayerForEntireWindow =
           mNativeLayerRoot->CreateLayer(bufferSize, false, mSurfacePoolHandle);
       mNativeLayerRoot->AppendLayer(mNativeLayerForEntireWindow);
@@ -84,6 +98,7 @@ bool RenderCompositorNative::BeginFrame() {
 
 RenderedFrameId RenderCompositorNative::EndFrame(
     const nsTArray<DeviceIntRect>& aDirtyRects) {
+  printf_stderr("jamiedbg RenderCompositorNative::EndFrame()\n");
   RenderedFrameId frameId = GetNextRenderFrameId();
 
   DoSwap();
@@ -96,9 +111,18 @@ RenderedFrameId RenderCompositorNative::EndFrame(
   return frameId;
 }
 
-void RenderCompositorNative::Pause() {}
+void RenderCompositorNative::Pause() {
+  // printf_stderr("jamiedbg RenderCompositorNative::Pause()\n");
+  mNativeLayerRoot = nullptr;
+}
 
-bool RenderCompositorNative::Resume() { return true; }
+bool RenderCompositorNative::Resume() {
+  // printf_stderr("jamiedbg RenderCompositorNative::Resume()\n");
+  mNativeLayerRoot = mWidget->GetNativeLayerRoot();
+  return mNativeLayerRoot != nullptr;
+}
+
+bool RenderCompositorNative::IsPaused() { return mNativeLayerRoot == nullptr; }
 
 inline layers::WebRenderCompositor RenderCompositorNative::CompositorType()
     const {
@@ -107,7 +131,13 @@ inline layers::WebRenderCompositor RenderCompositorNative::CompositorType()
     return layers::WebRenderCompositor::CORE_ANIMATION;
 #elif defined(MOZ_WAYLAND)
     return layers::WebRenderCompositor::WAYLAND;
+#elif defined(MOZ_WIDGET_ANDROID)
+    // FIXME: temporarily force draw compositor on Android.
+    // Eventually we probably want to have an explicit mode for Android.
+    // I'm not actually sure where this value ends up being used anyway though.
+    return layers::WebRenderCompositor::DRAW;
 #endif
+    MOZ_ASSERT_UNREACHABLE("Not implemented");
   }
   return layers::WebRenderCompositor::DRAW;
 }
@@ -117,7 +147,15 @@ LayoutDeviceIntSize RenderCompositorNative::GetBufferSize() {
 }
 
 bool RenderCompositorNative::ShouldUseNativeCompositor() {
+#ifdef MOZ_WIDGET_ANDROID
+  // FIXME: hard-code this to false on Android for now, so we always
+  // use draw compositor into a single NativeLayer.  Eventually we'll
+  // want to have a native compositor mode that is a mixture of this,
+  // with additional overlay layers.
+  return false;
+#else
   return gfx::gfxVars::UseWebRenderCompositor();
+#endif
 }
 
 void RenderCompositorNative::GetCompositorCapabilities(
@@ -238,6 +276,7 @@ void RenderCompositorNative::CompositorBeginFrame() {
 }
 
 void RenderCompositorNative::CompositorEndFrame() {
+  printf_stderr("jamiedbg RenderCompositorNative::CompositorEndFrame()\n");
   if (profiler_thread_is_being_profiled_for_markers()) {
     auto bufferSize = GetBufferSize();
     [[maybe_unused]] uint64_t windowPixelCount =
@@ -296,12 +335,16 @@ void RenderCompositorNative::CreateSurface(wr::NativeSurfaceId aId,
                                            wr::DeviceIntPoint aVirtualOffset,
                                            wr::DeviceIntSize aTileSize,
                                            bool aIsOpaque) {
+  printf_stderr("jamiedbg RenderCompositorNative::CreateSurface() id=%" PRIu64 ", offset=%s, tilesize=%s, opaque=%d\n",
+                aId._0, mozilla::ToString(aVirtualOffset).c_str(), mozilla::ToString(aTileSize).c_str(), aIsOpaque);
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
   mSurfaces.insert({aId, Surface{aTileSize, aIsOpaque}});
 }
 
 void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
                                                    bool aIsOpaque) {
+  printf_stderr("jamiedbg RenderCompositorNative::CreateExternalSurface() id=%" PRIu64 ", opaque=%d\n",
+                aId._0, aIsOpaque);
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   RefPtr<layers::NativeLayer> layer =
@@ -316,6 +359,8 @@ void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
 
 void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
                                                    wr::ColorF aColor) {
+  printf_stderr("jamiedbg RenderCompositorNative::CreateBackdropSurface() id=%" PRIu64 ", color=%s\n",
+                aId._0, mozilla::ToString(aColor).c_str());
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   gfx::DeviceColor color(aColor.r, aColor.g, aColor.b, aColor.a);
@@ -330,6 +375,8 @@ void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
 
 void RenderCompositorNative::AttachExternalImage(
     wr::NativeSurfaceId aId, wr::ExternalImageId aExternalImage) {
+  printf_stderr("jamiedbg RenderCompositorNative::AttachExternalImage() surface=%" PRIu64 ", image=%" PRIu64 "\n", aId._0, aExternalImage._0);
+
   RenderTextureHost* image =
       RenderThread::Get()->GetRenderTexture(aExternalImage);
   MOZ_RELEASE_ASSERT(image);
@@ -344,6 +391,7 @@ void RenderCompositorNative::AttachExternalImage(
 }
 
 void RenderCompositorNative::DestroySurface(NativeSurfaceId aId) {
+  printf_stderr("jamiedbg RenderCompositorNative::DestroySurface() id=%" PRIu64 "\n", aId._0);
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
 
@@ -359,6 +407,7 @@ void RenderCompositorNative::DestroySurface(NativeSurfaceId aId) {
 
 void RenderCompositorNative::CreateTile(wr::NativeSurfaceId aId, int aX,
                                         int aY) {
+  printf_stderr("jamiedbg RenderCompositorNative::CreateTile() surface=%" PRIu64 ", x=%d, y=%d\n", aId._0, aX, aY);
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   Surface& surface = surfaceCursor->second;
@@ -372,6 +421,7 @@ void RenderCompositorNative::CreateTile(wr::NativeSurfaceId aId, int aX,
 
 void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
                                          int aY) {
+  printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() surface=%" PRIu64 ", x=%d, y=%d\n", aId._0, aX, aY);
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   Surface& surface = surfaceCursor->second;
@@ -380,6 +430,8 @@ void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
   auto layerCursor = surface.mNativeLayers.find(TileKey(aX, aY));
   MOZ_RELEASE_ASSERT(layerCursor != surface.mNativeLayers.end());
   RefPtr<layers::NativeLayer> layer = std::move(layerCursor->second);
+  // printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() %p\n",
+  //               layer.get());
   surface.mNativeLayers.erase(layerCursor);
   mTotalTilePixelCount -= gfx::IntRect({}, layer->GetSize()).Area();
 
@@ -404,6 +456,8 @@ gfx::SamplingFilter ToSamplingFilter(wr::ImageRendering aImageRendering) {
 void RenderCompositorNative::AddSurface(
     wr::NativeSurfaceId aId, const wr::CompositorSurfaceTransform& aTransform,
     wr::DeviceIntRect aClipRect, wr::ImageRendering aImageRendering) {
+  printf_stderr("jamiedbg RenderCompositorNative::AddSurface() id=%" PRIu64 ", aTransform=%s, aClipRect=%s\n",
+                aId._0, mozilla::ToString(aTransform).c_str(), mozilla::ToString(aClipRect).c_str());
   MOZ_RELEASE_ASSERT(!mCurrentlyBoundNativeLayer);
 
   auto surfaceCursor = mSurfaces.find(aId);
@@ -485,12 +539,15 @@ RenderCompositorNativeOGL::~RenderCompositorNativeOGL() {
 
 bool RenderCompositorNativeOGL::InitDefaultFramebuffer(
     const gfx::IntRect& aBounds) {
+  printf_stderr("jamiedbg RenderCompositorNativeOGL::InitDefaultFramebuffer()\n");
   if (mNativeLayerForEntireWindow) {
     Maybe<GLuint> fbo = mNativeLayerForEntireWindow->NextSurfaceAsFramebuffer(
         aBounds, aBounds, true);
     if (!fbo) {
+      printf_stderr("jamiedbg Error getting FBO\n");
       return false;
     }
+    printf_stderr("jamiedbg Binding FBO %d\n", *fbo);
     mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, *fbo);
   } else {
     mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mGL->GetDefaultFramebuffer());
@@ -505,7 +562,9 @@ void RenderCompositorNativeOGL::DoSwap() {
   }
 }
 
-void RenderCompositorNativeOGL::DoFlush() { mGL->fFlush(); }
+void RenderCompositorNativeOGL::DoFlush() {
+  mGL->fFlush();
+}
 
 void RenderCompositorNativeOGL::InsertFrameDoneSync() {
 #ifdef XP_MACOSX
@@ -515,6 +574,19 @@ void RenderCompositorNativeOGL::InsertFrameDoneSync() {
     mGL->fDeleteSync(mThisFrameDoneSync);
   }
   mThisFrameDoneSync = mGL->fFenceSync(LOCAL_GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+#elif MOZ_WIDGET_ANDROID
+  const auto& gle = gl::GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
+
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+  if (sync) {
+    int fence = egl->fDupNativeFenceFDANDROID(sync);
+    if (fence >= 0) {
+      mNativeLayerRoot->AsNativeLayerRootAndroid()->SetLayersRenderedFence(
+                                                                         fence);
+    }
+    egl->fDestroySync(sync);
+  }
 #endif
 }
 

@@ -25,6 +25,7 @@
 
 #if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WAYLAND) || defined(MOZ_X11)
 #  include "mozilla/webrender/RenderCompositorEGL.h"
+#  include "mozilla/webrender/RenderCompositorNative.h"
 #endif
 
 #ifdef MOZ_WAYLAND
@@ -173,11 +174,13 @@ UniquePtr<RenderCompositor> RenderCompositor::Create(
     if (!gfxPlatform::IsHeadless()) {
       return RenderCompositorNativeSWGL::Create(aWidget, aError);
     }
-#elif defined(MOZ_WAYLAND)
+#elif defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
     if (gfx::gfxVars::UseWebRenderCompositor()) {
+      printf_stderr("jamiedbg Creating RenderCompositorNativeSWGL\n");
       return RenderCompositorNativeSWGL::Create(aWidget, aError);
     }
 #endif
+    printf_stderr("jamiedbg Creating RenderCompositorLayersSWGL\n");
     UniquePtr<RenderCompositor> comp =
         RenderCompositorLayersSWGL::Create(aWidget, aError);
     if (comp) {
@@ -199,13 +202,15 @@ UniquePtr<RenderCompositor> RenderCompositor::Create(
   }
 #endif
 
-#if defined(MOZ_WAYLAND)
+#if defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   if (gfx::gfxVars::UseWebRenderCompositor()) {
+    printf_stderr("jamiedbg Creating RenderCompositorNativeOGL\n");
     return RenderCompositorNativeOGL::Create(aWidget, aError);
   }
 #endif
 
 #if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WAYLAND) || defined(MOZ_X11)
+  printf_stderr("jamiedbg Creating RenderCompositorEGL\n");
   UniquePtr<RenderCompositor> eglCompositor =
       RenderCompositorEGL::Create(aWidget, aError);
   if (eglCompositor) {
