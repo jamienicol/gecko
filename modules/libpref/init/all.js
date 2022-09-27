@@ -4302,3 +4302,10 @@ pref("cookiebanners.bannerClicking.logLevel", "Error");
 // same domain. Every array item should be a valid CookieBannerRule. See
 // CookieBannerRule.schema.json.
 pref("cookiebanners.listService.testRules", "[]");
+
+pref("gfx.webrender.compositor", true);
+// pref("gfx.webrender.software", true);
+pref("layers.gpu-process.enabled", false);
+
+// Broken with native compositor
+pref("gfx.webrender.low-quality-pinch-zoom", false);

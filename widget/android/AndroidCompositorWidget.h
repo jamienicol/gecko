@@ -43,6 +43,8 @@ class AndroidCompositorWidget : public CompositorWidget {
       gfx::DrawTarget* aDrawTarget,
       const LayoutDeviceIntRegion& aInvalidRegion) override;
 
+  RefPtr<mozilla::layers::NativeLayerRoot> GetNativeLayerRoot() override;
+
   bool OnResumeComposition() override;
 
   AndroidCompositorWidget* AsAndroid() override { return this; }
@@ -62,6 +64,8 @@ class AndroidCompositorWidget : public CompositorWidget {
   // Called whenever the compositor surface may have changed. The derived class
   // should update mSurface to the new compositor surface.
   virtual void OnCompositorSurfaceChanged() = 0;
+
+  RefPtr<mozilla::layers::NativeLayerRootAndroid> mNativeLayerRoot;
 };
 
 }  // namespace widget

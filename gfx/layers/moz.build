@@ -277,6 +277,8 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     EXPORTS.mozilla.layers += [
         "AndroidHardwareBuffer.h",
         "AndroidSurfaceControl.h",
+        "NativeLayerAndroid.h",
+        "SurfacePoolAndroid.h",
     ]
     UNIFIED_SOURCES += [
         "AndroidHardwareBuffer.cpp",
@@ -284,6 +286,8 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         "apz/src/AndroidAPZ.cpp",
         "apz/src/AndroidFlingPhysics.cpp",
         "apz/src/AndroidVelocityTracker.cpp",
+        "NativeLayerAndroid.cpp",
+        "SurfacePoolAndroid.cpp",
     ]
 
 UNIFIED_SOURCES += [

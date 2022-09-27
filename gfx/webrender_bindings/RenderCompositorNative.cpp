@@ -19,6 +19,7 @@
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "RenderCompositorRecordedFrame.h"
+#include "nsDebug.h"
 
 namespace mozilla::wr {
 
@@ -27,11 +28,10 @@ extern LazyLogModule gRenderThreadLog;
 
 RenderCompositorNative::RenderCompositorNative(
     const RefPtr<widget::CompositorWidget>& aWidget, gl::GLContext* aGL)
-    : RenderCompositor(aWidget),
-      mNativeLayerRoot(GetWidget()->GetNativeLayerRoot()) {
+    : RenderCompositor(aWidget) {
   LOG("RenderCompositorNative::RenderCompositorNative()");
 
-#if defined(XP_MACOSX) || defined(MOZ_WAYLAND)
+#if defined(XP_MACOSX) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   auto pool = RenderThread::Get()->SharedSurfacePool();
   if (pool) {
     mSurfacePoolHandle = pool->GetHandleForGL(aGL);
@@ -45,7 +45,9 @@ RenderCompositorNative::~RenderCompositorNative() {
 
   Pause();
   mProfilerScreenshotGrabber.Destroy();
-  mNativeLayerRoot->SetLayers({});
+  if (mNativeLayerRoot) {
+    mNativeLayerRoot->SetLayers({});
+  }
   mNativeLayerForEntireWindow = nullptr;
   mNativeLayerRootSnapshotter = nullptr;
   mNativeLayerRoot = nullptr;
@@ -96,9 +98,18 @@ RenderedFrameId RenderCompositorNative::EndFrame(
   return frameId;
 }
 
-void RenderCompositorNative::Pause() {}
+void RenderCompositorNative::Pause() {
+  printf_stderr("jamiedbg RenderCompositorNative::Pause()\n");
+  mNativeLayerRoot = nullptr;
+}
 
-bool RenderCompositorNative::Resume() { return true; }
+bool RenderCompositorNative::Resume() {
+  printf_stderr("jamiedbg RenderCompositorNative::Resume()\n");
+  mNativeLayerRoot = mWidget->GetNativeLayerRoot();
+  return mNativeLayerRoot != nullptr;
+}
+
+bool RenderCompositorNative::IsPaused() { return mNativeLayerRoot == nullptr; }
 
 inline layers::WebRenderCompositor RenderCompositorNative::CompositorType()
     const {
@@ -126,6 +137,11 @@ void RenderCompositorNative::GetCompositorCapabilities(
 #if defined(XP_MACOSX)
   aCaps->supports_surface_for_backdrop = !gfx::gfxVars::UseSoftwareWebRender();
 #endif
+  // FIXME: crashs when using SWGL
+  // in sw_compositor.rs create_backdrop_surface
+  // #if defined(MOZ_WIDGET_ANDROID)
+  //   aCaps->supports_surface_for_backdrop = true;
+  // #endif
 }
 
 bool RenderCompositorNative::MaybeReadback(
@@ -135,7 +151,9 @@ bool RenderCompositorNative::MaybeReadback(
     return false;
   }
 
-  MOZ_RELEASE_ASSERT(aReadbackFormat == wr::ImageFormat::BGRA8);
+  printf_stderr("jamiedbg aReadbackFormat: %d\n", aReadbackFormat);
+  // MOZ_RELEASE_ASSERT(aReadbackFormat == wr::ImageFormat::BGRA8);
+  printf_stderr("jamiedbg didn't crash\n");
   if (!mNativeLayerRootSnapshotter) {
     mNativeLayerRootSnapshotter = mNativeLayerRoot->CreateSnapshotter();
 
@@ -316,6 +334,7 @@ void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
 
 void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
                                                    wr::ColorF aColor) {
+  printf_stderr("jamiedbg RenderCompositorNative::CreateBackdropSurface()\n");
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   gfx::DeviceColor color(aColor.r, aColor.g, aColor.b, aColor.a);
@@ -380,6 +399,8 @@ void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
   auto layerCursor = surface.mNativeLayers.find(TileKey(aX, aY));
   MOZ_RELEASE_ASSERT(layerCursor != surface.mNativeLayers.end());
   RefPtr<layers::NativeLayer> layer = std::move(layerCursor->second);
+  printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() %p\n",
+                layer.get());
   surface.mNativeLayers.erase(layerCursor);
   mTotalTilePixelCount -= gfx::IntRect({}, layer->GetSize()).Area();
 

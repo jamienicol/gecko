@@ -1651,6 +1651,8 @@ void WebRenderBridgeParent::MaybeCaptureScreenPixels() {
     return;
   }
 
+  printf_stderr("jamiedbg WebRenderBridgeParent::MaybeCaptureScreenPixels()\n");
+
   // This function should only get called in the root WRBP.
   MOZ_ASSERT(IsRootWebRenderBridgeParent());
 #  ifdef DEBUG
@@ -1685,6 +1687,7 @@ void WebRenderBridgeParent::MaybeCaptureScreenPixels() {
 
 mozilla::ipc::IPCResult WebRenderBridgeParent::RecvGetSnapshot(
     PTextureParent* aTexture, bool* aNeedsYFlip) {
+  printf_stderr("jamiedbg WebRenderBridgeParent::RecvGetSnapshot()\n");
   *aNeedsYFlip = false;
   CompositorBridgeParent* cbp = GetRootCompositorBridgeParent();
   if (mDestroyed || !cbp || cbp->IsPaused()) {

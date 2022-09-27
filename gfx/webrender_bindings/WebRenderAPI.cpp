@@ -470,6 +470,7 @@ std::vector<WrHitResult> WebRenderAPI::HitTest(const wr::WorldPoint& aPoint) {
 void WebRenderAPI::Readback(const TimeStamp& aStartTime, gfx::IntSize size,
                             const gfx::SurfaceFormat& aFormat,
                             const Range<uint8_t>& buffer, bool* aNeedsYFlip) {
+  printf_stderr("jamiedbg WebRenderAPI::Readback() format: %d\n", aFormat);
   class Readback : public RendererEvent {
    public:
     explicit Readback(layers::SynchronousTask* aTask, TimeStamp aStartTime,

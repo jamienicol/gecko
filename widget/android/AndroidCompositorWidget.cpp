@@ -6,7 +6,9 @@
 
 #include "AndroidCompositorWidget.h"
 
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/layers/NativeLayerAndroid.h"
 #include "mozilla/widget/PlatformWidgetTypes.h"
 #include "nsWindow.h"
 
@@ -75,8 +77,30 @@ void AndroidCompositorWidget::EndRemoteDrawingInRegion(
   ANativeWindow_unlockAndPost(mNativeWindow);
 }
 
+RefPtr<layers::NativeLayerRoot> AndroidCompositorWidget::GetNativeLayerRoot() {
+  if (gfx::gfxVars::UseWebRenderCompositor()) {
+    if (!mNativeLayerRoot) {
+      JNIEnv* const env = jni::GetEnvForThread();
+      ANativeWindow* const nativeWindow = ANativeWindow_fromSurface(
+          env, reinterpret_cast<jobject>(mSurface.Get()));
+      if (!nativeWindow) {
+        gfxCriticalError() << "Failed to get NativeWindow from Surface";
+        return nullptr;
+      }
+
+      mNativeLayerRoot = layers::NativeLayerRootAndroid::Create(nativeWindow);
+
+      ANativeWindow_release(nativeWindow);
+    }
+    return mNativeLayerRoot;
+  }
+  return nullptr;
+}
+
 bool AndroidCompositorWidget::OnResumeComposition() {
   OnCompositorSurfaceChanged();
+  // FIXME: don't destroy this for every resume? just on pause?
+  mNativeLayerRoot = nullptr;
 
   if (!mSurface) {
     gfxCriticalError() << "OnResumeComposition called with null Surface";

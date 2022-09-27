@@ -14,6 +14,7 @@
 #include "mozilla/intl/OSPreferences.h"
 #include "mozilla/jni/Utils.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
+#include "mozilla/layers/AndroidSurfaceControl.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
@@ -101,6 +102,7 @@ gfxAndroidPlatform::~gfxAndroidPlatform() {
   gPlatformFTLibrary = nullptr;
   layers::AndroidHardwareBufferManager::Shutdown();
   layers::AndroidHardwareBufferApi::Shutdown();
+  layers::AndroidSurfaceControlApi::Shutdown();
 }
 
 void gfxAndroidPlatform::InitAcceleration() {
@@ -113,9 +115,12 @@ void gfxAndroidPlatform::InitAcceleration() {
       gfxVars::SetUseAHardwareBufferSharedSurface(true);
     }
   }
+  // FIXME: only conditionally initialize if compositor enabled?
+  layers::AndroidHardwareBufferApi::Init();
+  layers::AndroidSurfaceControlApi::Init();
   if (gfx::gfxVars::UseAHardwareBufferContent() ||
       gfxVars::UseAHardwareBufferSharedSurface()) {
-    layers::AndroidHardwareBufferApi::Init();
+    // layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
   }
 }
