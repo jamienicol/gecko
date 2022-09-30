@@ -1293,6 +1293,7 @@ void DisplayListBuilder::PushImage(
     wr::ImageRendering aFilter, wr::ImageKey aImage, bool aPremultipliedAlpha,
     const wr::ColorF& aColor, bool aPreferCompositorSurface,
     bool aSupportsExternalCompositing) {
+  // FIXME: This is where we decide whether we can composite external images
   wr::LayoutRect clip = MergeClipLeaf(aClip);
   WRDL_LOG("PushImage b=%s cl=%s\n", mWrState, ToString(aBounds).c_str(),
            ToString(clip).c_str());
