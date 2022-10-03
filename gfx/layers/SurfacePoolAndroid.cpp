@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SurfacePoolAndroid.h"
+#include "AndroidSurfaceControl.h"
 #include "GLContext.h"
 #include "GLTypes.h"
 #include "gfxPlatform.h"
@@ -315,7 +316,10 @@ void HardwareBufferSurface::OnConsumerRelease(int32_t aFence) {
 }
 
 SurfacePoolAndroid::SurfacePoolAndroid(size_t aPoolSizeLimit)
-    : mMutex("SurfacePoolAndroid"), mPoolSizeLimit(aPoolSizeLimit) {}
+    : mMutex("SurfacePoolAndroid")
+// ,
+// mPoolSizeLimit(aPoolSizeLimit)
+{}
 
 SurfacePoolAndroid::~SurfacePoolAndroid() {}
 
@@ -365,12 +369,33 @@ void SurfacePoolAndroid::ReturnBufferToPool(
     //     aBuffer.get());
     mPendingEntries.push_back(std::move(aBuffer));
   } else {
+    // FIXME: if no longer attached but fence not signalled we should put in
+    // pending entries.
     // printf_stderr(
     //     "jamiedbg SurfacePoolAndroid::ReturnBufferToPool() %p available\n",
     //     aBuffer.get());
     mAvailableEntries.push_back(std::move(aBuffer));
   }
   // FIXME: keep track of in use entries like we do on wayland?
+}
+
+UniquePtr<ASurfaceControl> SurfacePoolAndroid::ObtainSurfaceControl(
+    ASurfaceControl* aParent) {
+  if (mSurfaceControls.empty()) {
+    auto api = AndroidSurfaceControlApi::Get();
+    UniquePtr<ASurfaceControl> surfaceControl(
+        api->ASurfaceControl_create(aParent, "NativeLayerAndroid"));
+    return surfaceControl;
+  }
+
+  auto surfaceControl = std::move(mSurfaceControls.back());
+  mSurfaceControls.pop_back();
+  return surfaceControl;
+}
+
+void SurfacePoolAndroid::ReturnSurfaceControl(
+    UniquePtr<ASurfaceControl> aSurfaceControl) {
+  mSurfaceControls.push_back(std::move(aSurfaceControl));
 }
 
 void SurfacePoolAndroid::EnforcePoolSizeLimit() {
@@ -387,6 +412,8 @@ void SurfacePoolAndroid::CollectPendingSurfaces() {
             if (!entry->IsConsumerAttached()) {
               // printf_stderr("jamiedbg Moving buffer %p to available pool\n",
               //               entry.get());
+              // FIXME: If fence not signalled we shouldn't move to available
+              // yet
               mAvailableEntries.push_back(std::move(entry));
               return true;
             }
@@ -413,6 +440,16 @@ UniquePtr<HardwareBufferSurface> SurfacePoolHandleAndroid::ObtainBufferFromPool(
 void SurfacePoolHandleAndroid::ReturnBufferToPool(
     UniquePtr<HardwareBufferSurface> aBuffer) {
   mPool->ReturnBufferToPool(std::move(aBuffer));
+}
+
+UniquePtr<ASurfaceControl> SurfacePoolHandleAndroid::ObtainSurfaceControl(
+    ASurfaceControl* aParent) {
+  return mPool->ObtainSurfaceControl(aParent);
+}
+
+void SurfacePoolHandleAndroid::ReturnSurfaceControl(
+    UniquePtr<ASurfaceControl> aSurfaceControl) {
+  mPool->ReturnSurfaceControl(std::move(aSurfaceControl));
 }
 
 }  // namespace mozilla::layers

@@ -32,9 +32,9 @@ class NativeLayerRootAndroid : public NativeLayerRoot {
       const gfx::IntSize& aSize, bool aIsOpaque,
       SurfacePoolHandle* aSurfacePoolHandle) override;
   already_AddRefed<NativeLayer> CreateLayerForExternalTexture(
-      bool aIsOpaque) override;
+      bool aIsOpaque, SurfacePoolHandle* aSurfacePoolHandle) override;
   already_AddRefed<NativeLayer> CreateLayerForColor(
-      gfx::DeviceColor aColor) override;
+      gfx::DeviceColor aColor, SurfacePoolHandle* aSurfacePoolHandle) override;
 
   void AppendLayer(NativeLayer* aLayer) override;
   void RemoveLayer(NativeLayer* aLayer) override;
@@ -107,11 +107,15 @@ class NativeLayerAndroid final : public NativeLayer {
  private:
   friend class NativeLayerRootAndroid;
 
-  NativeLayerAndroid(ASurfaceControl* aParent, const gfx::IntSize& aSize,
-                     bool aIsOpaque,
+  // FIXME: combine in to single shared constructor?
+  NativeLayerAndroid(UniquePtr<ASurfaceControl> aSurfaceControl,
+                     const gfx::IntSize& aSize, bool aIsOpaque,
                      SurfacePoolHandleAndroid* aSurfacePoolHandle);
-  NativeLayerAndroid(ASurfaceControl* aParent, bool aIsOpaque);
-  NativeLayerAndroid(ASurfaceControl* aParent, gfx::DeviceColor aColor);
+  NativeLayerAndroid(UniquePtr<ASurfaceControl> aSurfaceControl, bool aIsOpaque,
+                     SurfacePoolHandleAndroid* aSurfacePoolHandle);
+  NativeLayerAndroid(UniquePtr<ASurfaceControl> aSurfaceControl,
+                     gfx::DeviceColor aColor,
+                     SurfacePoolHandleAndroid* aSurfacePoolHandle);
   ~NativeLayerAndroid() override;
 
   void HandlePartialUpdate(const MutexAutoLock& aProofOfLock);

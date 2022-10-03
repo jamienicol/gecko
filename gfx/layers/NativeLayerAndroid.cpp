@@ -46,28 +46,49 @@ already_AddRefed<NativeLayer> NativeLayerRootAndroid::CreateLayer(
     SurfacePoolHandle* aSurfacePoolHandle) {
   // printf_stderr("jamiedbg NativeLayerRootAndroid::CreateLayer() %s\n",
   //               mozilla::ToString(aSize).c_str());
+  auto pool = aSurfacePoolHandle->AsSurfacePoolHandleAndroid();
+  UniquePtr<ASurfaceControl> surfaceControl =
+      pool->ObtainSurfaceControl(mSurfaceControl.get());
+  if (!surfaceControl) {
+    return nullptr;
+  }
+
   RefPtr<NativeLayer> layer =
-      new NativeLayerAndroid(mSurfaceControl.get(), aSize, aIsOpaque,
-                             aSurfacePoolHandle->AsSurfacePoolHandleAndroid());
+      new NativeLayerAndroid(std::move(surfaceControl), aSize, aIsOpaque, pool);
   return layer.forget();
 }
 
 already_AddRefed<NativeLayer>
-NativeLayerRootAndroid::CreateLayerForExternalTexture(bool aIsOpaque) {
+NativeLayerRootAndroid::CreateLayerForExternalTexture(
+    bool aIsOpaque, SurfacePoolHandle* aSurfacePoolHandle) {
   // printf_stderr("jamiedbg
   // NativeLayerRootAndroid::CreateLayerForExternalTexture()\n");
+  auto pool = aSurfacePoolHandle->AsSurfacePoolHandleAndroid();
+  UniquePtr<ASurfaceControl> surfaceControl =
+      pool->ObtainSurfaceControl(mSurfaceControl.get());
+  if (!surfaceControl) {
+    return nullptr;
+  }
+
   RefPtr<NativeLayer> layer =
-      new NativeLayerAndroid(mSurfaceControl.get(), aIsOpaque);
+      new NativeLayerAndroid(std::move(surfaceControl), aIsOpaque, pool);
   return layer.forget();
 }
 
 already_AddRefed<NativeLayer> NativeLayerRootAndroid::CreateLayerForColor(
-    gfx::DeviceColor aColor) {
+    gfx::DeviceColor aColor, SurfacePoolHandle* aSurfacePoolHandle) {
   // printf_stderr("jamiedbg NativeLayerRootAndroid::CreateLayerForColor()
   // %s\n",
   //               mozilla::ToString(aColor).c_str());
+  auto pool = aSurfacePoolHandle->AsSurfacePoolHandleAndroid();
+  UniquePtr<ASurfaceControl> surfaceControl =
+      pool->ObtainSurfaceControl(mSurfaceControl.get());
+  if (!surfaceControl) {
+    return nullptr;
+  }
+
   RefPtr<NativeLayer> layer =
-      new NativeLayerAndroid(mSurfaceControl.get(), aColor);
+      new NativeLayerAndroid(std::move(surfaceControl), aColor, pool);
   return layer.forget();
 }
 
@@ -141,10 +162,10 @@ bool NativeLayerRootAndroid::CommitToScreen() {
   }
 
   // printf_stderr("jamiedbg prevBuffers:\n");
-  for (const auto& it : prevSurfaces) {
-    // printf_stderr("jamiedbg sc %p, buffer: %p\n", it.first,
-    //               it.second.mSurface.get());
-  }
+  // for (const auto& it : prevSurfaces) {
+  // printf_stderr("jamiedbg sc %p, buffer: %p\n", it.first,
+  //               it.second.mSurface.get());
+  // }
 
   mReleasedSurfaces.push(std::move(prevSurfaces));
 
@@ -202,34 +223,36 @@ void NativeLayerRootAndroid::OnTransactionComplete(
 }
 
 NativeLayerAndroid::NativeLayerAndroid(
-    ASurfaceControl* parent, const gfx::IntSize& aSize, bool aIsOpaque,
-    SurfacePoolHandleAndroid* aSurfacePoolHandle)
+    UniquePtr<ASurfaceControl> aSurfaceControl, const gfx::IntSize& aSize,
+    bool aIsOpaque, SurfacePoolHandleAndroid* aSurfacePoolHandle)
     : mMutex("NativeLayerAndroid"),
       mSurfacePoolHandle(aSurfacePoolHandle),
       mSize(aSize),
       mIsOpaque(aIsOpaque),
-      mSurfaceControl(AndroidSurfaceControlApi::Get()->ASurfaceControl_create(
-          parent, "NativeLayerAndroid")) {
+      mSurfaceControl(std::move(aSurfaceControl)) {
   // printf_stderr("jamiedbg new NativeLayerAndroid() %p\n", this);
   MOZ_RELEASE_ASSERT(mSurfacePoolHandle,
                      "Need a non-null surface pool handle.");
 }
-NativeLayerAndroid::NativeLayerAndroid(ASurfaceControl* parent, bool aIsOpaque)
+
+// FIXME: just use the one shared constructor?
+NativeLayerAndroid::NativeLayerAndroid(
+    UniquePtr<ASurfaceControl> aSurfaceControl, bool aIsOpaque,
+    SurfacePoolHandleAndroid* aSurfacePoolHandle)
     : mMutex("NativeLayerAndroid"),
-      mSurfacePoolHandle(nullptr),
+      mSurfacePoolHandle(aSurfacePoolHandle),
       mIsOpaque(aIsOpaque),
-      mSurfaceControl(AndroidSurfaceControlApi::Get()->ASurfaceControl_create(
-          parent, "NativeLayerAndroid")) {
+      mSurfaceControl(std::move(aSurfaceControl)) {
   // printf_stderr("jamiedbg new NativeLayerAndroid() %p\n", this);
 }
 
-NativeLayerAndroid::NativeLayerAndroid(ASurfaceControl* parent,
-                                       gfx::DeviceColor aColor)
+NativeLayerAndroid::NativeLayerAndroid(
+    UniquePtr<ASurfaceControl> aSurfaceControl, gfx::DeviceColor aColor,
+    SurfacePoolHandleAndroid* aSurfacePoolHandle)
     : mMutex("NativeLayerAndroid"),
-      mSurfacePoolHandle(nullptr),
+      mSurfacePoolHandle(aSurfacePoolHandle),
       mColor(Some(aColor)),
-      mSurfaceControl(AndroidSurfaceControlApi::Get()->ASurfaceControl_create(
-          parent, "NativeLayerAndroid")) {
+      mSurfaceControl(std::move(aSurfaceControl)) {
   // printf_stderr("jamiedbg new NativeLayerAndroid() %p\n", this);
 }
 
@@ -249,6 +272,10 @@ NativeLayerAndroid::~NativeLayerAndroid() {
     // return the buffer to the pool immediately.
     MOZ_ASSERT(!mFrontBuffer->IsConsumerAttached());
     mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
+  }
+
+  if (mSurfaceControl) {
+    mSurfacePoolHandle->ReturnSurfaceControl(std::move(mSurfaceControl));
   }
 }
 

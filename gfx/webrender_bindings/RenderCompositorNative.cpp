@@ -323,7 +323,8 @@ void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   RefPtr<layers::NativeLayer> layer =
-      mNativeLayerRoot->CreateLayerForExternalTexture(aIsOpaque);
+      mNativeLayerRoot->CreateLayerForExternalTexture(aIsOpaque,
+                                                      mSurfacePoolHandle);
 
   Surface surface{DeviceIntSize{}, aIsOpaque};
   surface.mIsExternal = true;
@@ -340,7 +341,7 @@ void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
 
   gfx::DeviceColor color(aColor.r, aColor.g, aColor.b, aColor.a);
   RefPtr<layers::NativeLayer> layer =
-      mNativeLayerRoot->CreateLayerForColor(color);
+      mNativeLayerRoot->CreateLayerForColor(color, mSurfacePoolHandle);
 
   Surface surface{DeviceIntSize{}, (aColor.a >= 1.0f)};
   surface.mNativeLayers.insert({TileKey(0, 0), layer});

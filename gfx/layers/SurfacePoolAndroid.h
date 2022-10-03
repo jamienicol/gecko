@@ -6,6 +6,7 @@
 #ifndef mozilla_layers_SurfacePoolAndroid_h
 #define mozilla_layers_SurfacePoolAndroid_h
 
+#include "AndroidSurfaceControl.h"
 #include <android/hardware_buffer.h>
 #include <cstdint>
 #include "GLContext.h"
@@ -78,6 +79,10 @@ class SurfacePoolAndroid final : public SurfacePool {
   UniquePtr<HardwareBufferSurface> ObtainBufferFromPool(
       const gfx::IntSize& aSize, gl::GLContext* aGL);
   void ReturnBufferToPool(UniquePtr<HardwareBufferSurface> aBuffer);
+
+  UniquePtr<ASurfaceControl> ObtainSurfaceControl(ASurfaceControl* aParent);
+  void ReturnSurfaceControl(UniquePtr<ASurfaceControl> aSurfaceControl);
+
   void EnforcePoolSizeLimit();
   void CollectPendingSurfaces();
 
@@ -85,7 +90,9 @@ class SurfacePoolAndroid final : public SurfacePool {
 
   std::vector<UniquePtr<HardwareBufferSurface>> mPendingEntries;
   std::vector<UniquePtr<HardwareBufferSurface>> mAvailableEntries;
-  size_t mPoolSizeLimit;
+  std::vector<UniquePtr<ASurfaceControl>> mSurfaceControls;
+  // FIXME: enforce size limit
+  // size_t mPoolSizeLimit;
 };
 
 // A surface pool handle that is stored on NativeLayerAndroid and keeps the
@@ -103,6 +110,8 @@ class SurfacePoolHandleAndroid final : public SurfacePoolHandle {
   UniquePtr<HardwareBufferSurface> ObtainBufferFromPool(
       const gfx::IntSize& aSize);
   void ReturnBufferToPool(UniquePtr<HardwareBufferSurface> aBuffer);
+  UniquePtr<ASurfaceControl> ObtainSurfaceControl(ASurfaceControl* aParent);
+  void ReturnSurfaceControl(UniquePtr<ASurfaceControl> aSurfaceControl);
   const auto& gl() { return mGL; }
 
  private:

@@ -56,9 +56,9 @@ class NativeLayerRoot {
       const gfx::IntSize& aSize, bool aIsOpaque,
       SurfacePoolHandle* aSurfacePoolHandle) = 0;
   virtual already_AddRefed<NativeLayer> CreateLayerForExternalTexture(
-      bool aIsOpaque) = 0;
+      bool aIsOpaque, SurfacePoolHandle* aSurfacePoolHandle) = 0;
   virtual already_AddRefed<NativeLayer> CreateLayerForColor(
-      gfx::DeviceColor aColor) {
+      gfx::DeviceColor aColor, SurfacePoolHandle* aSurfacePoolHandle) {
     return nullptr;
   }
 
