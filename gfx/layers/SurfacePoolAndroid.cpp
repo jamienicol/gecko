@@ -213,25 +213,23 @@ Maybe<GLuint> HardwareBufferSurface::GetFramebuffer(bool aNeedsDepthBuffer) {
     const auto& gle = gl::GLContextEGL::Cast(mGL);
     const auto& egl = gle->mEgl;
 
-    // FIXME: Slow on S22. Slightly less slow on Pixel 6a.
-    // EGLSync sync =
-    //     egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
-    // if (sync) {
-    //   // printf_stderr("jamiedbg eglCreateSync() success\n");
-    //   if (egl->IsExtensionSupported(gl::EGLExtension::KHR_wait_sync)) {
-    //     // FIXME: slow on Pixel 6a. Doesn't show up on S22.
-    //     egl->fWaitSync(sync, 0);
-    //   } else {
-    //     egl->fClientWaitSync(sync, 0, LOCAL_EGL_FOREVER);
-    //   }
-    //   egl->fDestroySync(sync);
-    // } else {
-    // printf_stderr("jamiedbg eglCreateSync() failed\n");
-    // FIXME: If eglCreateSync fails, presumably EGL does _not_
-    // take ownership of the fd, meaning we must manually close
-    // it.
-    //   close(fence);
-    // }
+    EGLSync sync =
+        egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
+    if (sync) {
+      // printf_stderr("jamiedbg eglCreateSync() success\n");
+      if (egl->IsExtensionSupported(gl::EGLExtension::KHR_wait_sync)) {
+        egl->fWaitSync(sync, 0);
+      } else {
+        egl->fClientWaitSync(sync, 0, LOCAL_EGL_FOREVER);
+      }
+      egl->fDestroySync(sync);
+    } else {
+      // printf_stderr("jamiedbg eglCreateSync() failed\n");
+      // FIXME: If eglCreateSync fails, presumably EGL does _not_
+      // take ownership of the fd, meaning we must manually close
+      // it.
+      close(fence);
+    }
   } else {
     // printf_stderr("jamiedbg mConsumerReleaseFence is nothing\n");
   }
@@ -265,20 +263,20 @@ void HardwareBufferSurface::UnlockFramebuffer() {
   const auto& gle = gl::GLContextEGL::Cast(mGL);
   const auto& egl = gle->mEgl;
 
-  // EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID,
-  // nullptr); if (sync) {
-  //   // printf_stderr("jamiedbg eglCreateSync succeeded\n");
-  //   int fence = egl->fDupNativeFenceFDANDROID(sync);
-  //   if (fence >= 0) {
-  //     // printf_stderr("jamiedbg eglDupNativeFenceFDANDROID succeeded\n");
-  //     mConsumerAcquireFence = Some(fence);
-  //   } else {
-  //     // printf_stderr("jamiedbg eglDupNativeFenceFDANDROID failed\n");
-  //   }
-  //   egl->fDestroySync(sync);
-  // } else {
-  //   // printf_stderr("jamiedbg eglCreateSync failed\n");
-  // }
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+  if (sync) {
+    // printf_stderr("jamiedbg eglCreateSync succeeded\n");
+    int fence = egl->fDupNativeFenceFDANDROID(sync);
+    if (fence >= 0) {
+      // printf_stderr("jamiedbg eglDupNativeFenceFDANDROID succeeded\n");
+      mConsumerAcquireFence = Some(fence);
+    } else {
+      // printf_stderr("jamiedbg eglDupNativeFenceFDANDROID failed\n");
+    }
+    egl->fDestroySync(sync);
+  } else {
+    // printf_stderr("jamiedbg eglCreateSync failed\n");
+  }
 }
 
 bool HardwareBufferSurface::IsConsumerAttached() const {
