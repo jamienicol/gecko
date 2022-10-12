@@ -43,6 +43,9 @@ class NativeLayerRootAndroid : public NativeLayerRoot {
   void PrepareForCommit() override;
   bool CommitToScreen() override;
 
+  // FIXME: better name
+  void SetLayersRenderedFence(int aFence);
+
   struct ReleasedSurface {
     UniquePtr<HardwareBufferSurface> mSurface;
     RefPtr<layers::SurfacePoolHandleAndroid> mSurfacePoolHandle;
@@ -53,6 +56,8 @@ class NativeLayerRootAndroid : public NativeLayerRoot {
   ~NativeLayerRootAndroid();
 
   void OnTransactionComplete(ASurfaceTransactionStats* stats);
+
+  Maybe<int> mLayersRenderedFence;
 
   Mutex mMutex MOZ_UNANNOTATED;
 
@@ -123,7 +128,7 @@ class NativeLayerAndroid final : public NativeLayer {
   void Update(ASurfaceTransaction* aTransaction, ASurfaceControl* aParent,
               std::map<ASurfaceControl*,
                        NativeLayerRootAndroid::ReleasedSurface>& aPrevBuffers,
-              int z);
+              int z, const Maybe<int>& aFence);
   void Remove(ASurfaceTransaction* aTransaction,
               std::map<ASurfaceControl*,
                        NativeLayerRootAndroid::ReleasedSurface>& aPrevSurfaces);

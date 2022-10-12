@@ -232,32 +232,6 @@ Maybe<GLuint> HardwareBufferSurface::GetFramebuffer(bool aNeedsDepthBuffer) {
   return Some(mFramebuffer->mFB);
 }
 
-void HardwareBufferSurface::UnlockFramebuffer() {
-  // printf_stderr("jamiedbg HardwareBufferSurface::UnlockFramebuffer()\n");
-  MOZ_ASSERT(mConsumerAcquireFence.isNothing());
-  MOZ_ASSERT(mConsumerReleaseFence.isNothing());
-  MOZ_ASSERT(!mIsConsumerAttached);
-  MOZ_ASSERT(!mLocked);
-
-  const auto& gle = gl::GLContextEGL::Cast(mGL);
-  const auto& egl = gle->mEgl;
-
-  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
-  if (sync) {
-    // printf_stderr("jamiedbg eglCreateSync succeeded\n");
-    int fence = egl->fDupNativeFenceFDANDROID(sync);
-    if (fence >= 0) {
-      // printf_stderr("jamiedbg eglDupNativeFenceFDANDROID succeeded\n");
-      mConsumerAcquireFence = Some(fence);
-    } else {
-      // printf_stderr("jamiedbg eglDupNativeFenceFDANDROID failed\n");
-    }
-    egl->fDestroySync(sync);
-  } else {
-    // printf_stderr("jamiedbg eglCreateSync failed\n");
-  }
-}
-
 bool HardwareBufferSurface::IsConsumerAttached() const {
   return mIsConsumerAttached;
 }

@@ -157,9 +157,12 @@ bool NativeLayerRootAndroid::CommitToScreen() {
 
   int z = 0;
   for (RefPtr<NativeLayerAndroid>& layer : mSublayers) {
-    layer->Update(transaction, mSurfaceControl.get(), prevSurfaces, z);
+    layer->Update(transaction, mSurfaceControl.get(), prevSurfaces, z,
+                  mLayersRenderedFence);
     z++;
   }
+
+  mLayersRenderedFence.apply(::close).reset();
 
   // printf_stderr("jamiedbg prevBuffers:\n");
   // for (const auto& it : prevSurfaces) {
@@ -181,6 +184,14 @@ bool NativeLayerRootAndroid::CommitToScreen() {
   api->ASurfaceTransaction_delete(transaction);
   return true;
 };
+
+void NativeLayerRootAndroid::SetLayersRenderedFence(int aFence) {
+  // This must only be called once per frame, after the OpenGL commands to
+  // render every layer have been submitted. CommitToScreen() will then take
+  // this value, meaning it will be Nothing again next time this function is
+  // called.
+  mLayersRenderedFence.emplace(aFence);
+}
 
 void NativeLayerRootAndroid::OnTransactionComplete(
     ASurfaceTransactionStats* stats) {
@@ -472,9 +483,7 @@ void NativeLayerAndroid::NotifySurfaceReady() {
   //             this);
   MOZ_ASSERT(!mFrontBuffer);
   MOZ_ASSERT(mInProgressBuffer);
-  if (mSurfacePoolHandle->gl()) {
-    mInProgressBuffer->UnlockFramebuffer();
-  } else {
+  if (!mSurfacePoolHandle->gl()) {
     mInProgressBuffer->Unlock();
   }
   mFrontBuffer = std::move(mInProgressBuffer);
@@ -490,7 +499,7 @@ void NativeLayerAndroid::Update(
     ASurfaceTransaction* aTransaction, ASurfaceControl* aParent,
     std::map<ASurfaceControl*, NativeLayerRootAndroid::ReleasedSurface>&
         aPrevSurfaces,
-    int z) {
+    int z, const Maybe<int>& aFence) {
   // printf_stderr("jamiedbg NativeLayerAndroid::Update() %p\n", this);
   auto api = AndroidSurfaceControlApi::Get();
   api->ASurfaceTransaction_reparent(aTransaction, mSurfaceControl.get(),
@@ -508,7 +517,10 @@ void NativeLayerAndroid::Update(
   if (mFrontBuffer) {
     if (mFrontBufferChanged) {
       mFrontBufferChanged = false;
-      int32_t fence = mFrontBuffer->SetConsumerAttached();
+      int fence = mFrontBuffer->SetConsumerAttached();
+      if (fence == -1 && aFence.isSome()) {
+        fence = ::dup(*aFence);
+      }
       // printf_stderr("jamiedbg SurfaceControl %p setting buffer %p, fence
       // %d\n",
       //               mSurfaceControl.get(), mFrontBuffer.get(), fence);

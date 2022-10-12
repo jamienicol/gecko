@@ -42,7 +42,6 @@ class HardwareBufferSurface {
   void Unlock();
 
   Maybe<GLuint> GetFramebuffer(bool aNeedsDepthBuffer);
-  void UnlockFramebuffer();
 
   bool IsConsumerAttached() const;
   int32_t SetConsumerAttached();

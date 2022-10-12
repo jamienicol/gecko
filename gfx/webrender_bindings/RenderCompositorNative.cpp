@@ -21,6 +21,10 @@
 #include "RenderCompositorRecordedFrame.h"
 #include "nsDebug.h"
 
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/layers/NativeLayerAndroid.h"
+#endif
+
 namespace mozilla::wr {
 
 extern LazyLogModule gRenderThreadLog;
@@ -528,7 +532,24 @@ void RenderCompositorNativeOGL::DoSwap() {
   }
 }
 
-void RenderCompositorNativeOGL::DoFlush() { mGL->fFlush(); }
+void RenderCompositorNativeOGL::DoFlush() {
+#ifdef MOZ_WIDGET_ANDROID
+  const auto& gle = gl::GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
+
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+  if (sync) {
+    int fence = egl->fDupNativeFenceFDANDROID(sync);
+    if (fence >= 0) {
+      mNativeLayerRoot->AsNativeLayerRootAndroid()->SetLayersRenderedFence(
+          fence);
+    }
+    egl->fDestroySync(sync);
+  }
+#else
+  mGL->fFlush();
+#endif
+}
 
 void RenderCompositorNativeOGL::InsertFrameDoneSync() {
 #ifdef XP_MACOSX
