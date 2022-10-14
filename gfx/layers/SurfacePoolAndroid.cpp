@@ -11,6 +11,8 @@
 #include <android/hardware_buffer.h>
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
+#include <poll.h>
 #include "AndroidHardwareBuffer.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Maybe.h"
@@ -123,6 +125,7 @@ HardwareBufferSurface::~HardwareBufferSurface() {
   MOZ_CRASH(
       "Until I start enforcing pool size, these should never be destructed");
   if (mConsumerReleaseFence) {
+    // FIXME: can this crash if the fence is not signalled yet?
     close(*mConsumerReleaseFence);
   }
   if (mConsumerAcquireFence) {
@@ -165,6 +168,7 @@ RefPtr<gfx::DrawTarget> HardwareBufferSurface::WriteLock() {
 
   auto api = AndroidHardwareBufferApi::Get();
   unsigned char* buf;
+  // FIXME: assert Nothing like we do for GL case? we should still be in pool if fence not signalled
   int32_t fence = mConsumerReleaseFence.take().valueOr(-1);
   int err = api->Lock(GetBuffer(), AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN, fence,
                       nullptr, (void**)&buf);
@@ -204,34 +208,9 @@ Maybe<GLuint> HardwareBufferSurface::GetFramebuffer(bool aNeedsDepthBuffer) {
     return Nothing();
   }
 
+  // FIXME: change this to assert Nothing. it shouldn't be out of pool if we are waiting on fence
   if (mConsumerReleaseFence) {
-    // printf_stderr("jamiedbg mConsumerReleaseFence is set\n");
-    int32_t fence = *mConsumerReleaseFence.take();
-    const EGLint attribs[] = {LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fence,
-                              LOCAL_EGL_NONE};
-
-    const auto& gle = gl::GLContextEGL::Cast(mGL);
-    const auto& egl = gle->mEgl;
-
-    EGLSync sync =
-        egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
-    if (sync) {
-      // printf_stderr("jamiedbg eglCreateSync() success\n");
-      if (egl->IsExtensionSupported(gl::EGLExtension::KHR_wait_sync)) {
-        egl->fWaitSync(sync, 0);
-      } else {
-        egl->fClientWaitSync(sync, 0, LOCAL_EGL_FOREVER);
-      }
-      egl->fDestroySync(sync);
-    } else {
-      // printf_stderr("jamiedbg eglCreateSync() failed\n");
-      // FIXME: If eglCreateSync fails, presumably EGL does _not_
-      // take ownership of the fd, meaning we must manually close
-      // it.
-      close(fence);
-    }
-  } else {
-    // printf_stderr("jamiedbg mConsumerReleaseFence is nothing\n");
+      // close(*mConsumerReleaseFence);
   }
 
   if (mFramebuffer) {
@@ -311,6 +290,32 @@ void HardwareBufferSurface::OnConsumerRelease(int32_t aFence) {
   mConsumerReleaseFence = Some(aFence);
 }
 
+bool HardwareBufferSurface::ConsumerHasReleased() {
+  // printf_stderr("jamiedbg ConsumerHasReleased() %s\n",
+  //               mozilla::ToString(mConsumerReleaseFence).c_str());
+  if (!mConsumerReleaseFence || *mConsumerReleaseFence == -1) {
+    // printf_stderr("jamiedbg no consumer release fence set\n");
+    return true;
+  }
+
+  pollfd p;
+  p.fd = *mConsumerReleaseFence;
+  p.events = POLLIN;
+  int ret = ::poll(&p, 1, 0);
+  if (ret == -1) {
+    // printf_stderr("jamiedbg Error in poll(): %s\n", strerror(errno));
+  } else if (ret == 0) {
+    // printf_stderr("jamiedbg Fence not yet signalled\n");
+  } else {
+    // printf_stderr("jamiedbg fence signalled. revents: 0x%hx\n", p.revents);
+    close(*mConsumerReleaseFence);
+    mConsumerReleaseFence.reset();
+    return true;
+  }
+
+  return false;
+}
+
 /* static */ RefPtr<SurfacePool> SurfacePool::Create(size_t aPoolSizeLimit) {
   return new SurfacePoolAndroid(aPoolSizeLimit);
 }
@@ -362,19 +367,15 @@ UniquePtr<HardwareBufferSurface> SurfacePoolAndroid::ObtainBufferFromPool(
 
 void SurfacePoolAndroid::ReturnBufferToPool(
     UniquePtr<HardwareBufferSurface> aBuffer) {
+  // printf_stderr("jamiedbg ReturnBufferToPool()\n");
   MutexAutoLock lock(mMutex);
-  if (aBuffer->IsConsumerAttached()) {
-    // printf_stderr(
-    //     "jamiedbg SurfacePoolAndroid::ReturnBufferToPool() %p pending\n",
-    //     aBuffer.get());
-    mPendingEntries.push_back(std::move(aBuffer));
-  } else {
-    // FIXME: if no longer attached but fence not signalled we should put in
-    // pending entries.
-    // printf_stderr(
-    //     "jamiedbg SurfacePoolAndroid::ReturnBufferToPool() %p available\n",
-    //     aBuffer.get());
+  MOZ_ASSERT(!aBuffer->IsConsumerAttached());
+  if (aBuffer->ConsumerHasReleased()) {
+    // printf_stderr("jamiedbg adding to available entries\n");
     mAvailableEntries.push_back(std::move(aBuffer));
+  } else {
+    // printf_stderr("jamiedbg adding to pending entries\n");
+    mPendingEntries.push_back(std::move(aBuffer));
   }
   // FIXME: keep track of in use entries like we do on wayland?
 }
@@ -404,21 +405,20 @@ void SurfacePoolAndroid::EnforcePoolSizeLimit() {
 }
 
 void SurfacePoolAndroid::CollectPendingSurfaces() {
+  // printf_stderr("jamiedbg CollectPendingSurfaces()\n");
   MutexAutoLock lock(mMutex);
   mPendingEntries.erase(
-      std::remove_if(
-          mPendingEntries.begin(), mPendingEntries.end(),
-          [&](auto& entry) {
-            if (!entry->IsConsumerAttached()) {
-              // printf_stderr("jamiedbg Moving buffer %p to available pool\n",
-              //               entry.get());
-              // FIXME: If fence not signalled we shouldn't move to available
-              // yet
-              mAvailableEntries.push_back(std::move(entry));
-              return true;
-            }
-            return false;
-          }),
+      std::remove_if(mPendingEntries.begin(), mPendingEntries.end(),
+                     [&](auto& entry) {
+                       if (entry->ConsumerHasReleased()) {
+                         // printf_stderr(
+                         //     "jamiedbg Moving buffer %p to available pool\n",
+                         //     entry.get());
+                         mAvailableEntries.push_back(std::move(entry));
+                         return true;
+                       }
+                       return false;
+                     }),
       mPendingEntries.end());
 }
 

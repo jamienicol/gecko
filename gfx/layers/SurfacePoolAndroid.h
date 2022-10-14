@@ -47,6 +47,8 @@ class HardwareBufferSurface {
   bool IsConsumerAttached() const;
   int32_t SetConsumerAttached();
   void OnConsumerRelease(int32_t aFence);
+  // FIXME: better name
+  bool ConsumerHasReleased();
 
  private:
   AHardwareBuffer* mBuffer = nullptr;
