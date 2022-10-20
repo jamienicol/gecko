@@ -630,6 +630,7 @@ void NativeLayerAndroid::Remove(
     mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
   } else if (mFrontBuffer) {
       if (mFrontBuffer->IsConsumerAttached()) {
+        api->ASurfaceTransaction_setBuffer(aTransaction, mSurfaceControl.get(), nullptr, -1);
           // FIXME: do we need to explicitly unset the surface's buffer here?
           aPrevSurfaces.insert({mSurfaceControl.get(),
                   NativeLayerRootAndroid::ReleasedSurface{
