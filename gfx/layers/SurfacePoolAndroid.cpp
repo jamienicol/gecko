@@ -208,10 +208,7 @@ Maybe<GLuint> HardwareBufferSurface::GetFramebuffer(bool aNeedsDepthBuffer) {
     return Nothing();
   }
 
-  // FIXME: change this to assert Nothing. it shouldn't be out of pool if we are waiting on fence
-  if (mConsumerReleaseFence) {
-      // close(*mConsumerReleaseFence);
-  }
+  MOZ_ASSERT(mConsumerReleaseFence.isNothing());
 
   if (mFramebuffer) {
     if (!aNeedsDepthBuffer || mFramebuffer->HasDepth()) {
@@ -261,7 +258,9 @@ void HardwareBufferSurface::OnConsumerRelease(int32_t aFence) {
   // }
   MOZ_ASSERT(mConsumerAcquireFence.isNothing());
 
-  mConsumerReleaseFence = Some(aFence);
+  if (aFence != -1) {
+    mConsumerReleaseFence = Some(aFence);
+  }
 }
 
 bool HardwareBufferSurface::ConsumerHasReleased() {
