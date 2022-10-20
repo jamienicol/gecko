@@ -58,7 +58,7 @@ RecentEventsBuffer<Event>::RecentEventsBuffer(TimeDuration maxAge)
 template <typename Event>
 void RecentEventsBuffer<Event>::push(Event event) {
   // Events must be pushed in chronological order
-  MOZ_ASSERT(mBuffer.empty() || mBuffer.back().mTimeStamp <= event.mTimeStamp);
+  // MOZ_ASSERT(mBuffer.empty() || mBuffer.back().mTimeStamp <= event.mTimeStamp);
 
   mBuffer.push_back(event);
 
