@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <poll.h>
 #include "AndroidHardwareBuffer.h"
 #include "mozilla/Assertions.h"
@@ -355,21 +356,21 @@ void SurfacePoolAndroid::ReturnBufferToPool(
 
 UniquePtr<ASurfaceControl> SurfacePoolAndroid::ObtainSurfaceControl(
     ASurfaceControl* aParent) {
-  if (mSurfaceControls.empty()) {
+  if (mAvailableSurfaceControls.empty()) {
     auto api = AndroidSurfaceControlApi::Get();
     UniquePtr<ASurfaceControl> surfaceControl(
         api->ASurfaceControl_create(aParent, "NativeLayerAndroid"));
     return surfaceControl;
   }
 
-  auto surfaceControl = std::move(mSurfaceControls.back());
-  mSurfaceControls.pop_back();
+  auto surfaceControl = std::move(mAvailableSurfaceControls.back());
+  mAvailableSurfaceControls.pop_back();
   return surfaceControl;
 }
 
 void SurfacePoolAndroid::ReturnSurfaceControl(
     UniquePtr<ASurfaceControl> aSurfaceControl) {
-  mSurfaceControls.push_back(std::move(aSurfaceControl));
+  mPendingSurfaceControls.push_back(std::move(aSurfaceControl));
 }
 
 void SurfacePoolAndroid::EnforcePoolSizeLimit() {
@@ -393,6 +394,11 @@ void SurfacePoolAndroid::CollectPendingSurfaces() {
                        return false;
                      }),
       mPendingEntries.end());
+
+  mAvailableSurfaceControls.insert(mAvailableSurfaceControls.end(),
+                                   std::make_move_iterator(mPendingSurfaceControls.begin()),
+                                   std::make_move_iterator(mPendingSurfaceControls.end()));
+  mPendingSurfaceControls.clear();
 }
 
 SurfacePoolHandleAndroid::SurfacePoolHandleAndroid(

@@ -91,7 +91,8 @@ class SurfacePoolAndroid final : public SurfacePool {
 
   std::vector<UniquePtr<HardwareBufferSurface>> mPendingEntries;
   std::vector<UniquePtr<HardwareBufferSurface>> mAvailableEntries;
-  std::vector<UniquePtr<ASurfaceControl>> mSurfaceControls;
+  std::vector<UniquePtr<ASurfaceControl>> mPendingSurfaceControls;
+  std::vector<UniquePtr<ASurfaceControl>> mAvailableSurfaceControls;
   // FIXME: enforce size limit
   // size_t mPoolSizeLimit;
 };

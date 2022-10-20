@@ -285,9 +285,7 @@ NativeLayerAndroid::~NativeLayerAndroid() {
     mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
   }
 
-  if (mSurfaceControl) {
-    mSurfacePoolHandle->ReturnSurfaceControl(std::move(mSurfaceControl));
-  }
+  mSurfacePoolHandle->ReturnSurfaceControl(std::move(mSurfaceControl));
 }
 
 gfx::IntSize NativeLayerAndroid::GetSize() { return mSize; }
