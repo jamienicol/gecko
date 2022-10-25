@@ -68,6 +68,7 @@ class NativeLayerRootAndroid : public NativeLayerRoot {
   bool mNewLayers = false;
 
   std::queue<std::map<ASurfaceControl*, ReleasedSurface>> mReleasedSurfaces;
+  std::queue<nsTArray<RefPtr<NativeLayerAndroid>>> mRemovedLayers;
 };
 
 class NativeLayerAndroid final : public NativeLayer {

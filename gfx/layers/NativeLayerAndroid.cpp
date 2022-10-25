@@ -147,8 +147,11 @@ bool NativeLayerRootAndroid::CommitToScreen() {
       // printf_stderr("jamiedbg Unparenting old sublayer\n");
       layer->Remove(transaction, prevSurfaces);
     }
+    mRemovedLayers.push(std::move(mOldSublayers));
     mOldSublayers.Clear();
     mNewLayers = false;
+  } else {
+    mRemovedLayers.push({});
   }
 
   // FIXME: set clear color if there are no layers?
@@ -231,6 +234,8 @@ void NativeLayerRootAndroid::OnTransactionComplete(
 
   mReleasedSurfaces.pop();
   api->ASurfaceTransactionStats_releaseASurfaceControls(surfaceControls);
+
+  mRemovedLayers.pop();
 }
 
 NativeLayerAndroid::NativeLayerAndroid(
