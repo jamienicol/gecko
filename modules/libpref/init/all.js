@@ -4204,3 +4204,5 @@ pref("cookiebanners.listService.testRules", "[]");
 // The domains we will block from installing SitePermsAddons. Comma-separated
 // full domains: any subdomains of the domains listed will also be allowed.
 pref("dom.sitepermsaddon-provider.separatedBlocklistedDomains", "shopee.co.th");
+
+pref("layers.gpu-process.enabled", false);
