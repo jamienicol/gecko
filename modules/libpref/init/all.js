@@ -4205,3 +4205,10 @@ pref("cookiebanners.listService.testSkipRemoteSettings", false);
 // The domains we will block from installing SitePermsAddons. Comma-separated
 // full domains: any subdomains of the domains listed will also be allowed.
 pref("dom.sitepermsaddon-provider.separatedBlocklistedDomains", "shopee.co.th");
+
+pref("gfx.webrender.compositor", true);
+// pref("gfx.webrender.software", true);
+pref("layers.gpu-process.enabled", false);
+
+// Broken with native compositor
+pref("gfx.webrender.low-quality-pinch-zoom", false);
