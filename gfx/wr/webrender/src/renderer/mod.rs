@@ -1262,9 +1262,10 @@ impl Renderer {
         );
 
         // Update the debug overlay surface, if we are running in native compositor mode.
-        if let CompositorKind::Native { .. } = self.current_compositor_kind {
-            let compositor = self.compositor_config.compositor().unwrap();
-
+        // if let CompositorKind::Native { .. } = self.current_compositor_kind {
+        //     let compositor = self.compositor_config.compositor().unwrap();
+        if let Some(compositor) = self.compositor_config.compositor() {
+            warn!("jamiedbg update_debug_overlay() native compositor");
             // If there is a current surface, destroy it if we don't need it for this frame, or if
             // the size has changed.
             if let Some(current_size) = self.debug_overlay_state.current_size {

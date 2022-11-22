@@ -264,6 +264,9 @@ pub enum CompositorConfig {
         /// A client provided interface to a compositor handling partial present.
         /// Required if webrender must query the backbuffer's age.
         partial_present: Option<Box<dyn PartialPresentCompositor>>,
+        /// A client provided interface to a native / OS compositor. This can be used
+        /// to add overlay surfaces to be composited by the native compositor.
+        compositor: Option<Box<dyn Compositor>>,
     },
     /// Use a native OS compositor to draw tiles. This requires clients to implement
     /// the Compositor trait, but can be significantly more power efficient on operating
@@ -280,8 +283,8 @@ impl CompositorConfig {
             CompositorConfig::Native { ref mut compositor, .. } => {
                 Some(compositor)
             }
-            CompositorConfig::Draw { .. } => {
-                None
+            CompositorConfig::Draw { ref mut compositor, .. } => {
+                compositor.as_mut()
             }
         }
     }
@@ -306,6 +309,7 @@ impl Default for CompositorConfig {
             max_partial_present_rects: 0,
             draw_previous_partial_present_regions: false,
             partial_present: None,
+            compositor: None,
         }
     }
 }

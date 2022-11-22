@@ -1596,6 +1596,7 @@ pub extern "C" fn wr_window_new(
             compositor: Box::new(WrCompositor(compositor)),
         }
     } else {
+        warn!("jamiedbg Creating CompositorConfig::Draw");
         CompositorConfig::Draw {
             max_partial_present_rects,
             draw_previous_partial_present_regions,
@@ -1603,6 +1604,11 @@ pub extern "C" fn wr_window_new(
                 Some(Box::new(WrPartialPresentCompositor(compositor)))
             } else {
                 None
+            },
+            compositor: if compositor == ptr::null_mut() {
+                None
+            } else {
+                Some(Box::new(WrCompositor(compositor)))
             },
         }
     };

@@ -509,6 +509,8 @@ pub fn create_webrender_instance(
         }
     };
 
+    warn!("jamiedbg create_webrender_instance() compositor_kind: {:?}", compositor_kind);
+
     let config = FrameBuilderConfig {
         default_font_render_mode,
         dual_source_blending_is_supported: use_dual_source_blending,
