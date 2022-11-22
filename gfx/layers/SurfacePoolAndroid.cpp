@@ -29,7 +29,7 @@ using gl::GLContext;
 
 /* static */ UniquePtr<HardwareBufferSurface> HardwareBufferSurface::Create(
     const gfx::IntSize& aSize, gl::GLContext* aGL) {
-    printf_stderr("jamiedbg HardwareBufferSurface::Create()\n");
+    // printf_stderr("jamiedbg HardwareBufferSurface::Create()\n");
   auto api = AndroidHardwareBufferApi::Get();
   if (!api) {
     // printf_stderr("jamiedbg API not initialized\n");
@@ -142,14 +142,14 @@ Maybe<GLuint> HardwareBufferSurface::GetFramebuffer(bool aNeedsDepthBuffer) {
 }
 
 bool HardwareBufferSurface::IsConsumerAttached() {
-    printf_stderr("jamiedbg HardwareBufferSurface::IsConsumerAttached() %p\n", this);
+    // printf_stderr("jamiedbg HardwareBufferSurface::IsConsumerAttached() %p\n", this);
   if (mIsConsumerAttached) {
-      printf_stderr("jamiedbg mIsConsumerAttached == true. ATTACHED\n");
+      // printf_stderr("jamiedbg mIsConsumerAttached == true. ATTACHED\n");
     return true;
   }
 
   if (mConsumerReleaseFence == -1) {
-      printf_stderr("jamiedbg mConsumerReleaseFence == -1. NOT ATTACHED\n");
+      // printf_stderr("jamiedbg mConsumerReleaseFence == -1. NOT ATTACHED\n");
     return false;
   }
 
@@ -159,13 +159,13 @@ bool HardwareBufferSurface::IsConsumerAttached() {
   int ret = ::poll(&p, 1, 0);
   MOZ_ASSERT(ret >= 0, "Error polling release fence");
   if (ret == 0) {
-      printf_stderr("jamiedbg Fence not yet signalled. ATTACHED\n");
+      // printf_stderr("jamiedbg Fence not yet signalled. ATTACHED\n");
     // Fence not yet signalled
     return true;
   }
 
   close(mConsumerReleaseFence);
-  printf_stderr("jamedbg Fence signalled, setting to -1. NOT ATTACHED");
+  // printf_stderr("jamedbg Fence signalled, setting to -1. NOT ATTACHED");
   mConsumerReleaseFence = -1;
   return false;
 }
@@ -175,15 +175,15 @@ bool HardwareBufferSurface::IsConsumerReleasedOrPendingRelease() const {
 }
 
 void HardwareBufferSurface::OnConsumerAttach() {
-    printf_stderr("jamiedbg OnConsumerAttach() %p\n", this);
-    printf_stderr("jamiedbg mIsConsumerAttached: %d, mConsumerReleaseFence: %d\n", mIsConsumerAttached, mConsumerReleaseFence);
+    // printf_stderr("jamiedbg OnConsumerAttach() %p\n", this);
+    // printf_stderr("jamiedbg mIsConsumerAttached: %d, mConsumerReleaseFence: %d\n", mIsConsumerAttached, mConsumerReleaseFence);
   MOZ_RELEASE_ASSERT(!mIsConsumerAttached && mConsumerReleaseFence == -1);
   mIsConsumerAttached = true;
 }
 
 void HardwareBufferSurface::OnConsumerRelease(int aFence) {
-    printf_stderr("jamiedbg OnConsumerRelease() %p fence: %d\n", this, aFence);
-    printf_stderr("jamiedbg mIsConsumerAttached: %d, mConsumerReleaseFence: %d\n", mIsConsumerAttached, mConsumerReleaseFence);
+    // printf_stderr("jamiedbg OnConsumerRelease() %p fence: %d\n", this, aFence);
+    // printf_stderr("jamiedbg mIsConsumerAttached: %d, mConsumerReleaseFence: %d\n", mIsConsumerAttached, mConsumerReleaseFence);
   MOZ_RELEASE_ASSERT(mIsConsumerAttached && mConsumerReleaseFence == -1);
   mIsConsumerAttached = false;
   mConsumerReleaseFence = aFence;
@@ -209,14 +209,14 @@ void SurfacePoolAndroid::DestroyGLResourcesForContext(GLContext* aGL) {
 UniquePtr<HardwareBufferSurface> SurfacePoolAndroid::ObtainBufferFromPool(
     const gfx::IntSize& aSize, gl::GLContext* aGL) {
   MutexAutoLock lock(mMutex);
-  printf_stderr("jamiedbg SurfacePoolAndroid::ObtainBufferFromPool() %s\n", mozilla::ToString(aSize).c_str());
+  // printf_stderr("jamiedbg SurfacePoolAndroid::ObtainBufferFromPool() %s\n", mozilla::ToString(aSize).c_str());
 
   UniquePtr<HardwareBufferSurface> buffer = nullptr;
   for (auto it = mAvailableEntries.begin(); it != mAvailableEntries.end();
        it++) {
     if ((*it)->GetSize() == aSize) {
-      printf_stderr("jamiedbg Found available buffer %p to recycle\n",
-                    it->get());
+      // printf_stderr("jamiedbg Found available buffer %p to recycle\n",
+      //               it->get());
       std::iter_swap(it, mAvailableEntries.end() - 1);
       buffer = std::move(mAvailableEntries.back());
       mAvailableEntries.pop_back();
@@ -225,7 +225,7 @@ UniquePtr<HardwareBufferSurface> SurfacePoolAndroid::ObtainBufferFromPool(
   }
 
   if (!buffer) {
-    printf_stderr("jamiedbg No available buffer to recycle. Allocating new.\n");
+    // printf_stderr("jamiedbg No available buffer to recycle. Allocating new.\n");
     buffer = HardwareBufferSurface::Create(aSize, aGL);
   }
 
@@ -234,14 +234,14 @@ UniquePtr<HardwareBufferSurface> SurfacePoolAndroid::ObtainBufferFromPool(
 
 void SurfacePoolAndroid::ReturnBufferToPool(
     UniquePtr<HardwareBufferSurface> aBuffer) {
-    printf_stderr("jamiedbg ReturnBufferToPool() %p\n", aBuffer.get());
+    // printf_stderr("jamiedbg ReturnBufferToPool() %p\n", aBuffer.get());
   MutexAutoLock lock(mMutex);
   MOZ_ASSERT(aBuffer->IsConsumerReleasedOrPendingRelease());
   if (aBuffer->IsConsumerAttached()) {
-    printf_stderr("jamiedbg adding to pending entries\n");
+    // printf_stderr("jamiedbg adding to pending entries\n");
     mPendingEntries.push_back(std::move(aBuffer));
   } else {
-    printf_stderr("jamiedbg adding to available entries\n");
+    // printf_stderr("jamiedbg adding to available entries\n");
     mAvailableEntries.push_back(std::move(aBuffer));
   }
   // FIXME: keep track of in use entries like we do on wayland?
@@ -275,15 +275,15 @@ void SurfacePoolAndroid::EnforcePoolSizeLimit() {
 }
 
 void SurfacePoolAndroid::CollectPendingSurfaces() {
-  printf_stderr("jamiedbg CollectPendingSurfaces()\n");
+  // printf_stderr("jamiedbg CollectPendingSurfaces()\n");
   MutexAutoLock lock(mMutex);
   mPendingEntries.erase(
       std::remove_if(mPendingEntries.begin(), mPendingEntries.end(),
                      [&](auto& entry) {
                        if (!entry->IsConsumerAttached()) {
-                         printf_stderr(
-                             "jamiedbg Moving buffer %p to available pool\n",
-                             entry.get());
+                         // printf_stderr(
+                         //     "jamiedbg Moving buffer %p to available pool\n",
+                         //     entry.get());
                          mAvailableEntries.push_back(std::move(entry));
                          return true;
                        }

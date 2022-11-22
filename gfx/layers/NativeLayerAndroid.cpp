@@ -68,7 +68,7 @@ NativeLayerRootAndroid::CreateLayerForExternalTexture(
 
 void NativeLayerRootAndroid::AppendLayer(NativeLayer* aLayer) {
   // FIXME: mixing Append/RemoveLayer with SetLayers might lead to problems...
-  printf_stderr("jamiedbg NativeLayerRootAndroid::AppendLayer() %p\n", aLayer);
+  // printf_stderr("jamiedbg NativeLayerRootAndroid::AppendLayer() %p\n", aLayer);
 
   MutexAutoLock lock(mMutex);
   RefPtr<NativeLayerAndroid> layer = aLayer->AsNativeLayerAndroid();
@@ -79,7 +79,7 @@ void NativeLayerRootAndroid::AppendLayer(NativeLayer* aLayer) {
 };
 
 void NativeLayerRootAndroid::RemoveLayer(NativeLayer* aLayer) {
-  printf_stderr("jamiedbg NativeLayerRootAndroid::RemoveLayer() %p\n", aLayer);
+  // printf_stderr("jamiedbg NativeLayerRootAndroid::RemoveLayer() %p\n", aLayer);
 
   MutexAutoLock lock(mMutex);
   RefPtr<NativeLayerAndroid> layer = aLayer->AsNativeLayerAndroid();
@@ -93,13 +93,13 @@ void NativeLayerRootAndroid::RemoveLayer(NativeLayer* aLayer) {
 void NativeLayerRootAndroid::SetLayers(
     const nsTArray<RefPtr<NativeLayer>>& aLayers) {
   MutexAutoLock lock(mMutex);
-  printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %zu\n",
-                aLayers.Length());
+  // printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %zu\n",
+  //               aLayers.Length());
 
   nsTArray<RefPtr<NativeLayerAndroid>> newSublayers(aLayers.Length());
   for (const RefPtr<NativeLayer>& sublayer : aLayers) {
-    printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %p\n",
-                  sublayer.get());
+    // printf_stderr("jamiedbg NativeLayerRootAndroid::SetLayers() %p\n",
+    //               sublayer.get());
     RefPtr<NativeLayerAndroid> layer = sublayer->AsNativeLayerAndroid();
     newSublayers.AppendElement(layer);
   }
@@ -118,7 +118,7 @@ void NativeLayerRootAndroid::SetLayers(
 
 bool NativeLayerRootAndroid::CommitToScreen() {
   MutexAutoLock lock(mMutex);
-  printf_stderr("jamiedbg NativeLayerRootAndroid::CommitToScreen()\n");
+  // printf_stderr("jamiedbg NativeLayerRootAndroid::CommitToScreen()\n");
 
   auto api = AndroidSurfaceControlApi::Get();
 
@@ -165,8 +165,8 @@ bool NativeLayerRootAndroid::CommitToScreen() {
 };
 
 void NativeLayerRootAndroid::SetLayersRenderedFence(int aFence) {
-  printf_stderr(
-      "jamiedbg NativeLayerRootAndroid::SetLayersRenderedFence() %d\n", aFence);
+  // printf_stderr(
+  //     "jamiedbg NativeLayerRootAndroid::SetLayersRenderedFence() %d\n", aFence);
   MOZ_RELEASE_ASSERT(mLayersRenderedFence == -1);
   MOZ_RELEASE_ASSERT(aFence != -1);
   mLayersRenderedFence = aFence;
@@ -175,7 +175,7 @@ void NativeLayerRootAndroid::SetLayersRenderedFence(int aFence) {
 void NativeLayerRootAndroid::OnTransactionComplete(
     ASurfaceTransactionStats* stats) {
   MutexAutoLock lock(mMutex);
-  printf_stderr("jamiedbg OnTransactionComplete()\n");
+  // printf_stderr("jamiedbg OnTransactionComplete()\n");
   auto api = AndroidSurfaceControlApi::Get();
   ASurfaceControl** surfaceControls;
   size_t surfaceControlsSize;
@@ -195,9 +195,9 @@ void NativeLayerRootAndroid::OnTransactionComplete(
       int releaseFence =
           api->ASurfaceTransactionStats_getPreviousReleaseFenceFd(
               stats, surfaceControl);
-      printf_stderr("jamiedbg Releasing buffer: %p fence: %d\n",
-                    released->second.mBuffer.get(),
-                    releaseFence);
+      // printf_stderr("jamiedbg Releasing buffer: %p fence: %d\n",
+      //               released->second.mBuffer.get(),
+      //               releaseFence);
       released->second.mBuffer->OnConsumerRelease(releaseFence);
       released->second.mSurfacePoolHandle->ReturnBufferToPool(
           std::move(released->second.mBuffer));
@@ -317,23 +317,23 @@ Maybe<GLuint> NativeLayerAndroid::NextSurfaceAsFramebuffer(
     bool aNeedsDepth) {
   MutexAutoLock lock(mMutex);
 
-  printf_stderr(
-      "jamiedbg NativeLayerAndroid::NextSurfaceAsFramebuffer() %p display: %s, "
-      "update: %s\n",
-      this, mozilla::ToString(aDisplayRect).c_str(),
-      mozilla::ToString(aUpdateRegion).c_str());
+  // printf_stderr(
+  //     "jamiedbg NativeLayerAndroid::NextSurfaceAsFramebuffer() %p display: %s, "
+  //     "update: %s\n",
+  //     this, mozilla::ToString(aDisplayRect).c_str(),
+  //     mozilla::ToString(aUpdateRegion).c_str());
 
   mDisplayRect = aDisplayRect;
   mDirtyRegion = aUpdateRegion;
 
   MOZ_ASSERT(!mInProgressBuffer);
   if (mFrontBuffer && !mFrontBuffer->IsConsumerAttached()) {
-    printf_stderr("jamiedbg FrontBuffer %p is not attached. re-using\n",
-                  mFrontBuffer.get());
+    // printf_stderr("jamiedbg FrontBuffer %p is not attached. re-using\n",
+    //               mFrontBuffer.get());
     // The layer's front buffer has not been attached, so we can re-use it
     mInProgressBuffer = std::move(mFrontBuffer);
   } else {
-    printf_stderr("jamiedbg Obtaining new front buffer\n");
+    // printf_stderr("jamiedbg Obtaining new front buffer\n");
     mInProgressBuffer = mSurfacePoolHandle->ObtainBufferFromPool(mSize);
   }
 
@@ -389,7 +389,7 @@ void NativeLayerAndroid::HandlePartialUpdate(
 }
 
 void NativeLayerAndroid::NotifySurfaceReady() {
-  printf_stderr("jamiedbg NativeLayerAndroid::NotifySurfaceReady() %p\n", this);
+  // printf_stderr("jamiedbg NativeLayerAndroid::NotifySurfaceReady() %p\n", this);
   MOZ_ASSERT(!mFrontBuffer);
   MOZ_ASSERT(mInProgressBuffer);
   mFrontBuffer = std::move(mInProgressBuffer);
@@ -405,14 +405,14 @@ void NativeLayerAndroid::Update(
     ASurfaceTransaction* aTransaction, ASurfaceControl* aParent,
     NativeLayerRootAndroid::ReleasedBufferMap& aPrevSurfaces, int z,
     int aFence) {
-  printf_stderr("jamiedbg NativeLayerAndroid::Update() %p\n", this);
+  // printf_stderr("jamiedbg NativeLayerAndroid::Update() %p\n", this);
   auto api = AndroidSurfaceControlApi::Get();
   api->ASurfaceTransaction_reparent(aTransaction, mSurfaceControl.get(),
                                     aParent);
 
   if (mPrevFrontBuffer) {
-    printf_stderr("jamiedbg Removing prev buffer %p\n",
-                  mPrevFrontBuffer.get());
+    // printf_stderr("jamiedbg Removing prev buffer %p\n",
+    //               mPrevFrontBuffer.get());
     aPrevSurfaces.insert(
         {mSurfaceControl.get(),
          NativeLayerRootAndroid::ReleasedBuffer{std::move(mPrevFrontBuffer),
@@ -421,8 +421,8 @@ void NativeLayerAndroid::Update(
 
   if (mFrontBuffer) {
     if (mFrontBufferChanged) {
-      printf_stderr("jamiedbg Setting buffer %p, fence: %d\n",
-                    mFrontBuffer.get(), aFence);
+      // printf_stderr("jamiedbg Setting buffer %p, fence: %d\n",
+      //               mFrontBuffer.get(), aFence);
       mFrontBufferChanged = false;
       mFrontBuffer->OnConsumerAttach();
       int fence = -1;
@@ -449,10 +449,10 @@ void NativeLayerAndroid::Update(
         mDirtyRegion.SetEmpty();
       }
     } else {
-      printf_stderr("jamiedbg keeping buffer %p\n", mFrontBuffer.get());
+      // printf_stderr("jamiedbg keeping buffer %p\n", mFrontBuffer.get());
     }
   } else {
-    printf_stderr("jamiedbg unsetting buffer %p\n", mPrevFrontBuffer.get());
+    // printf_stderr("jamiedbg unsetting buffer %p\n", mPrevFrontBuffer.get());
     api->ASurfaceTransaction_setBuffer(aTransaction, mSurfaceControl.get(),
                                        nullptr, -1);
   }
@@ -515,7 +515,7 @@ void NativeLayerAndroid::Update(
 void NativeLayerAndroid::Remove(
     ASurfaceTransaction* aTransaction,
     NativeLayerRootAndroid::ReleasedBufferMap& aPrevBuffers) {
-  printf_stderr("jamiedbg NativeLayerAndroid::Remove() %p\n", this);
+  // printf_stderr("jamiedbg NativeLayerAndroid::Remove() %p\n", this);
   auto api = AndroidSurfaceControlApi::Get();
   api->ASurfaceTransaction_reparent(aTransaction, mSurfaceControl.get(),
                                     nullptr);

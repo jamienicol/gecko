@@ -60,7 +60,7 @@ RenderCompositorNative::~RenderCompositorNative() {
 }
 
 bool RenderCompositorNative::BeginFrame() {
-  printf_stderr("jamiedbg RenderCompositorNative::BeginFrame()\n");
+  // printf_stderr("jamiedbg RenderCompositorNative::BeginFrame()\n");
   if (!MakeCurrent()) {
     gfxCriticalNote << "Failed to make render context current, can't draw.";
     return false;
@@ -76,12 +76,12 @@ bool RenderCompositorNative::BeginFrame() {
     }
     if (mNativeLayerForEntireWindow &&
         mNativeLayerForEntireWindow->GetSize() != bufferSize) {
-      printf_stderr("jamiedbg Window sized changed, removing old layer\n");
+      // printf_stderr("jamiedbg Window sized changed, removing old layer\n");
       mNativeLayerRoot->RemoveLayer(mNativeLayerForEntireWindow);
       mNativeLayerForEntireWindow = nullptr;
     }
     if (!mNativeLayerForEntireWindow) {
-      printf_stderr("jamiedbg Creating native layer for window\n");
+      // printf_stderr("jamiedbg Creating native layer for window\n");
       mNativeLayerForEntireWindow =
           mNativeLayerRoot->CreateLayer(bufferSize, false, mSurfacePoolHandle);
       mNativeLayerRoot->AppendLayer(mNativeLayerForEntireWindow);
@@ -98,7 +98,7 @@ bool RenderCompositorNative::BeginFrame() {
 
 RenderedFrameId RenderCompositorNative::EndFrame(
     const nsTArray<DeviceIntRect>& aDirtyRects) {
-  printf_stderr("jamiedbg RenderCompositorNative::EndFrame()\n");
+  // printf_stderr("jamiedbg RenderCompositorNative::EndFrame()\n");
   RenderedFrameId frameId = GetNextRenderFrameId();
 
   DoSwap();
@@ -276,7 +276,7 @@ void RenderCompositorNative::CompositorBeginFrame() {
 }
 
 void RenderCompositorNative::CompositorEndFrame() {
-  printf_stderr("jamiedbg RenderCompositorNative::CompositorEndFrame()\n");
+  // printf_stderr("jamiedbg RenderCompositorNative::CompositorEndFrame()\n");
   if (profiler_thread_is_being_profiled_for_markers()) {
     auto bufferSize = GetBufferSize();
     [[maybe_unused]] uint64_t windowPixelCount =
@@ -335,16 +335,16 @@ void RenderCompositorNative::CreateSurface(wr::NativeSurfaceId aId,
                                            wr::DeviceIntPoint aVirtualOffset,
                                            wr::DeviceIntSize aTileSize,
                                            bool aIsOpaque) {
-  printf_stderr("jamiedbg RenderCompositorNative::CreateSurface() id=%" PRIu64 ", offset=%s, tilesize=%s, opaque=%d\n",
-                aId._0, mozilla::ToString(aVirtualOffset).c_str(), mozilla::ToString(aTileSize).c_str(), aIsOpaque);
+  // printf_stderr("jamiedbg RenderCompositorNative::CreateSurface() id=%" PRIu64 ", offset=%s, tilesize=%s, opaque=%d\n",
+  //               aId._0, mozilla::ToString(aVirtualOffset).c_str(), mozilla::ToString(aTileSize).c_str(), aIsOpaque);
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
   mSurfaces.insert({aId, Surface{aTileSize, aIsOpaque}});
 }
 
 void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
                                                    bool aIsOpaque) {
-  printf_stderr("jamiedbg RenderCompositorNative::CreateExternalSurface() id=%" PRIu64 ", opaque=%d\n",
-                aId._0, aIsOpaque);
+  // printf_stderr("jamiedbg RenderCompositorNative::CreateExternalSurface() id=%" PRIu64 ", opaque=%d\n",
+  //               aId._0, aIsOpaque);
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   RefPtr<layers::NativeLayer> layer =
@@ -359,8 +359,8 @@ void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
 
 void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
                                                    wr::ColorF aColor) {
-  printf_stderr("jamiedbg RenderCompositorNative::CreateBackdropSurface() id=%" PRIu64 ", color=%s\n",
-                aId._0, mozilla::ToString(aColor).c_str());
+  // printf_stderr("jamiedbg RenderCompositorNative::CreateBackdropSurface() id=%" PRIu64 ", color=%s\n",
+  //               aId._0, mozilla::ToString(aColor).c_str());
   MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
 
   gfx::DeviceColor color(aColor.r, aColor.g, aColor.b, aColor.a);
@@ -375,7 +375,7 @@ void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
 
 void RenderCompositorNative::AttachExternalImage(
     wr::NativeSurfaceId aId, wr::ExternalImageId aExternalImage) {
-  printf_stderr("jamiedbg RenderCompositorNative::AttachExternalImage() surface=%" PRIu64 ", image=%" PRIu64 "\n", aId._0, aExternalImage._0);
+  // printf_stderr("jamiedbg RenderCompositorNative::AttachExternalImage() surface=%" PRIu64 ", image=%" PRIu64 "\n", aId._0, aExternalImage._0);
 
   RenderTextureHost* image =
       RenderThread::Get()->GetRenderTexture(aExternalImage);
@@ -391,7 +391,7 @@ void RenderCompositorNative::AttachExternalImage(
 }
 
 void RenderCompositorNative::DestroySurface(NativeSurfaceId aId) {
-  printf_stderr("jamiedbg RenderCompositorNative::DestroySurface() id=%" PRIu64 "\n", aId._0);
+  // printf_stderr("jamiedbg RenderCompositorNative::DestroySurface() id=%" PRIu64 "\n", aId._0);
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
 
@@ -407,7 +407,7 @@ void RenderCompositorNative::DestroySurface(NativeSurfaceId aId) {
 
 void RenderCompositorNative::CreateTile(wr::NativeSurfaceId aId, int aX,
                                         int aY) {
-  printf_stderr("jamiedbg RenderCompositorNative::CreateTile() surface=%" PRIu64 ", x=%d, y=%d\n", aId._0, aX, aY);
+  // printf_stderr("jamiedbg RenderCompositorNative::CreateTile() surface=%" PRIu64 ", x=%d, y=%d\n", aId._0, aX, aY);
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   Surface& surface = surfaceCursor->second;
@@ -421,7 +421,7 @@ void RenderCompositorNative::CreateTile(wr::NativeSurfaceId aId, int aX,
 
 void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
                                          int aY) {
-  printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() surface=%" PRIu64 ", x=%d, y=%d\n", aId._0, aX, aY);
+  // printf_stderr("jamiedbg RenderCompositorNative::DestroyTile() surface=%" PRIu64 ", x=%d, y=%d\n", aId._0, aX, aY);
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   Surface& surface = surfaceCursor->second;
@@ -456,8 +456,8 @@ gfx::SamplingFilter ToSamplingFilter(wr::ImageRendering aImageRendering) {
 void RenderCompositorNative::AddSurface(
     wr::NativeSurfaceId aId, const wr::CompositorSurfaceTransform& aTransform,
     wr::DeviceIntRect aClipRect, wr::ImageRendering aImageRendering) {
-  printf_stderr("jamiedbg RenderCompositorNative::AddSurface() id=%" PRIu64 ", aTransform=%s, aClipRect=%s\n",
-                aId._0, mozilla::ToString(aTransform).c_str(), mozilla::ToString(aClipRect).c_str());
+  // printf_stderr("jamiedbg RenderCompositorNative::AddSurface() id=%" PRIu64 ", aTransform=%s, aClipRect=%s\n",
+  //               aId._0, mozilla::ToString(aTransform).c_str(), mozilla::ToString(aClipRect).c_str());
   MOZ_RELEASE_ASSERT(!mCurrentlyBoundNativeLayer);
 
   auto surfaceCursor = mSurfaces.find(aId);
@@ -539,7 +539,7 @@ RenderCompositorNativeOGL::~RenderCompositorNativeOGL() {
 
 bool RenderCompositorNativeOGL::InitDefaultFramebuffer(
     const gfx::IntRect& aBounds) {
-  printf_stderr("jamiedbg RenderCompositorNativeOGL::InitDefaultFramebuffer()\n");
+  // printf_stderr("jamiedbg RenderCompositorNativeOGL::InitDefaultFramebuffer()\n");
   if (mNativeLayerForEntireWindow) {
     Maybe<GLuint> fbo = mNativeLayerForEntireWindow->NextSurfaceAsFramebuffer(
         aBounds, aBounds, true);
