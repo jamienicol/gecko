@@ -3059,7 +3059,7 @@ impl Renderer {
         results: &mut RenderResults,
         partial_present_mode: Option<PartialPresentMode>,
     ) {
-        // warn!("jamiedbg Renderer.composite_simple()");
+        warn!("jamiedbg Renderer.composite_simple()");
         let _gm = self.gpu_profiler.start_marker("framebuffer");
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_COMPOSITE);
 
