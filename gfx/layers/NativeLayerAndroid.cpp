@@ -39,9 +39,13 @@ already_AddRefed<NativeLayerRootAndroid> NativeLayerRootAndroid::Create(
 NativeLayerRootAndroid::NativeLayerRootAndroid(
     UniquePtr<ASurfaceControl>&& aSurfaceControl)
     : mMutex("NativeLayerRootAndroid"),
-      mSurfaceControl(std::move(aSurfaceControl)) {}
+      mSurfaceControl(std::move(aSurfaceControl)) {
+    printf_stderr("jamiedbg new NativeLayerRootAndroid() %p\n", this);
+}
 
-NativeLayerRootAndroid::~NativeLayerRootAndroid() {}
+NativeLayerRootAndroid::~NativeLayerRootAndroid() {
+    printf_stderr("jamiedbg ~NativeLayerRootAndroid() %p\n", this);
+}
 
 already_AddRefed<NativeLayer> NativeLayerRootAndroid::CreateLayer(
     const gfx::IntSize& aSize, bool aIsOpaque,
@@ -150,6 +154,9 @@ bool NativeLayerRootAndroid::CommitToScreen() {
 
   // Handle transcation complete in callback
   mReleasedBuffers.push(std::move(prevBuffers));
+  // FIXME: we probably want to use a weak reference here? Because
+  // otherwise the callback can keep the NativeLayerRoot alive, but
+  // nothing will schedule the required transactions to clean up
   AddRef();
   api->ASurfaceTransaction_setOnComplete(
       transaction, this, [](void* context, ASurfaceTransactionStats* stats) {
@@ -235,6 +242,22 @@ NativeLayerAndroid::~NativeLayerAndroid() {
     // Likewise we may have a front buffer, but it must never have been
     // attached otherwise Remove() would have been called. This means we can
     // return the buffer to the pool immediately.
+
+
+      // I THINK WE ARE HITTING THIS CRASH WHEN OPENING THE KEYBOARD
+      // BECAUSE THE NATIVELAYERROOT IS DESTROYED DUE TO RESIZE, AND
+      // THEREFORE THE NEW ONE DOES NOT HOLD A REFERENCE TO THE DEBUG
+      // OVERLAY LAYER.  THEN WE CALL DESTROYSURFACE() FOR THE DEBUG
+      // OVERLAY LAYER, WHICH MAKES RENDERCOMPOSITORNATIVE DROP THE
+      // LAST REFERENCE. IF WE STILL HELD THE REFERENCE IN THE
+      // NATIVELAYERROOT THEN THIS WOULDN'T BE CALLED UNTIL AFTER WE
+      // HAVE REMOVED() IT.
+
+      // I THINK. NEED TO CONFIRM.  Also, should probably not hit this
+      // assertion anyway, because the native layer root may in fact
+      // be destroyed.
+
+
     MOZ_ASSERT(!mFrontBuffer->IsConsumerAttached());
     mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
   }
