@@ -1277,6 +1277,7 @@ impl Renderer {
 
             // Allocate a new surface, if we need it and there isn't one.
             if self.debug_overlay_state.is_enabled && self.debug_overlay_state.current_size.is_none() {
+                warn!("jamiedbg creating overlay surface");
                 compositor.create_surface(
                     NativeSurfaceId::DEBUG_OVERLAY,
                     DeviceIntPoint::zero(),
@@ -1295,8 +1296,10 @@ impl Renderer {
     fn bind_debug_overlay(&mut self, device_size: DeviceIntSize) -> Option<DrawTarget> {
         // Debug overlay setup are only required in native compositing mode
         if self.debug_overlay_state.is_enabled {
-            if let CompositorKind::Native { .. } = self.current_compositor_kind {
-                let compositor = self.compositor_config.compositor().unwrap();
+            if let Some(compositor) = self.compositor_config.compositor() {
+            // if let CompositorKind::Native { .. } = self.current_compositor_kind {
+                warn!("jamiedbg bind_debug_overlay() native compositor");
+                // let compositor = self.compositor_config.compositor().unwrap();
                 let surface_size = self.debug_overlay_state.current_size.unwrap();
 
                 // Ensure old surface is invalidated before binding
@@ -1342,8 +1345,9 @@ impl Renderer {
     fn unbind_debug_overlay(&mut self) {
         // Debug overlay setup are only required in native compositing mode
         if self.debug_overlay_state.is_enabled {
-            if let CompositorKind::Native { .. } = self.current_compositor_kind {
-                let compositor = self.compositor_config.compositor().unwrap();
+            if let Some(compositor) = self.compositor_config.compositor() {
+            // if let CompositorKind::Native { .. } = self.current_compositor_kind {
+                // let compositor = self.compositor_config.compositor().unwrap();
                 // Unbind the draw target and add it to the visual tree to be composited
                 compositor.unbind();
 
@@ -1438,8 +1442,8 @@ impl Renderer {
             // Inform the client that we are starting a composition transaction if native
             // compositing is enabled. This needs to be done early in the frame, so that
             // we can create debug overlays after drawing the main surfaces.
-            if let CompositorKind::Native { .. } = self.current_compositor_kind {
-                let compositor = self.compositor_config.compositor().unwrap();
+            if let Some(compositor) = self.compositor_config.compositor() {
+            // if let CompositorKind::Native { .. } = self.current_compositor_kind {
                 compositor.begin_frame();
             }
 
@@ -1654,9 +1658,9 @@ impl Renderer {
             // Inform the client that we are finished this composition transaction if native
             // compositing is enabled. This must be called after any debug / profiling compositor
             // surfaces have been drawn and added to the visual tree.
-            if let CompositorKind::Native { .. } = self.current_compositor_kind {
+            if let Some(compositor) = self.compositor_config.compositor() {
+            // if let CompositorKind::Native { .. } = self.current_compositor_kind {
                 profile_scope!("compositor.end_frame");
-                let compositor = self.compositor_config.compositor().unwrap();
                 compositor.end_frame();
             }
         }

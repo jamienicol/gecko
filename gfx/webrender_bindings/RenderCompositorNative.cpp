@@ -267,7 +267,11 @@ bool RenderCompositorNative::MaybeProcessScreenshotQueue() {
 }
 
 void RenderCompositorNative::CompositorBeginFrame() {
+  printf_stderr("jamiedbg RenderCompositorNative::CompositorBeginFrame()\n");
   mAddedLayers.Clear();
+  if (mNativeLayerForEntireWindow) {
+    mAddedLayers.AppendElement(mNativeLayerForEntireWindow);
+  }
   mAddedTilePixelCount = 0;
   mAddedClippedPixelCount = 0;
   mBeginFrameTimeStamp = TimeStamp::Now();
@@ -609,6 +613,8 @@ void RenderCompositorNativeOGL::Bind(wr::NativeTileId aId,
                                      uint32_t* aFboId,
                                      wr::DeviceIntRect aDirtyRect,
                                      wr::DeviceIntRect aValidRect) {
+  printf_stderr("jamiedbg RenderCompositorNative::Bind() id=%s, dirty=%s, valid=%s\n",
+                mozilla::ToString(aId).c_str(), mozilla::ToString(aDirtyRect).c_str(), mozilla::ToString(aValidRect).c_str());
   gfx::IntRect validRect(aValidRect.min.x, aValidRect.min.y, aValidRect.width(),
                          aValidRect.height());
   gfx::IntRect dirtyRect(aDirtyRect.min.x, aDirtyRect.min.y, aDirtyRect.width(),
@@ -624,6 +630,8 @@ void RenderCompositorNativeOGL::Bind(wr::NativeTileId aId,
 }
 
 void RenderCompositorNativeOGL::Unbind() {
+  printf_stderr("jamiedbg RenderCompositorNative::Unbind()\n");
+  // FIXME: bind nativelayerforwholewindow instead of always 0?
   mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
 
   UnbindNativeLayer();

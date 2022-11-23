@@ -219,17 +219,14 @@ NativeLayerAndroid::NativeLayerAndroid(
       mSize(aSize),
       mIsOpaque(aIsOpaque),
       mSurfaceControl(std::move(aSurfaceControl)) {
-  // printf_stderr("jamiedbg new NativeLayerAndroid() %p\n", this);
+  printf_stderr("jamiedbg new NativeLayerAndroid() %p\n", this);
   MOZ_RELEASE_ASSERT(mSurfacePoolHandle,
                      "Need a non-null surface pool handle.");
 }
 
 NativeLayerAndroid::~NativeLayerAndroid() {
-  // printf_stderr(
-  //     "jamiedbg ~NativeLayerAndroid() this=%p, front=%p, prevFront=%p, "
-  //     "inProg=%p\n",
-  //     this, mFrontBuffer.get(), mPrevFrontBuffer.get(),
-  //     mInProgressBuffer.get());
+  printf_stderr(
+                "jamiedbg ~NativeLayerAndroid() %p\n", this);
 
   // mPrevFrontBuffer should be null here, as either the layer has never been
   // displayed, or Remove() should have been called.
@@ -238,7 +235,7 @@ NativeLayerAndroid::~NativeLayerAndroid() {
     // Likewise we may have a front buffer, but it must never have been
     // attached otherwise Remove() would have been called. This means we can
     // return the buffer to the pool immediately.
-    // MOZ_ASSERT(!mFrontBuffer->IsConsumerAttached());
+    MOZ_ASSERT(!mFrontBuffer->IsConsumerAttached());
     mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
   }
 
