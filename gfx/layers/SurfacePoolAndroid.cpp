@@ -99,16 +99,15 @@ HardwareBufferSurface::HardwareBufferSurface(AHardwareBuffer* aBuffer,
                                              gl::GLContext* aGL,
                                              UniquePtr<gl::Texture> aTexture)
     : mBuffer(aBuffer), mGL(aGL), mTexture(std::move(aTexture)) {
-  // printf_stderr("jamiedbg HardwareBufferSurface GPU constructor() %p\n",
-  // this);
+  printf_stderr("jamiedbg new HardwareBufferSurface() %p\n", this);
   auto api = AndroidHardwareBufferApi::Get();
   api->Describe(mBuffer, &mDesc);
 }
 
 HardwareBufferSurface::~HardwareBufferSurface() {
-  // printf_stderr("jamiedbg HardwareBufferSurface destructor() %p\n", this);
-  MOZ_CRASH(
-      "Until I start enforcing pool size, these should never be destructed");
+  printf_stderr("jamiedbg ~HardwareBufferSurface destructor() %p\n", this);
+  // MOZ_CRASH(
+  //     "Until I start enforcing pool size, these should never be destructed");
   auto api = AndroidHardwareBufferApi::Get();
   api->Release(mBuffer);
 }

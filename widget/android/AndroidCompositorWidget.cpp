@@ -100,7 +100,8 @@ RefPtr<layers::NativeLayerRoot> AndroidCompositorWidget::GetNativeLayerRoot() {
 
 bool AndroidCompositorWidget::OnResumeComposition() {
   OnCompositorSurfaceChanged();
-  // FIXME: don't destroy this for every resume? just on pause?
+  // FIXME: don't destroy this for every resume. Instead we just need
+  // to pass a new SurfaceControl to the NativeLayerRoot
   mNativeLayerRoot = nullptr;
 
   if (!mSurface) {

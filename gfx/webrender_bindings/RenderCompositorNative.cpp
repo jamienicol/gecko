@@ -60,6 +60,8 @@ RenderCompositorNative::~RenderCompositorNative() {
 }
 
 bool RenderCompositorNative::BeginFrame() {
+  printf_stderr("jamiedbg\n");
+  printf_stderr("jamiedbg\n");
   printf_stderr("jamiedbg RenderCompositorNative::BeginFrame()\n");
   if (!MakeCurrent()) {
     gfxCriticalNote << "Failed to make render context current, can't draw.";
@@ -69,7 +71,8 @@ bool RenderCompositorNative::BeginFrame() {
   gfx::IntSize bufferSize = GetBufferSize().ToUnknownSize();
   if (!ShouldUseNativeCompositor()) {
     // FIXME: is this the best place to call this?
-    mSurfacePoolHandle->OnBeginFrame();
+    // It's not necessary now we have webrender calling CompositorBeginFrame
+    // mSurfacePoolHandle->OnBeginFrame();
 
     if (bufferSize.IsEmpty()) {
       return false;
@@ -84,7 +87,9 @@ bool RenderCompositorNative::BeginFrame() {
       printf_stderr("jamiedbg Creating native layer for window\n");
       mNativeLayerForEntireWindow =
           mNativeLayerRoot->CreateLayer(bufferSize, false, mSurfacePoolHandle);
-      mNativeLayerRoot->AppendLayer(mNativeLayerForEntireWindow);
+      // FIXME: we include this in the SetLayers call in CompositorEndFrame,
+      // so comment out for now.
+      // mNativeLayerRoot->AppendLayer(mNativeLayerForEntireWindow);
     }
   }
 
@@ -101,18 +106,20 @@ RenderedFrameId RenderCompositorNative::EndFrame(
   printf_stderr("jamiedbg RenderCompositorNative::EndFrame()\n");
   RenderedFrameId frameId = GetNextRenderFrameId();
 
-  DoSwap();
+  // DoSwap();
 
-  if (mNativeLayerForEntireWindow) {
-    mNativeLayerForEntireWindow->NotifySurfaceReady();
-    mNativeLayerRoot->CommitToScreen();
-  }
+  // if (mNativeLayerForEntireWindow) {
+  //   mNativeLayerForEntireWindow->NotifySurfaceReady();
+  //   mNativeLayerRoot->CommitToScreen();
+  // }
 
   return frameId;
 }
 
 void RenderCompositorNative::Pause() {
   // printf_stderr("jamiedbg RenderCompositorNative::Pause()\n");
+  // FIXME: don't destroy and recreate on pause/resume. instead just
+  // pass a new root SurfaceControl to the NativeLayerRoot
   mNativeLayerRoot = nullptr;
 }
 
@@ -304,9 +311,15 @@ void RenderCompositorNative::CompositorEndFrame() {
   }
   mDrawnPixelCount = 0;
 
-  DoFlush();
+  // FIXME: This was originally DoFlush but on Android we need the
+  // frame done sync before we call CommitToScreen
+  // DoFlush();
+  DoSwap();
 
   mNativeLayerRoot->SetLayers(mAddedLayers);
+  if (mNativeLayerForEntireWindow) {
+    mNativeLayerForEntireWindow->NotifySurfaceReady();
+  }
   mNativeLayerRoot->CommitToScreen();
   mSurfacePoolHandle->OnEndFrame();
 }

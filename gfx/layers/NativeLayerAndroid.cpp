@@ -232,8 +232,7 @@ NativeLayerAndroid::NativeLayerAndroid(
 }
 
 NativeLayerAndroid::~NativeLayerAndroid() {
-  printf_stderr(
-                "jamiedbg ~NativeLayerAndroid() %p\n", this);
+  printf_stderr("jamiedbg ~NativeLayerAndroid() %p\n", this);
 
   // mPrevFrontBuffer should be null here, as either the layer has never been
   // displayed, or Remove() should have been called.
@@ -257,9 +256,9 @@ NativeLayerAndroid::~NativeLayerAndroid() {
       // assertion anyway, because the native layer root may in fact
       // be destroyed.
 
-
-    MOZ_ASSERT(!mFrontBuffer->IsConsumerAttached());
-    mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
+    if (mFrontBuffer->IsConsumerReleasedOrPendingRelease()) {
+      mSurfacePoolHandle->ReturnBufferToPool(std::move(mFrontBuffer));
+    }
   }
 
   mSurfacePoolHandle->ReturnSurfaceControl(std::move(mSurfaceControl));
@@ -472,7 +471,7 @@ void NativeLayerAndroid::Update(
       printf_stderr("jamiedbg keeping buffer %p\n", mFrontBuffer.get());
     }
   } else {
-    printf_stderr("jamiedbg unsetting buffer %p\n", mPrevFrontBuffer.get());
+    printf_stderr("jamiedbg unsetting buffer\n");
     api->ASurfaceTransaction_setBuffer(aTransaction, mSurfaceControl.get(),
                                        nullptr, -1);
   }
