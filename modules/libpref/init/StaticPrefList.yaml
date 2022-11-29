@@ -6241,7 +6241,7 @@
 
 - name: gfx.use-ahardwarebuffer-content
   type: bool
-  value: false
+  value: true
   mirror: once
 
 # Use SurfaceTextures as preferred backend for TextureClient/Host.
@@ -14267,7 +14267,7 @@
 
 - name: webgl.enable-ahardwarebuffer
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: webgl.enable-webgl2

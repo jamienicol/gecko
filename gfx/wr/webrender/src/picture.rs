@@ -2718,6 +2718,7 @@ impl TileCacheInstance {
         image_rendering: ImageRendering,
         is_opaque: bool,
     ) -> bool {
+        warn!("jamiedbg setup_compositor_surfaces_impl()");
         let map_local_to_surface = SpaceMapper::new_with_target(
             self.spatial_node_index,
             prim_spatial_node_index,
@@ -2798,11 +2799,13 @@ impl TileCacheInstance {
         // handle to use, or allocate a new one. For existing native surfaces, we can
         // also determine whether this needs to be updated, depending on whether the
         // image generation(s) of the planes have changed since last composite.
-        let (native_surface_id, update_params) = match composite_state.compositor_kind {
-            CompositorKind::Draw { .. } => {
-                (None, None)
-            }
-            CompositorKind::Native { .. } => {
+        let (native_surface_id, update_params) = { //match composite_state.compositor_kind {
+            // CompositorKind::Draw { .. } => {
+            //     (None, None)
+            // }
+            // CompositorKind::Native { .. } => {
+            // FIXME: don't hardcode this path
+            {
                 let native_surface_size = surface_size.to_i32();
 
                 let key = ExternalNativeSurfaceKey {

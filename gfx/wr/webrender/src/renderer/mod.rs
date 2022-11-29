@@ -1265,7 +1265,7 @@ impl Renderer {
         // if let CompositorKind::Native { .. } = self.current_compositor_kind {
         //     let compositor = self.compositor_config.compositor().unwrap();
         if let Some(compositor) = self.compositor_config.compositor() {
-            warn!("jamiedbg update_debug_overlay() native compositor");
+            // warn!("jamiedbg update_debug_overlay() native compositor");
             // If there is a current surface, destroy it if we don't need it for this frame, or if
             // the size has changed.
             if let Some(current_size) = self.debug_overlay_state.current_size {
@@ -4147,8 +4147,8 @@ impl Renderer {
     fn update_native_surfaces(&mut self) {
         profile_scope!("update_native_surfaces");
 
-        match self.compositor_config {
-            CompositorConfig::Native { ref mut compositor, .. } => {
+        match self.compositor_config.compositor() {
+            Some(compositor) => {
                 for op in self.pending_native_surface_updates.drain(..) {
                     match op.details {
                         NativeSurfaceOperationDetails::CreateSurface { id, virtual_offset, tile_size, is_opaque } => {
@@ -4194,7 +4194,7 @@ impl Renderer {
                     }
                 }
             }
-            CompositorConfig::Draw { .. } => {
+            None => {
                 // Ensure nothing is added in simple composite mode, since otherwise
                 // memory will leak as this doesn't get drained
                 debug_assert!(self.pending_native_surface_updates.is_empty());
@@ -4276,8 +4276,7 @@ impl Renderer {
         // invalidated, then we queue surfaces for native composition by the render
         // compositor before we actually update the tiles. This allows the render
         // compositor to start early composition while the tiles are updating.
-        if let CompositorKind::Native { .. } = self.current_compositor_kind {
-            let compositor = self.compositor_config.compositor().unwrap();
+        if let Some(compositor) = self.compositor_config.compositor() {
             // Invalidate any native surface tiles that might be updated by passes.
             if !frame.has_been_rendered {
                 for tile in &frame.composite_state.tiles {
@@ -5713,12 +5712,16 @@ impl CompositeState {
         // order added. Offset and clip rect apply to all tiles within this
         // surface.
         for surface in &self.descriptor.surfaces {
-            compositor.add_surface(
-                surface.surface_id.expect("bug: no native surface allocated"),
-                surface.transform,
-                surface.clip_rect.to_i32(),
-                surface.image_rendering,
-            );
+            if let Some(surface_id) = surface.surface_id {
+                compositor.add_surface(
+                    surface_id,
+                    // FIXME: is it okay that we've lost this assertion?
+                    // surface.surface_id.expect("bug: no native surface allocated"),
+                    surface.transform,
+                    surface.clip_rect.to_i32(),
+                    surface.image_rendering,
+                );
+            }
         }
         compositor.start_compositing(clear_color, dirty_rects, &[]);
     }

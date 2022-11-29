@@ -1292,6 +1292,8 @@ void DisplayListBuilder::PushImage(
     wr::ImageRendering aFilter, wr::ImageKey aImage, bool aPremultipliedAlpha,
     const wr::ColorF& aColor, bool aPreferCompositorSurface,
     bool aSupportsExternalCompositing) {
+  printf_stderr("jamiedbg DisplayListBuilder::PushImage() comp=%d, external=%d\n", aPreferCompositorSurface,
+                aSupportsExternalCompositing);
   // FIXME: This is where we decide whether we can composite external images
   wr::LayoutRect clip = MergeClipLeaf(aClip);
   WRDL_LOG("PushImage b=%s cl=%s\n", mWrState, ToString(aBounds).c_str(),

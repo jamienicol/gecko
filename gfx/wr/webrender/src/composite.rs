@@ -822,7 +822,9 @@ impl CompositeState {
                 self.descriptor.external_surfaces_rect =
                     self.descriptor.external_surfaces_rect.union(&device_rect);
 
-                self.tiles.push(tile);
+                // FIXME: can we not add to tiles if we have a
+                // compositor surface? Is tiles used elsewhere than the draw compositor?
+                // self.tiles.push(tile);
             }
         }
     }

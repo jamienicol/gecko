@@ -584,6 +584,7 @@ void SurfaceTextureHost::PushDisplayItems(wr::DisplayListBuilder& aBuilder,
                                           wr::ImageRendering aFilter,
                                           const Range<wr::ImageKey>& aImageKeys,
                                           PushDisplayItemFlagSet aFlags) {
+  printf_stderr("jamiedbg SurfaceTextureHost::PushDisplayItems() %s\n", mozilla::ToString(aBounds).c_str());
   bool preferCompositorSurface =
       aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE);
   bool supportsExternalCompositing =
@@ -747,6 +748,13 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
     wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
     const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
     const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
+  printf_stderr("jamiedbg AndroidHardwareBufferTextureHost::PushDisplayItems() %s\n", mozilla::ToString(aBounds).c_str());
+
+  bool preferCompositorSurface =
+      aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE);
+  // FIXME: for hardware and software webrender?
+  bool supportsExternalCompositing = true;
+
   switch (GetFormat()) {
     case gfx::SurfaceFormat::R8G8B8X8:
     case gfx::SurfaceFormat::R8G8B8A8:
@@ -757,7 +765,7 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
           aBounds, aClip, true, false, aFilter, aImageKeys[0],
           !(mFlags & TextureFlags::NON_PREMULTIPLIED),
           wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
-          aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE));
+          preferCompositorSurface, supportsExternalCompositing);
       break;
     }
     default: {
@@ -878,6 +886,7 @@ void EGLImageTextureHost::PushDisplayItems(
     wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
     const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
     const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
+  printf_stderr("jamiedbg EGLImageTextureHost::PushDisplayItems() %s\n", mozilla::ToString(aBounds).c_str());
   MOZ_ASSERT(aImageKeys.length() == 1);
   aBuilder.PushImage(
       aBounds, aClip, true, false, aFilter, aImageKeys[0],
