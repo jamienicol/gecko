@@ -14,6 +14,7 @@
 #include "mozilla/intl/OSPreferences.h"
 #include "mozilla/jni/Utils.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
+#include "mozilla/layers/AndroidImageReader.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
@@ -101,6 +102,7 @@ gfxAndroidPlatform::~gfxAndroidPlatform() {
   gPlatformFTLibrary = nullptr;
   layers::AndroidHardwareBufferManager::Shutdown();
   layers::AndroidHardwareBufferApi::Shutdown();
+  layers::AndroidImageReaderApi::Shutdown();
 }
 
 void gfxAndroidPlatform::InitAcceleration() {
@@ -118,6 +120,8 @@ void gfxAndroidPlatform::InitAcceleration() {
     layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
   }
+  // FIXME: only load conditionally
+  layers::AndroidImageReaderApi::Init();
 }
 
 already_AddRefed<gfxASurface> gfxAndroidPlatform::CreateOffscreenSurface(

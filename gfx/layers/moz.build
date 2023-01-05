@@ -274,9 +274,11 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     EXPORTS.mozilla.layers += [
         "AndroidHardwareBuffer.h",
+        "AndroidImageReader.h",
     ]
     UNIFIED_SOURCES += [
         "AndroidHardwareBuffer.cpp",
+        "AndroidImageReader.cpp",
         "apz/src/AndroidAPZ.cpp",
         "apz/src/AndroidFlingPhysics.cpp",
         "apz/src/AndroidVelocityTracker.cpp",
