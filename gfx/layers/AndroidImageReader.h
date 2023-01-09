@@ -44,7 +44,9 @@ enum AIMAGE_FORMATS {
   AIMAGE_FORMAT_PRIVATE = 0x22
 };
 
-namespace mozilla::layers {
+namespace mozilla {
+
+namespace layers {
 
 class AndroidImageReaderApi final {
  public:
@@ -147,6 +149,18 @@ class AndroidImageReaderApi final {
       nullptr;
   _ANativeWindow_toSurface mANativeWindow_toSurface = nullptr;
 };
-}
+
+}  // namespace mozilla::layers
+
+template <>
+class DefaultDelete<AImageReader> {
+ public:
+  void operator()(AImageReader* aPtr) const {
+    printf_stderr("jamiedbg AImageReader_delete()\n");
+    layers::AndroidImageReaderApi::Get()->AImageReader_delete(aPtr);
+  }
+};
+
+}  // namespace mozilla
 
 #endif // MOZILLA_LAYERS_ANDROIDIMAGEREADER

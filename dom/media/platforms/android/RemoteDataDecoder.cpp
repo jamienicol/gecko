@@ -4,7 +4,9 @@
 
 #include "RemoteDataDecoder.h"
 
+#include <android/hardware_buffer.h>
 #include <jni.h>
+#include <media/NdkMediaError.h>
 
 #include "AndroidBridge.h"
 #include "AndroidBuild.h"
@@ -27,6 +29,8 @@
 #include "mozilla/java/SampleWrappers.h"
 #include "mozilla/java/SurfaceAllocatorWrappers.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/layers/AndroidImageReader.h"
+#include "nsDebug.h"
 #include "nsPromiseFlatString.h"
 #include "nsThreadUtils.h"
 #include "prlog.h"
@@ -164,12 +168,18 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
         mTrackingId(std::move(aTrackingId)) {}
 
   ~RemoteVideoDecoder() {
+    printf_stderr("jamiedbg ~RemoteVideoDecoder() %p\n", this);
+    if (mImageReaderSurface) {
+      mImageReaderSurface->Release();
+    }
     if (mSurface) {
       java::SurfaceAllocator::DisposeSurface(mSurface);
     }
   }
 
   RefPtr<InitPromise> Init() override {
+    printf_stderr("jamiedbg RemoteVideoDecoder::Init() %p size=%s\n", this,
+                  mozilla::ToString(mConfig.mImage).c_str());
     mThread = GetCurrentSerialEventTarget();
     java::sdk::MediaCodec::BufferInfo::LocalRef bufferInfo;
     if (NS_FAILED(java::sdk::MediaCodec::BufferInfo::New(&bufferInfo)) ||
@@ -178,15 +188,72 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
     }
     mInputBufferInfo = bufferInfo;
 
-    mSurface =
-        java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
-            mConfig.mImage.width, mConfig.mImage.height, false));
-    if (!mSurface) {
-      return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                                          __func__);
-    }
+    // FIXME: use a pref.
+    // FIXME: fallback to Surface if ImageReader fails
+    bool useImageReader = true;
+    if (useImageReader) {
+      AImageReader* out = nullptr;
+      AIMAGE_FORMATS format = AIMAGE_FORMAT_PRIVATE;
+      // AIMAGE_FORMATS format = AIMAGE_FORMAT_YUV_420_888;
+      int usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+                  AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY;
+      int maxImages = 3;
+      const auto* api = layers::AndroidImageReaderApi::Get();
+      media_status_t status = api->AImageReader_newWithUsage(
+          mConfig.mImage.width, mConfig.mImage.height, format, usage, maxImages,
+          &out);
 
-    mSurfaceHandle = mSurface->GetHandle();
+      if (status != AMEDIA_OK) {
+        printf_stderr("jamiedbg Error creating ImageReader: %d\n", status);
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+
+      printf_stderr("jamiedbg Successfully created ImageReader\n");
+      mImageReader.reset(out);
+
+      ANativeWindow* native_win = nullptr;
+      status = api->AImageReader_getWindow(mImageReader.get(), &native_win);
+      if (status != AMEDIA_OK) {
+        printf_stderr("jamiedbg AImageReader_getWindow failed: %d\n", status);
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+      jobject surface =
+          api->ANativeWindow_toSurface(jni::GetEnvForThread(), native_win);
+      mImageReaderSurface = java::sdk::Surface::GlobalRef::From(surface);
+      if (!mImageReaderSurface) {
+        printf_stderr("jamiedbg Failed to get Surface from ANativeWindow\n");
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+
+      AImageReader_ImageListener imageListener;
+      imageListener.context = this;
+      imageListener.onImageAvailable = [](void* ctx, AImageReader* reader) {
+        printf_stderr("jamiedbg OnImageAvailable()\n");
+      };
+      api->AImageReader_setImageListener(mImageReader.get(), &imageListener);
+
+      AImageReader_BufferRemovedListener bufferRemovedListener;
+      bufferRemovedListener.context = this;
+      bufferRemovedListener.onBufferRemoved =
+          [](void* ctx, AImageReader* reader, AHardwareBuffer* buffer) {
+            printf_stderr("jamiedbg OnBufferRemoved()\n");
+          };
+      api->AImageReader_setBufferRemovedListener(mImageReader.get(),
+                                                 &bufferRemovedListener);
+
+    } else {
+      mSurface =
+          java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
+              mConfig.mImage.width, mConfig.mImage.height, false));
+      if (!mSurface) {
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+      mSurfaceHandle = mSurface->GetHandle();
+    }
 
     // Register native methods.
     JavaCallbacksSupport::Init();
@@ -201,7 +268,11 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
 
     mJavaDecoder = java::CodecProxy::Create(
         false,  // false indicates to create a decoder and true denotes encoder
-        mFormat, mSurface->GetSurface(), mJavaCallbacks, mDrmStubId);
+        mFormat,
+        mImageReaderSurface
+            ? java::sdk::Surface::Ref::From(mImageReaderSurface)
+            : java::sdk::Surface::Ref::From(mSurface->GetSurface()),
+        mJavaCallbacks, mDrmStubId);
     if (mJavaDecoder == nullptr) {
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
@@ -247,6 +318,7 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
     AssertOnThread();
 
     if (NeedsNewDecoder()) {
+      printf_stderr("jamiedbg Decode() Needs new decoder\n");
       return DecodePromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
                                             __func__);
     }
@@ -332,6 +404,8 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
       return;
     }
 
+    printf_stderr("jamiedbg RemoteVideoDecoder::ProcessOutput()\n");
+
     AssertOnThread();
     if (GetState() == State::SHUTDOWN) {
       aSample->Dispose();
@@ -347,6 +421,7 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
     // devices (or at least on the emulator) the java decoder does not raise an
     // error when the Surface is released. So we raise this error here as well.
     if (NeedsNewDecoder()) {
+      printf_stderr("jamiedbg Need new decoder\n");
       Error(MediaResult(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
                         RESULT_DETAIL("VideoCallBack::HandleOutput")));
       return;
@@ -382,7 +457,9 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
     }
 
     if (ok && (size > 0 || presentationTimeUs >= 0)) {
-      RefPtr<layers::Image> img = new layers::SurfaceTextureImage(
+      RefPtr<layers::Image> img;
+
+      img = new layers::SurfaceTextureImage(
           mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,
           gl::OriginPos::BottomLeft, mConfig.HasAlpha(), mTransformOverride);
       img->AsSurfaceTextureImage()->RegisterSetCurrentCallback(
@@ -517,10 +594,13 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
   }
 
   bool NeedsNewDecoder() const override {
-    return !mSurface || mSurface->IsReleased();
+    return !mImageReaderSurface && (!mSurface || mSurface->IsReleased());
+    // return !mSurface || mSurface->IsReleased();
   }
 
   const VideoInfo mConfig;
+  UniquePtr<AImageReader> mImageReader;
+  java::sdk::Surface::GlobalRef mImageReaderSurface;
   java::GeckoSurface::GlobalRef mSurface;
   AndroidSurfaceTextureHandle mSurfaceHandle;
   // Used to override the SurfaceTexture transform on some devices where the
@@ -828,6 +908,7 @@ RemoteDataDecoder::RemoteDataDecoder(MediaData::Type aType,
       mNumPendingInputs(0) {}
 
 RefPtr<MediaDataDecoder::FlushPromise> RemoteDataDecoder::Flush() {
+  // printf_stderr("jamiedbg RemoteDataDecoder::Flush() %p\n", this);
   AssertOnThread();
   MOZ_ASSERT(GetState() != State::SHUTDOWN);
 
@@ -841,6 +922,7 @@ RefPtr<MediaDataDecoder::FlushPromise> RemoteDataDecoder::Flush() {
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> RemoteDataDecoder::Drain() {
+  // printf_stderr("jamiedbg RemoteDataDecoder::Drain() %p\n", this);
   AssertOnThread();
   if (GetState() == State::SHUTDOWN) {
     return DecodePromise::CreateAndReject(NS_ERROR_DOM_MEDIA_CANCELED,
@@ -867,6 +949,7 @@ RefPtr<MediaDataDecoder::DecodePromise> RemoteDataDecoder::Drain() {
 }
 
 RefPtr<ShutdownPromise> RemoteDataDecoder::Shutdown() {
+  printf_stderr("jamiedbg RemoteDataDecoder::Shutdown() %p\n", this);
   LOG("");
   AssertOnThread();
   SetState(State::SHUTDOWN);
@@ -1078,6 +1161,8 @@ void RemoteDataDecoder::DrainComplete() {
 }
 
 void RemoteDataDecoder::Error(const MediaResult& aError) {
+  printf_stderr("jamiedbg RemoteDataDecoder::Error() %s\n",
+                aError.Description().get());
   if (!mThread->IsOnCurrentThread()) {
     nsresult rv = mThread->Dispatch(NewRunnableMethod<MediaResult>(
         "RemoteDataDecoder::Error", this, &RemoteDataDecoder::Error, aError));
