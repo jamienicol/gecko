@@ -13,13 +13,13 @@ import android.os.DeadObjectException;
 import android.os.RemoteException;
 import android.util.Log;
 import android.util.SparseArray;
+import android.view.Surface;
 import androidx.annotation.RequiresApi;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.mozilla.gecko.annotation.WrapForJNI;
-import org.mozilla.gecko.gfx.GeckoSurface;
 import org.mozilla.gecko.mozglue.JNIObject;
 
 // Proxy class of ICodec binder.
@@ -32,7 +32,7 @@ public final class CodecProxy {
   private long mSession;
   private boolean mIsEncoder;
   private FormatParam mFormat;
-  private GeckoSurface mOutputSurface;
+  private Surface mOutputSurface;
   private CallbacksForwarder mCallbacks;
   private String mRemoteDrmStubId;
   private Queue<Sample> mSurfaceOutputs = new ConcurrentLinkedQueue<>();
@@ -152,7 +152,7 @@ public final class CodecProxy {
   public static CodecProxy create(
       final boolean isEncoder,
       final MediaFormat format,
-      final GeckoSurface surface,
+      final Surface surface,
       final Callbacks callbacks,
       final String drmStubId) {
     return RemoteManager.getInstance()
@@ -162,7 +162,7 @@ public final class CodecProxy {
   public static CodecProxy createCodecProxy(
       final boolean isEncoder,
       final MediaFormat format,
-      final GeckoSurface surface,
+      final Surface surface,
       final Callbacks callbacks,
       final String drmStubId) {
     return new CodecProxy(isEncoder, format, surface, callbacks, drmStubId);
@@ -171,7 +171,7 @@ public final class CodecProxy {
   private CodecProxy(
       final boolean isEncoder,
       final MediaFormat format,
-      final GeckoSurface surface,
+      final Surface surface,
       final Callbacks callbacks,
       final String drmStubId) {
     mIsEncoder = isEncoder;
