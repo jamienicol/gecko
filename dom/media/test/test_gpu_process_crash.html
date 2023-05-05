@@ -1,0 +1,77 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Test playback continues following GPU process restart</title>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
+  <script type="text/javascript" src="manifest.js"></script>
+</head>
+<body>
+<pre id="test">
+<script class="testbody" type="text/javascript">
+
+PARALLEL_TESTS = 1;
+var manager = new MediaTestManager;
+
+function loadedData(e) {
+  var v = e.target;
+  v.play();
+}
+
+function playing(e) {
+  var v = e.target;
+
+  // Kill the GPU process
+  SpecialPowers.spawnChrome([], async () => {
+    const gfxInfo = Cc["@mozilla.org/gfx/info;1"].getService(Ci.nsIGfxInfo);
+    if (!gfxInfo.usingGPUProcess)
+      return Promise.resolve();
+
+    const { TestUtils } = ChromeUtils.import(
+      "resource://testing-common/TestUtils.jsm"
+    );
+    var promise = TestUtils.topicObserved("compositor-reinitialized");
+    gfxInfo.killGPUProcessForTests();
+    return promise;
+  }).then(() => {
+    v.gpuProcessReinitialized = true;
+  });
+}
+
+function error(e) {
+  var v = e.target;
+  ok(false, "Unexpected error event");
+  removeNodeAndSource(v);
+  manager.finished(v.token);
+}
+
+function ended(e)  {
+  var v = e.target;
+  ok(v.gpuProcessReinitialized, "GPU process was restarted.");
+  ok(true, "Playback successfully ended.");
+  removeNodeAndSource(v);
+  manager.finished(v.token);
+}
+
+function startTest(test, token) {
+  var v = document.createElement('video');
+  v.token = token;
+  v.src = test.name;
+
+  v.addEventListener("loadeddata", loadedData)
+  v.addEventListener("playing", playing);
+  v.addEventListener("error", error);
+  v.addEventListener("ended", ended);
+
+  v.gpuProcessReinitialized = false;
+
+  manager.started(token);
+  document.body.appendChild(v);
+}
+
+manager.runTests(gLongerTests, startTest);
+
+</script>
+</pre>
+</body>
+</html>
