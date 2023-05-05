@@ -25,6 +25,10 @@ public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
    */
   public static synchronized RemoteSurfaceAllocator getInstance(final int allocatorId) {
     if (mInstance == null) {
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+      }
       mInstance = new RemoteSurfaceAllocator(allocatorId);
     }
     return mInstance;
