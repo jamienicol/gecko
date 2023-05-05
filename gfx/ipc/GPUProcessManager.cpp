@@ -202,6 +202,7 @@ bool GPUProcessManager::LaunchGPUProcess() {
     return false;
   }
 
+  printf_stderr("jamiedbg LaunchGPUProcess()\n");
   // Start listening for pref changes so we can
   // forward them to the process once it is running.
   if (!mObserver) {
@@ -792,6 +793,7 @@ void GPUProcessManager::OnProcessUnexpectedShutdown(GPUProcessHost* aHost) {
 }
 
 void GPUProcessManager::HandleProcessLost() {
+  printf_stderr("jamiedbg GPUProcessManager::HandleProcessLost()\n");
   MOZ_ASSERT(NS_IsMainThread());
 
   // The shutdown and restart sequence for the GPU process is as follows:
@@ -897,6 +899,7 @@ void GPUProcessManager::ReinitializeRendering() {
     listener->OnCompositorUnexpectedShutdown();
   }
 
+  printf_stderr("jamiedbg GPUProcessManager::ReinitializeRendering()\n");
   // Notify any observers that the compositor has been reinitialized,
   // eg the ZoomConstraintsClients for parent process documents.
   nsCOMPtr<nsIObserverService> observerService = services::GetObserverService();
