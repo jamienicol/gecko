@@ -72,6 +72,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
    */
   @Override // IProcessManager
   public ISurfaceAllocator getSurfaceAllocator() {
+    Log.w(LOGTAG, "GeckoProcessManager.getSurfaceAllocator()");
     final GeckoResult<Boolean> gpuEnabled = GeckoAppShell.isGpuProcessEnabled();
 
     try {
@@ -347,6 +348,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
     protected void onBinderConnected(@NonNull final IChildProcess child) throws RemoteException {
       mCompositorSurfaceManager = new CompositorSurfaceManager(child.getCompositorSurfaceManager());
       mSurfaceAllocator = child.getSurfaceAllocator(mUniqueGpuProcessId);
+      Log.w(LOGTAG, String.format("jamiedbg onBinderConnected() mSurfaceAllocator exists: %b", mSurfaceAllocator != null));
     }
 
     public CompositorSurfaceManager getCompositorSurfaceManager() {
@@ -354,6 +356,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
     }
 
     public ISurfaceAllocator getSurfaceAllocator() {
+      Log.w(LOGTAG, "GeckoProcessManager.getSurfaceAllocator()");
       return mSurfaceAllocator;
     }
   }

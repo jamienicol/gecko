@@ -208,6 +208,7 @@ public class GeckoServiceChildProcess extends Service {
    * Surfaces, for consumption in either the GPU process or parent process.
    */
   public static ISurfaceAllocator getSurfaceAllocator() throws RemoteException {
+    Log.w(LOGTAG, "jamiedbg GeckoServiceChildProcess.getSurfaceAllocator()");
     return sProcessManager.getSurfaceAllocator();
   }
 }

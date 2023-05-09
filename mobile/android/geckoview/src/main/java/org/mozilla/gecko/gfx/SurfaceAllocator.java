@@ -79,7 +79,7 @@ import org.mozilla.geckoview.GeckoResult;
         Log.w(LOGTAG, "Failed to connect to RemoteSurfaceAllocator");
       }
     } catch (final RemoteException e) {
-      Log.w(LOGTAG, "Failed to connect to RemoteSurfaceAllocator", e);
+      Log.w(LOGTAG, "jamiedbg Failed to connect to RemoteSurfaceAllocator", e);
       sAllocator = null;
     } finally {
       if (sConnectedPromise != null) {
@@ -87,6 +87,8 @@ import org.mozilla.geckoview.GeckoResult;
         sConnectedPromise = null;
       }
     }
+
+    Log.w(LOGTAG, "jamiedbg Connected to RemoteSurfaceAllocator");
   }
 
   @WrapForJNI

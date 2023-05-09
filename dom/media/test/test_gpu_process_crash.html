@@ -40,7 +40,7 @@ function playing(e) {
 
 function error(e) {
   var v = e.target;
-  ok(false, "Unexpected error event");
+  ok(false, "jamiedbg Unexpected error event");
   removeNodeAndSource(v);
   manager.finished(v.token);
 }

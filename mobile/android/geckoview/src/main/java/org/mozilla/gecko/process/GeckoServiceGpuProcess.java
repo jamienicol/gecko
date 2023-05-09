@@ -6,6 +6,7 @@
 package org.mozilla.gecko.process;
 
 import android.os.Binder;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.Surface;
 import org.mozilla.gecko.annotation.WrapForJNI;
@@ -24,6 +25,7 @@ public class GeckoServiceGpuProcess extends GeckoServiceChildProcess {
 
     @Override
     public ISurfaceAllocator getSurfaceAllocator(final int allocatorId) {
+      Log.w(LOGTAG, "GeckoServiceGpuProcess.getSurfaceAllocator()");
       return RemoteSurfaceAllocator.getInstance(allocatorId);
     }
   }

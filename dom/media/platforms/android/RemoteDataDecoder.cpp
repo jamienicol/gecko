@@ -10,6 +10,7 @@
 #include "AndroidBuild.h"
 #include "AndroidDecoderModule.h"
 #include "EMEDecoderModule.h"
+#include "ErrorList.h"
 #include "GLImages.h"
 #include "JavaCallbacksSupport.h"
 #include "MediaCodec.h"
@@ -171,6 +172,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
   }
 
   RefPtr<InitPromise> Init() override {
+    printf_stderr("jamiedbg RemoteVideoDecoder::Init()\n");
     mThread = GetCurrentSerialEventTarget();
     java::sdk::MediaCodec::BufferInfo::LocalRef bufferInfo;
     if (NS_FAILED(java::sdk::MediaCodec::BufferInfo::New(&bufferInfo)) ||
@@ -209,9 +211,16 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
         java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
             mConfig.mImage.width, mConfig.mImage.height, false));
     if (!mSurface) {
-      return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+      printf_stderr(
+          "jamiedbg RemoteVideoDecoder::Init() failed to acquire surface\n");
+      // FIXME: what do we need to do here?  If we raise
+      // NEED_NEW_DECODER, will the system eventually give up if it
+      // repeatedly fails to create a new decoder? like if there's a
+      // real issue as opposed to a transient GPU proc restart?
+      return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
                                           __func__);
     }
+    printf_stderr("jamiedbg Successfully allocated Surface\n");
 
     mSurfaceHandle = mSurface->GetHandle();
 
@@ -230,6 +239,16 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
         false,  // false indicates to create a decoder and true denotes encoder
         mFormat, mSurface, mJavaCallbacks, mDrmStubId);
     if (mJavaDecoder == nullptr) {
+      printf_stderr(
+          "jamiedbg RemoteVideoDecoder::Init() failed to create java "
+          "decoder\n");
+      // The GPU process may have died in between allocating the Surface above
+      // and creating the decoder here, in which case we want to recreate the
+      // decoder and retry initialization with a new Surface.
+      if (NeedsNewDecoder()) {
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
+                                            __func__);
+      }
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
     }
@@ -260,6 +279,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     } else if (mMimeType.EqualsLiteral("video/av1")) {
       mMediaInfoFlag |= MediaInfoFlag::VIDEO_AV1;
     }
+    printf_stderr("jamiedbg RemoteVideoDecoder successfully finished init\n");
     return InitPromise::CreateAndResolve(TrackInfo::kVideoTrack, __func__);
   }
 
@@ -291,6 +311,8 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     AssertOnThread();
 
     if (NeedsNewDecoder()) {
+      printf_stderr(
+          "jamiedbg RemoteVideoDecoder::Decode() needs new decoder\n");
       return DecodePromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
                                             __func__);
     }
@@ -391,6 +413,8 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     // devices (or at least on the emulator) the java decoder does not raise an
     // error when the Surface is released. So we raise this error here as well.
     if (NeedsNewDecoder()) {
+      printf_stderr(
+          "jamiedbg RemoteVideoDecoder::ProcessOutput() needs new decoder\n");
       Error(MediaResult(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
                         RESULT_DETAIL("VideoCallBack::HandleOutput")));
       return;
@@ -412,6 +436,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     ok &= NS_SUCCEEDED(info->PresentationTimeUs(&presentationTimeUs));
 
     if (!ok) {
+      printf_stderr("jamiedbg RemoteVideoDecoder::ProcessOuutput() failed\n");
       Error(MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                         RESULT_DETAIL("VideoCallBack::HandleOutput")));
       return;
@@ -1142,6 +1167,8 @@ void RemoteDataDecoder::Error(const MediaResult& aError) {
   if (GetState() == State::SHUTDOWN) {
     return;
   }
+
+  printf_stderr("jamiedbg RemoteVideoDecoder::Error()\n");
 
   // If we know we need a new decoder (eg because RemoteVideoDecoder's mSurface
   // has been released due to a GPU process crash) then override the error to

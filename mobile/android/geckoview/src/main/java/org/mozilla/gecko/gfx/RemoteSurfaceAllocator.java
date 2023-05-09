@@ -5,6 +5,8 @@
 
 package org.mozilla.gecko.gfx;
 
+import android.util.Log;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
@@ -24,6 +26,10 @@ public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
    *     0 for the parent process instance.
    */
   public static synchronized RemoteSurfaceAllocator getInstance(final int allocatorId) {
+    if (allocatorId >= 2) {
+      Log.w(LOGTAG, "jamiedbg NOT CREATING SURFACE ALLOCATOR");
+      return null;
+    }
     if (mInstance == null) {
       try {
         Thread.sleep(1000);
