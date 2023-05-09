@@ -61,7 +61,7 @@ import org.mozilla.geckoview.GeckoResult;
                 new IBinder.DeathRecipient() {
                   @Override
                   public void binderDied() {
-                    Log.w(LOGTAG, "RemoteSurfaceAllocator died");
+                    Log.w(LOGTAG, "jamiedbg RemoteSurfaceAllocator died");
                     synchronized (SurfaceAllocator.class) {
                       // Our connection to the remote allocator has died, so all our surfaces are
                       // invalid.  Release them all now. When their owners attempt to render in to
@@ -76,7 +76,7 @@ import org.mozilla.geckoview.GeckoResult;
                 },
                 0);
       } else {
-        Log.w(LOGTAG, "Failed to connect to RemoteSurfaceAllocator");
+        Log.w(LOGTAG, "jamiedbg Failed to connect to RemoteSurfaceAllocator");
       }
     } catch (final RemoteException e) {
       Log.w(LOGTAG, "jamiedbg Failed to connect to RemoteSurfaceAllocator", e);
