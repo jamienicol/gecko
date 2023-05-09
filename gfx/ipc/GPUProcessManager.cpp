@@ -373,8 +373,7 @@ bool GPUProcessManager::EnsureProtocolsReady() {
                  EnsureVRManager();
 
 #ifdef MOZ_WIDGET_ANDROID
-  // FIXME: success = success && ... ?
-  java::SurfaceAllocator::Connect();
+  success = success && java::SurfaceAllocator::Connect();
 #endif
 
   return success;

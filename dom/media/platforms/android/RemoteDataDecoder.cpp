@@ -184,6 +184,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     // If we are not yet (re-)connected to the SurfaceAllocator, then await
     // connection, and call Init again once connected.
     if (!java::SurfaceAllocator::IsConnected()) {
+      printf_stderr("jamiedbg SurfaceAllocator not yet connected...\n");
       // We must wait for the SurfaceAllocator's connected promise on the main
       // thread so that GeckoResult can dispatch the result.
       auto promise =
@@ -200,8 +201,14 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
                   aValue) {
             bool connected = aValue.IsResolve() && aValue.ResolveValue();
             if (connected) {
+              printf_stderr(
+                  "jamiedbg Connected promise resolved success. "
+                  "reinitializing\n");
               return self->Init();
             }
+            printf_stderr(
+                "jamiedbg Connected promise resolved failure. raising fatal "
+                "error\n");
             return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                                 __func__);
           });

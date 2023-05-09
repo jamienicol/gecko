@@ -46,7 +46,7 @@ import org.mozilla.geckoview.GeckoResult;
   }
 
   @WrapForJNI
-  public static synchronized void connect() {
+  public static synchronized boolean connect() {
     try {
       if (GeckoAppShell.isParentProcess()) {
         sAllocator = GeckoProcessManager.getInstance().getSurfaceAllocator();
@@ -88,7 +88,11 @@ import org.mozilla.geckoview.GeckoResult;
       }
     }
 
-    Log.w(LOGTAG, "jamiedbg Connected to RemoteSurfaceAllocator");
+    if (isConnected()) {
+        Log.w(LOGTAG, String.format("jamiedbg Connected to RemoteSurfaceAllocator: %b", isConnected()));
+    }
+
+    return isConnected();
   }
 
   @WrapForJNI
