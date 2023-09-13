@@ -15,6 +15,7 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/MemoryReporting.h"
+#include "nsDebug.h"
 
 #include "gc/Barrier.h"
 #include "gc/Policy.h"
@@ -80,6 +81,19 @@ class RegExpShared
   using JitCodeTable = js::irregexp::ByteArray;
   using JitCodeTables = Vector<JitCodeTable, 0, SystemAllocPolicy>;
 
+  static const char* codeKindStr(CodeKind codeKind) {
+    switch (codeKind) {
+      case CodeKind::Bytecode:
+        return "Bytecode";
+      case CodeKind::Jitcode:
+        return "Jitcode";
+      case CodeKind::Any:
+        return "Any";
+      default:
+        return "Unknown";
+    }
+  }
+
  private:
   friend class RegExpStatics;
   friend class RegExpZone;
@@ -89,6 +103,9 @@ class RegExpShared
     ByteCode* byteCode = nullptr;
 
     bool compiled(CodeKind kind = CodeKind::Any) const {
+      printf_stderr(
+          "jamiedbg RegExpCompilation::compiled() bytecode: %p, jitcode: %p\n",
+          byteCode, jitCode.get());
       switch (kind) {
         case CodeKind::Bytecode:
           return !!byteCode;
@@ -221,6 +238,8 @@ class RegExpShared
   bool sticky() const { return flags.sticky(); }
 
   bool isCompiled(bool latin1, CodeKind codeKind = CodeKind::Any) const {
+    printf_stderr("jamiedbg RegExpShared::isCompiled() %p, codeKind=%s\n",
+                        this, codeKindStr(codeKind));
     return compilation(latin1).compiled(codeKind);
   }
   bool isCompiled() const { return isCompiled(true) || isCompiled(false); }

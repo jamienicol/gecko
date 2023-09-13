@@ -232,6 +232,7 @@ export class FormAutofillHandler {
    * @returns {Array} The valid address and credit card details.
    */
   collectFormFields(ignoreInvalid = true) {
+    dump("jamiedbg FormAutofillHandler.collectFormFields()");
     const sections = lazy.FormAutofillHeuristics.getFormInfo(this.form);
     const allValidDetails = [];
     for (const section of sections) {

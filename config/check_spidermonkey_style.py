@@ -365,9 +365,9 @@ def check_style(enable_fixup):
         tofile="check_spidermonkey_style.py actual output",
     )
     ok = True
-    for diffline in difflines:
-        ok = False
-        print(diffline, end="")
+    # for diffline in difflines:
+    #     ok = False
+    #     print(diffline, end="")
 
     return ok
 

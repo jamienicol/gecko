@@ -171,7 +171,9 @@ class RegExpObject : public NativeObject {
     setFixedSlot(SHARED_SLOT, PrivateGCThingValue(shared));
   }
 
-  void clearShared() { setFixedSlot(SHARED_SLOT, UndefinedValue()); }
+  void clearShared() {
+    setFixedSlot(SHARED_SLOT, UndefinedValue());
+  }
 
   void initIgnoringLastIndex(JSAtom* source, JS::RegExpFlags flags);
 

@@ -521,6 +521,9 @@ enum class AssembleResult {
     JSContext* cx, RegExpCompiler* compiler, RegExpCompileData* data,
     MutableHandleRegExpShared re, Handle<JSAtom*> pattern, Zone* zone,
     bool useNativeCode, bool isLatin1) {
+  printf_stderr("jamiedbg Assemble() %p, useNativeCode: %s\n", re.get(),
+                      useNativeCode ? "true" : "false");
+
   // Because we create a StackMacroAssembler, this function is not allowed
   // to GC. If needed, we allocate and throw errors in the caller.
   jit::TempAllocator temp(&cx->tempLifoAlloc());
@@ -701,9 +704,24 @@ bool InitializeNamedCaptures(JSContext* cx, HandleRegExpShared re,
   return true;
 }
 
+static const char* codeKindStr(RegExpShared::CodeKind codeKind) {
+  switch (codeKind) {
+    case RegExpShared::CodeKind::Bytecode:
+      return "Bytecode";
+    case RegExpShared::CodeKind::Jitcode:
+      return "Jitcode";
+    case RegExpShared::CodeKind::Any:
+      return "Any";
+    default:
+      return "Unknown";
+  }
+}
+
 bool CompilePattern(JSContext* cx, MutableHandleRegExpShared re,
                     Handle<JSLinearString*> input,
                     RegExpShared::CodeKind codeKind) {
+  printf_stderr("jamiedbg irregexp::CompilePattern() %p, codeKind=%s",
+                      re.get(), codeKindStr(codeKind));
   Rooted<JSAtom*> pattern(cx, re->getSource());
   JS::RegExpFlags flags = re->getFlags();
   LifoAllocScope allocScope(&cx->tempLifoAlloc());

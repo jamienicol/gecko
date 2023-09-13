@@ -657,6 +657,7 @@ export const HeuristicsRegExp = {
         }
       });
 
+      dump(`jamiedbg new RegExp(): ${regexps}`);
       const value = new RegExp(regexps.join("|"), "gu");
 
       Object.defineProperty(rules, name, { get: undefined });
@@ -676,10 +677,12 @@ export const HeuristicsRegExp = {
   },
 
   getLabelRules() {
+    dump("jamiedbg HeuristicsRegExp.getLabelRules()");
     return this._getRules(this.LABEL_RULES, this.LABEL_RULE_SETS);
   },
 
   getRules() {
+    dump("jamiedbg HeuristicsRegExp.getRules()");
     return this._getRules(this.RULES, this.RULE_SETS);
   },
 };

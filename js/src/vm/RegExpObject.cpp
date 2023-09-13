@@ -8,6 +8,7 @@
 
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/PodOperations.h"
+#include "nsDebug.h"
 
 #include <type_traits>
 
@@ -25,6 +26,7 @@
 #include "util/StringBuffer.h"
 #include "vm/MatchPairs.h"
 #include "vm/PlainObject.h"
+#include "vm/RegExpShared.h"
 #include "vm/RegExpStatics.h"
 #include "vm/StringType.h"
 
@@ -68,6 +70,8 @@ RegExpObject* js::RegExpAlloc(JSContext* cx, NewObjectKind newKind,
   if (!regexp) {
     return nullptr;
   }
+
+  printf_stderr("jamiedbg js::RegExpAlloc() %p\n", regexp.get());
 
   if (!SharedShape::ensureInitialCustomShape<RegExpObject>(cx, regexp)) {
     return nullptr;
@@ -215,6 +219,9 @@ RegExpObject* RegExpObject::createSyntaxChecked(JSContext* cx,
     return nullptr;
   }
 
+  printf_stderr("jamiedbg RegExpObject::createSyntaxChecked() %p\n",
+                regexp.get());
+
   regexp->initAndZeroLastIndex(source, flags, cx);
 
   return regexp;
@@ -238,6 +245,7 @@ RegExpObject* RegExpObject::create(JSContext* cx, Handle<JSAtom*> source,
     if (!regexp) {
       return nullptr;
     }
+    printf_stderr("jamiedbg RegExpObject::create() %p\n", regexp.get());
 
     regexp->initAndZeroLastIndex(source, flags, cx);
 
@@ -253,6 +261,8 @@ RegExpShared* RegExpObject::createShared(JSContext* cx,
   Rooted<JSAtom*> source(cx, regexp->getSource());
   RegExpShared* shared =
       cx->zone()->regExps().get(cx, source, regexp->getFlags());
+  printf_stderr("jamiedbg RegExpObject::createShared() obj: %p, shared: %p\n",
+      regexp.get(), shared);
   if (!shared) {
     return nullptr;
   }
@@ -581,6 +591,7 @@ void RegExpShared::traceChildren(JSTracer* trc) {
 }
 
 void RegExpShared::discardJitCode() {
+  printf_stderr("jamiedbg RegExpShared::discardJitCode() %p", this);
   for (auto& comp : compilationArray) {
     comp.jitCode = nullptr;
   }
@@ -590,6 +601,7 @@ void RegExpShared::discardJitCode() {
 }
 
 void RegExpShared::finalize(JS::GCContext* gcx) {
+  printf_stderr("jamiedbg RegExpShared::finalize() %p\n", this);
   for (auto& comp : compilationArray) {
     if (comp.byteCode) {
       size_t length = comp.byteCodeLength();
@@ -609,6 +621,10 @@ bool RegExpShared::compileIfNecessary(JSContext* cx,
                                       MutableHandleRegExpShared re,
                                       Handle<JSLinearString*> input,
                                       RegExpShared::CodeKind codeKind) {
+  printf_stderr("jamiedbg RegExpShared::compileIfNecessary() %p. "
+                      "codeKind: %s, latin1: %s",
+                      re.get(), codeKindStr(codeKind),
+                      input->hasLatin1Chars() ? "true" : "false");
   if (codeKind == RegExpShared::CodeKind::Any) {
     // We start by interpreting regexps, then compile them once they are
     // sufficiently hot. For very long input strings, we tier up eagerly.
@@ -625,10 +641,12 @@ bool RegExpShared::compileIfNecessary(JSContext* cx,
 
   bool needsCompile = false;
   if (re->kind() == RegExpShared::Kind::Unparsed) {
+    printf_stderr("jamiedbg needs compile because unparsed");
     needsCompile = true;
   }
   if (re->kind() == RegExpShared::Kind::RegExp) {
     if (!re->isCompiled(input->hasLatin1Chars(), codeKind)) {
+      printf_stderr("jamiedbg needs compile because not compiled");
       needsCompile = true;
     }
   }

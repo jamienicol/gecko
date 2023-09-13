@@ -74,6 +74,7 @@ export class FormAutofillChild extends JSWindowActorChild {
   }
 
   _doIdentifyAutofillFields() {
+    dump("jamiedbg FormAutofillChild._doIdentifyAutofillFields()");
     if (this._hasPendingTask) {
       return;
     }

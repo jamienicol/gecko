@@ -267,6 +267,7 @@ export var FormAutofillContent = {
   },
 
   identifyAutofillFields(element) {
+    dump("jamiedbg FormAutofillContent.identifyAutofillFields()");
     this.debug(
       `identifyAutofillFields: ${element.ownerDocument.location?.hostname}`
     );

@@ -9,6 +9,7 @@
 #include "mozilla/Casting.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/TextUtils.h"
+#include "nsDebug.h"
 
 #include "jsapi.h"
 
@@ -1170,6 +1171,7 @@ static RegExpRunStatus ExecuteRegExp(JSContext* cx, HandleObject regexp,
 static bool RegExpMatcherImpl(JSContext* cx, HandleObject regexp,
                               HandleString string, int32_t lastIndex,
                               MutableHandleValue rval) {
+  printf_stderr("jamiedbg RegExpMatcherImpl() %p", regexp.get());
   /* Execute regular expression and gather matches. */
   VectorMatchPairs matches;
 
@@ -1219,6 +1221,8 @@ bool js::RegExpMatcher(JSContext* cx, unsigned argc, Value* vp) {
 bool js::RegExpMatcherRaw(JSContext* cx, HandleObject regexp,
                           HandleString input, int32_t lastIndex,
                           MatchPairs* maybeMatches, MutableHandleValue output) {
+  printf_stderr("jamiedbg RegExpMatcherRaw() %p", regexp.get());
+
   MOZ_ASSERT(lastIndex >= 0 && size_t(lastIndex) <= input->length());
 
   // RegExp execution was successful only if the pairs have actually been

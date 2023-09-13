@@ -187,6 +187,7 @@ export const FormAutofillHeuristics = {
    *          otherwise false.
    */
   _parsePhoneFields(scanner, detail) {
+    dump("jamiedbg _parsePhoneFields()");
     let matchingResult;
     const GRAMMARS = this.PHONE_FIELD_GRAMMARS;
 
@@ -992,6 +993,7 @@ export const FormAutofillHeuristics = {
   // (?<!not)word -> (?<neg>notword)|word
   // TODO: Bug 1829583
   testRegex(regex, string) {
+    dump(`jamiedbg begin testRegex() ${regex}`);
     const matches = string?.matchAll(regex);
     if (!matches) {
       return false;
@@ -1004,6 +1006,8 @@ export const FormAutofillHeuristics = {
         ...match.filter(m => m !== match?.groups?.neg).filter(Boolean)
       );
     }
+    dump("jamiedbg end testRegex()");
+    dump("jamiedbg");
     return excludeNegativeCaptureGroups?.length > 0;
   },
 
@@ -1214,4 +1218,5 @@ ChromeUtils.defineLazyGetter(FormAutofillHeuristics, "ADDRESS_FIELDNAMES", () =>
   )
 );
 
+dump("jamiedbg export FormAutofillHeuristics");
 export default FormAutofillHeuristics;
