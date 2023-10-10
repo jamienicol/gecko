@@ -9,7 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FormAutofill: "resource://autofill/FormAutofill.sys.mjs",
   FormAutofillContent: "resource://autofill/FormAutofillContent.sys.mjs",
   FormAutofillUtils: "resource://gre/modules/shared/FormAutofillUtils.sys.mjs",
-  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  requestIdleCallback: "resource://gre/modules/Timer.sys.mjs",
 });
 
 /**
@@ -79,7 +79,7 @@ export class FormAutofillChild extends JSWindowActorChild {
     }
     this._hasPendingTask = true;
 
-    lazy.setTimeout(() => {
+    lazy.requestIdleCallback(() => {
       lazy.FormAutofillContent.identifyAutofillFields(this._nextHandleElement);
       this._hasPendingTask = false;
       this._nextHandleElement = null;
