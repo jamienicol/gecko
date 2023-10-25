@@ -4426,11 +4426,16 @@ void HTMLInputElement::HandleTypeChange(FormControlType aNewType,
   }
 
   const ValueModeType oldValueMode = GetValueMode();
-  nsAutoString oldValue;
-  if (oldValueMode == VALUE_MODE_VALUE) {
+  const ValueModeType newValueMode = GetValueModeForType(aNewType);
+  Maybe<nsAutoString> oldValue;
+  if (oldValueMode == VALUE_MODE_VALUE &&
+      (newValueMode == VALUE_MODE_DEFAULT ||
+       newValueMode == VALUE_MODE_DEFAULT_ON ||
+       (newValueMode == VALUE_MODE_VALUE && mValueChanged))) {
     // Doesn't matter what caller type we pass here, since we know we're not a
     // file input anyway.
-    GetValue(oldValue, CallerType::NonSystem);
+    oldValue.emplace();
+    GetValue(*oldValue, CallerType::NonSystem);
   }
 
   TextControlState::SelectionProperties sp;
@@ -4474,8 +4479,8 @@ void HTMLInputElement::HandleTypeChange(FormControlType aNewType,
       //    the value IDL attribute in either the default mode or the default/on
       //    mode, then set the element's value content attribute to the
       //    element's value.
-      if (oldValueMode == VALUE_MODE_VALUE && !oldValue.IsEmpty()) {
-        SetAttr(kNameSpaceID_None, nsGkAtoms::value, oldValue, true);
+      if (oldValueMode == VALUE_MODE_VALUE && !oldValue->IsEmpty()) {
+        SetAttr(kNameSpaceID_None, nsGkAtoms::value, *oldValue, true);
       }
       break;
     case VALUE_MODE_VALUE: {
@@ -4503,7 +4508,7 @@ void HTMLInputElement::HandleTypeChange(FormControlType aNewType,
         // TODO: What should we do if SetValueInternal fails?  (The allocation
         // may potentially be big, but most likely we've failed to allocate
         // before the type change.)
-        SetValueInternal(oldValue, options);
+        SetValueInternal(*oldValue, options);
       } else {
         // The value dirty flag is not set, so our value is based on our default
         // value. But our default value might be dependent on the type. Make
@@ -6402,7 +6407,13 @@ nsresult HTMLInputElement::VisitGroup(nsIRadioVisitor* aVisitor) {
 }
 
 HTMLInputElement::ValueModeType HTMLInputElement::GetValueMode() const {
-  switch (mType) {
+  return GetValueModeForType(mType);
+}
+
+/* static */
+HTMLInputElement::ValueModeType HTMLInputElement::GetValueModeForType(
+    FormControlType aType) {
+  switch (aType) {
     case FormControlType::InputHidden:
     case FormControlType::InputSubmit:
     case FormControlType::InputButton:

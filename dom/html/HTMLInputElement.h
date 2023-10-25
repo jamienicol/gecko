@@ -1031,6 +1031,8 @@ class HTMLInputElement final : public TextControlElement,
    */
   ValueModeType GetValueMode() const;
 
+  static ValueModeType GetValueModeForType(FormControlType aType);
+
   /**
    * Get the mutable state of the element.
    * When the element isn't mutable (immutable), the value or checkedness
