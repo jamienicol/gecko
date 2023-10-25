@@ -4314,6 +4314,7 @@ void nsHtml5TreeBuilder::appendToCurrentNodeAndPushElementMayFoster(
 void nsHtml5TreeBuilder::appendVoidElementToCurrentMayFoster(
     nsHtml5ElementName* elementName, nsHtml5HtmlAttributes* attributes,
     nsIContentHandle* form) {
+  printf_stderr("jamiedbg nsHtml5TreeBuilder::appendVoidElementToCurrentMayFoster()\n");
   nsAtom* name = elementName->getName();
   nsIContentHandle* elt;
   nsIContentHandle* formOwner =
@@ -4325,12 +4326,16 @@ void nsHtml5TreeBuilder::appendVoidElementToCurrentMayFoster(
         htmlCreator(elementName->getHtmlCreator()));
   } else {
     nsIContentHandle* currentNode = nodeFromStackWithBlinkCompat(currentPtr);
+    printf_stderr("jamiedbg creating element\n");
     elt =
         createElement(kNameSpaceID_XHTML, name, attributes, formOwner,
                       currentNode, htmlCreator(elementName->getHtmlCreator()));
+    printf_stderr("jamiedbg appending element\n");
     appendElement(elt, currentNode);
   }
+  printf_stderr("jamiedbg pushing element\n");
   elementPushed(kNameSpaceID_XHTML, name, elt);
+  printf_stderr("jamiedbg popping element\n");
   elementPopped(kNameSpaceID_XHTML, name, elt);
 }
 

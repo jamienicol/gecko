@@ -2467,6 +2467,7 @@ void TextControlState::UnbindFromFrame(nsTextControlFrame* aFrame) {
 
 void TextControlState::GetValue(nsAString& aValue, bool aIgnoreWrap,
                                 bool aForDisplay) const {
+  printf_stderr("jamiedbg TextControlState::GetValue() %p\n", this);
   // While SetValue() is being called and requesting to commit composition to
   // IME, GetValue() may be called for appending text or something.  Then, we
   // need to return the latest aValue of SetValue() since the value hasn't
@@ -2531,6 +2532,8 @@ void TextControlState::GetValue(nsAString& aValue, bool aIgnoreWrap,
       mBoundFrame->ClearCachedValue();
     }
   } else if (!mTextCtrlElement->ValueChanged() || mValue.IsVoid()) {
+    printf_stderr("jamiedbg mTextCtrlElement->ValueChanged(): %d, mValue.IsVoid(): %d\n",
+                  mTextCtrlElement->ValueChanged(), mValue.IsVoid());
     // Use nsString to avoid copying string buffer at setting aValue.
     nsString value;
     mTextCtrlElement->GetDefaultValueFromContent(value, aForDisplay);
@@ -2839,6 +2842,7 @@ bool TextControlState::SetValueWithoutTextEditor(
                        "Failed to commit composition before setting value.  "
                        "Investigate the cause!");
 
+  printf_stderr("jamiedbg TextControlState::SetValueWithoutTextEditor() %p\n", this);
   if (mValue.IsVoid()) {
     mValue.SetIsVoid(false);
   }
@@ -2988,6 +2992,7 @@ bool TextControlState::SetValueWithoutTextEditor(
     }
   }
 
+  printf_stderr("jamiedbg end of SetValueWithTextEditor mValue.IsVoid() returns %s\n", mValue.IsVoid() ? "true" : "false");
   return true;
 }
 

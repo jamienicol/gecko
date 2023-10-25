@@ -1016,14 +1016,21 @@ HTMLInputElement::HTMLInputElement(already_AddRefed<dom::NodeInfo>&& aNodeInfo,
       mHasBeenTypePassword(false),
       mHasPatternAttribute(false),
       mRadioGroupContainer(nullptr) {
+  printf_stderr("jamiedbg new nsHTMLInputElement() %p\n", this);
   // If size is above 512, mozjemalloc allocates 1kB, see
   // memory/build/mozjemalloc.cpp
   static_assert(sizeof(HTMLInputElement) <= 512,
                 "Keep the size of HTMLInputElement under 512 to avoid "
                 "performance regression!");
 
+  if (HasAttr(kNameSpaceID_XHTML, nsGkAtoms::type)) {
+    printf_stderr("jamiedbg Has type attr\n");
+  } else {
+    printf_stderr("jamiedbg Does not have type attr\n");
+  }
   // We are in a type=text so we now we currenty need a TextControlState.
-  mInputData.mState = TextControlState::Construct(this);
+  // mInputData.mState = TextControlState::Construct(this);
+  mInputData.mState = nullptr;
 
   void* memory = mInputTypeMem;
   mInputType = InputType::Create(this, mType, memory);
@@ -1042,6 +1049,7 @@ HTMLInputElement::HTMLInputElement(already_AddRefed<dom::NodeInfo>&& aNodeInfo,
 }
 
 HTMLInputElement::~HTMLInputElement() {
+  printf_stderr("jamiedbg destroying nsHTMLInputElement %p\n", this);
   if (mNumberControlSpinnerIsSpinning) {
     StopNumberControlSpinnerSpin(eDisallowDispatchingEvents);
   }
@@ -1055,8 +1063,10 @@ void HTMLInputElement::FreeData() {
     mInputData.mValue = nullptr;
   } else {
     UnbindFromFrame(nullptr);
-    mInputData.mState->Destroy();
-    mInputData.mState = nullptr;
+    if (mInputData.mState) {
+      mInputData.mState->Destroy();
+      mInputData.mState = nullptr;
+    }
   }
 
   if (mInputType) {
@@ -1070,9 +1080,11 @@ TextControlState* HTMLInputElement::GetEditorState() const {
     return nullptr;
   }
 
-  MOZ_ASSERT(mInputData.mState,
-             "Single line text controls need to have a state"
-             " associated with them");
+  if (mDoneCreating) {
+    MOZ_ASSERT(mInputData.mState,
+               "Single line text controls need to have a state"
+               " associated with them");
+  }
 
   return mInputData.mState;
 }
@@ -1214,6 +1226,12 @@ void HTMLInputElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
                                     const nsAttrValue* aOldValue,
                                     nsIPrincipal* aSubjectPrincipal,
                                     bool aNotify) {
+  nsString val;
+  aValue->ToString(val);
+  printf_stderr(
+      "jamiedbg HTMLInputElement::AfterSetAttr() %p, name=%s, value=%s\n", this,
+      NS_ConvertUTF16toUTF8(aName->GetUTF16String()).get(),
+      NS_ConvertUTF16toUTF8(val).get());
   if (aNameSpaceID == kNameSpaceID_None) {
     bool needValidityUpdate = false;
     if (aName == nsGkAtoms::src) {
@@ -1535,6 +1553,7 @@ bool HTMLInputElement::SanitizesOnValueGetter() const {
 }
 
 void HTMLInputElement::GetValue(nsAString& aValue, CallerType aCallerType) {
+  printf_stderr("jamiedbg HTMLInputElement::GetValue() %p\n", this);
   GetValueInternal(aValue, aCallerType);
 
   // In the case where we need to sanitize an input value without affecting
@@ -1578,7 +1597,12 @@ void HTMLInputElement::GetNonFileValueInternal(nsAString& aValue) const {
   switch (GetValueMode()) {
     case VALUE_MODE_VALUE:
       if (IsSingleLineTextControl(false)) {
-        mInputData.mState->GetValue(aValue, true, /* aForDisplay = */ false);
+        if (mInputData.mState) {
+          mInputData.mState->GetValue(aValue, true, /* aForDisplay = */ false);
+        } else {
+          printf_stderr("jamiedbg State not yet initialized. Using empty string as value\n");
+          aValue.AssignLiteral("");
+        }
       } else if (!aValue.Assign(mInputData.mValue, fallible)) {
         aValue.Truncate();
       }
@@ -1644,6 +1668,8 @@ Decimal HTMLInputElement::GetValueAsDecimal() const {
 
 void HTMLInputElement::SetValue(const nsAString& aValue, CallerType aCallerType,
                                 ErrorResult& aRv) {
+  printf_stderr("jamiedbg HTMLInputElement::SetValue() %p val=%s\n", this,
+                NS_ConvertUTF16toUTF8(aValue).get());
   // check security.  Note that setting the value to the empty string is always
   // OK and gives pages a way to clear a file input if necessary.
   if (mType == FormControlType::InputFile) {
@@ -2657,6 +2683,8 @@ void HTMLInputElement::HandleNumberControlSpin(void* aData) {
 nsresult HTMLInputElement::SetValueInternal(
     const nsAString& aValue, const nsAString* aOldValue,
     const ValueSetterOptions& aOptions) {
+  printf_stderr("jamiedbg HTMLInputElement::SetValueInternal() %p val=%s\n",
+                this, NS_ConvertUTF16toUTF8(aValue).get());
   MOZ_ASSERT(GetValueMode() != VALUE_MODE_FILENAME,
              "Don't call SetValueInternal for file inputs");
 
@@ -2691,11 +2719,16 @@ nsresult HTMLInputElement::SetValueInternal(
 
       const bool setValueChanged =
           aOptions.contains(ValueSetterOption::SetValueChanged);
+      printf_stderr("jamiedbg aOptions.SetValueChanged=%d\n", setValueChanged);
       if (setValueChanged) {
         SetValueChanged(true);
       }
 
       if (IsSingleLineTextControl(false)) {
+        if (!mInputData.mState) {
+          printf_stderr("jamiedbg Lazily constructing state\n");
+          mInputData.mState = TextControlState::Construct(this);
+        }
         // Note that if aOptions includes
         // ValueSetterOption::BySetUserInputAPI, "input" event is automatically
         // dispatched by TextControlState::SetValue(). If you'd change condition
@@ -4392,6 +4425,10 @@ static bool SetRangeTextApplies(FormControlType aType) {
 
 void HTMLInputElement::HandleTypeChange(FormControlType aNewType,
                                         bool aNotify) {
+  printf_stderr(
+      "jamiedbg HTMLInputElement::HandleTypeChange() %p oldType=%d, "
+      "newType=%d\n",
+      this, (int)mType, (int)aNewType);
   FormControlType oldType = mType;
   MOZ_ASSERT(oldType != aNewType);
 
@@ -4432,6 +4469,11 @@ void HTMLInputElement::HandleTypeChange(FormControlType aNewType,
       (newValueMode == VALUE_MODE_DEFAULT ||
        newValueMode == VALUE_MODE_DEFAULT_ON ||
        (newValueMode == VALUE_MODE_VALUE && mValueChanged))) {
+    printf_stderr("jamiedbg oldValueMode == VALUE_MODE_VALUE: %d\n", oldValueMode == VALUE_MODE_VALUE);
+    printf_stderr("jamiedbg newValueMode == VALUE_MODE_DEFAULT: %d\n", newValueMode == VALUE_MODE_DEFAULT);
+    printf_stderr("jamiedbg newValueMode == VALUE_MODE_DEFAULT_ON: %d\n", newValueMode == VALUE_MODE_DEFAULT_ON);
+    printf_stderr("jamiedbg newValueMode == VALUE_MODE_VALUE: %d\n", newValueMode == VALUE_MODE_VALUE);
+    printf_stderr("jamiedbg mValueChanged: %d\n", mValueChanged);
     // Doesn't matter what caller type we pass here, since we know we're not a
     // file input anyway.
     oldValue.emplace();
@@ -4664,6 +4706,10 @@ void HTMLInputElement::MaybeSnapToTickMark(Decimal& aValue) {
 
 void HTMLInputElement::SanitizeValue(nsAString& aValue,
                                      SanitizationKind aKind) const {
+  printf_stderr(
+      "jamiedbg HTMLInputElement::SantizeValue() %p value=%s, "
+      "sanitizationKind=%d\n",
+      this, NS_ConvertUTF16toUTF8(aValue).get(), (int)aKind);
   NS_ASSERTION(mDoneCreating, "The element creation should be finished!");
 
   switch (mType) {
@@ -5796,6 +5842,8 @@ void HTMLInputElement::UpdateApzAwareFlag() {
 }
 
 nsresult HTMLInputElement::SetDefaultValueAsValue() {
+  printf_stderr("jamiedbg HTMLInputElement::SetDefaultValueAsValue() %p\n",
+                this);
   NS_ASSERTION(GetValueMode() == VALUE_MODE_VALUE,
                "GetValueMode() should return VALUE_MODE_VALUE!");
 
@@ -6078,7 +6126,13 @@ void HTMLInputElement::SaveState() {
 }
 
 void HTMLInputElement::DoneCreatingElement() {
+  printf_stderr("jamiedbg HTMLInputElement::DoneCreatingElement() %p\n", this);
   mDoneCreating = true;
+
+  if (IsSingleLineTextControl(false) && !mInputData.mState) {
+    printf_stderr("jamiedbg Lazily constructing state\n");
+    mInputData.mState = TextControlState::Construct(this);
+  }
 
   //
   // Restore state as needed.  Note that disabled state applies to all control
