@@ -1240,7 +1240,7 @@ void HTMLInputElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     // we have to re-set it. This is only the case when GetValueMode() returns
     // VALUE_MODE_VALUE.
     if (aName == nsGkAtoms::value) {
-      if (!mValueChanged && GetValueMode() == VALUE_MODE_VALUE) {
+      if (!mValueChanged && GetValueMode() == VALUE_MODE_VALUE && mDoneCreating) {
         SetDefaultValueAsValue();
       }
       // GetStepBase() depends on the `value` attribute if `min` is not present,
