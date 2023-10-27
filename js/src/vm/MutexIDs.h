@@ -31,6 +31,7 @@
   _(GCLock, 300)                      \
                                       \
   _(GlobalHelperThreadState, 400)     \
+  _(IonFinished, 401)                 \
                                       \
   _(StringsCache, 500)                \
   _(FutexThread, 500)                 \

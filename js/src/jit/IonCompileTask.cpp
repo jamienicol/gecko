@@ -86,7 +86,7 @@ static inline bool TooManyUnlinkedTasks(JSRuntime* rt) {
 }
 
 static void MoveFinishedTasksToLazyLinkList(
-    JSRuntime* rt, const AutoLockHelperThreadState& lock) {
+    JSRuntime* rt, const AutoLockIonFinishedState& lock) {
   // Incorporate any off thread compilations for the runtime which have
   // finished, failed or have been cancelled.
 
@@ -111,7 +111,7 @@ static void MoveFinishedTasksToLazyLinkList(
 }
 
 static void EagerlyLinkExcessTasks(JSContext* cx,
-                                   AutoLockHelperThreadState& lock) {
+                                   AutoLockIonFinishedState& lock) {
   JSRuntime* rt = cx->runtime();
   MOZ_ASSERT(TooManyUnlinkedTasks(rt));
 
@@ -119,7 +119,7 @@ static void EagerlyLinkExcessTasks(JSContext* cx,
     jit::IonCompileTask* task = rt->jitRuntime()->ionLazyLinkList(rt).getLast();
     RootedScript script(cx, task->script());
 
-    AutoUnlockHelperThreadState unlock(lock);
+    AutoUnlockIonFinishedState unlock(lock);
     AutoRealm ar(cx, script);
     jit::LinkIonScript(cx, script);
   } while (TooManyUnlinkedTasks(rt));
@@ -133,7 +133,7 @@ void jit::AttachFinishedCompilations(JSContext* cx) {
     return;
   }
 
-  AutoLockHelperThreadState lock;
+  AutoLockIonFinishedState lock;
 
   while (true) {
     MoveFinishedTasksToLazyLinkList(rt, lock);

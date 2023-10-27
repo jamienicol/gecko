@@ -79,6 +79,24 @@ class MOZ_RAII AutoUnlockHelperThreadState : public UnlockGuard<Mutex> {
       : Base(locked) {}
 };
 
+extern Mutex gIonFinishedLock MOZ_UNANNOTATED;
+
+  class MOZ_RAII AutoLockIonFinishedState : public LockGuard<Mutex> {
+  using Base = LockGuard<Mutex>;
+
+ public:
+  explicit AutoLockIonFinishedState() : Base(gIonFinishedLock) {}
+};
+
+class MOZ_RAII AutoUnlockIonFinishedState : public UnlockGuard<Mutex> {
+  using Base = UnlockGuard<Mutex>;
+
+ public:
+  explicit AutoUnlockIonFinishedState(AutoLockIonFinishedState& locked)
+      : Base(locked) {}
+};
+
+
 // Create data structures used by helper threads.
 bool CreateHelperThreadsState();
 

@@ -453,7 +453,7 @@ class JitRuntime {
     return numFinishedOffThreadTasks_;
   }
   NumFinishedOffThreadTasksType& numFinishedOffThreadTasksRef(
-      const AutoLockHelperThreadState& locked) {
+      const AutoLockIonFinishedState& locked) {
     return numFinishedOffThreadTasks_;
   }
 

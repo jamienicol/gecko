@@ -45,6 +45,8 @@ namespace js {
 Mutex gHelperThreadLock(mutexid::GlobalHelperThreadState);
 GlobalHelperThreadState* gHelperThreadState = nullptr;
 
+Mutex gIonFinishedLock(mutexid::IonFinished);
+
 }  // namespace js
 
 bool js::CreateHelperThreadsState() {
@@ -291,7 +293,7 @@ bool GlobalHelperThreadState::submitTask(
  * compilations which are started must eventually be finished.
  */
 void js::FinishOffThreadIonCompile(jit::IonCompileTask* task,
-                                   const AutoLockHelperThreadState& lock) {
+                                   const LockGuard<Mutex>& lock) {
   AutoEnterOOMUnsafeRegion oomUnsafe;
   if (!HelperThreadState().ionFinishedList(lock).append(task)) {
     oomUnsafe.crash("FinishOffThreadIonCompile");

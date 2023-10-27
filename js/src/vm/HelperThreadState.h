@@ -253,7 +253,7 @@ class GlobalHelperThreadState {
   IonCompileTaskVector& ionWorklist(const AutoLockHelperThreadState&) {
     return ionWorklist_;
   }
-  IonCompileTaskVector& ionFinishedList(const AutoLockHelperThreadState&) {
+  IonCompileTaskVector& ionFinishedList(const AutoLockIonFinishedState&) {
     return ionFinishedList_;
   }
   IonFreeTaskVector& ionFreeList(const AutoLockHelperThreadState&) {
