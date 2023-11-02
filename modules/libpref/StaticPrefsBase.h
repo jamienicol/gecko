@@ -84,7 +84,16 @@ struct IsAtomic<std::atomic<T>> : std::true_type {};
 
 namespace StaticPrefs {
 
-void MaybeInitOncePrefs();
+extern Atomic<bool> sOncePrefRead;
+void MaybeInitOncePrefsInternal();
+
+MOZ_ALWAYS_INLINE void MaybeInitOncePrefs() {
+  if (MOZ_UNLIKELY(!sOncePrefRead)) {
+    // `once`-mirrored prefs have not already been initialized to their default
+    // value.
+    MaybeInitOncePrefsInternal();
+  }
+}
 
 }  // namespace StaticPrefs
 

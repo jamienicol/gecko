@@ -5624,17 +5624,12 @@ static void InitAlwaysPref(const nsCString& aName, DataMutexString& aCache,
   Internals::AssignMirror(aCache, aDefaultValue);
 }
 
-static Atomic<bool> sOncePrefRead(false);
 static StaticMutex sOncePrefMutex MOZ_UNANNOTATED;
 
 namespace StaticPrefs {
+Atomic<bool> sOncePrefRead(false);
 
-void MaybeInitOncePrefs() {
-  if (MOZ_LIKELY(sOncePrefRead)) {
-    // `once`-mirrored prefs have already been initialized to their default
-    // value.
-    return;
-  }
+void MaybeInitOncePrefsInternal() {
   StaticMutexAutoLock lock(sOncePrefMutex);
   if (NS_IsMainThread()) {
     InitOncePrefs();
