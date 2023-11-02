@@ -125,7 +125,8 @@ class SegmentedVector : private AllocPolicy {
   // check that the actual segment size is as close as possible to it. This
   // serves as a sanity check for SegmentedVectorCapacity's capacity
   // computation.
-  explicit SegmentedVector(size_t aIdealSegmentSize = 0) {
+  explicit SegmentedVector(size_t aIdealSegmentSize = 0)
+    : mLength(0) {
     // The difference between the actual segment size and the ideal segment
     // size should be less than the size of a single element... unless the
     // ideal size was too small, in which case the capacity should be one.
@@ -136,7 +137,10 @@ class SegmentedVector : private AllocPolicy {
   }
 
   SegmentedVector(SegmentedVector&& aOther)
-      : mSegments(std::move(aOther.mSegments)) {}
+    : mLength(aOther.mLength),
+      mSegments(std::move(aOther.mSegments)) {
+    aOther.mLength = 0;
+  }
 
   ~SegmentedVector() { Clear(); }
 
@@ -145,12 +149,15 @@ class SegmentedVector : private AllocPolicy {
   // Note that this is O(n) rather than O(1), but the constant factor is very
   // small because it only has to do one addition per segment.
   size_t Length() const {
+#ifdef DEBUG
     size_t n = 0;
     for (auto segment = mSegments.getFirst(); segment;
          segment = segment->getNext()) {
       n += segment->Length();
     }
-    return n;
+    MOZ_ASSERT(mLength == n);
+#endif
+    return mLength;
   }
 
   // Returns false if the allocation failed. (If you are using an infallible
@@ -167,6 +174,7 @@ class SegmentedVector : private AllocPolicy {
       mSegments.insertBack(last);
     }
     last->Append(std::forward<U>(aU));
+    mLength++;
     return true;
   }
 
@@ -191,6 +199,7 @@ class SegmentedVector : private AllocPolicy {
       segment->~Segment();
       this->free_(segment, 1);
     }
+    mLength = 0;
   }
 
   T& GetLast() {
@@ -207,6 +216,7 @@ class SegmentedVector : private AllocPolicy {
 
   void PopLast() {
     MOZ_ASSERT(!IsEmpty());
+    mLength--;
     Segment* last = mSegments.getLast();
     last->PopLast();
     if (!last->Length()) {
@@ -220,6 +230,7 @@ class SegmentedVector : private AllocPolicy {
   // more efficient.
   void PopLastN(uint32_t aNumElements) {
     MOZ_ASSERT(aNumElements <= Length());
+    mLength -= std::min(aNumElements, mLength);
 
     Segment* last;
 
@@ -344,6 +355,7 @@ class SegmentedVector : private AllocPolicy {
   }
 
  private:
+  uint32_t mLength;
   mozilla::LinkedList<Segment> mSegments;
 };
 
