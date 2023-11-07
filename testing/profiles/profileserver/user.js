@@ -4,6 +4,7 @@
 
 // Preferences file for profileserver.
 /* globals user_pref */
+user_pref("browser.tabs.remote.autostart", true)
 // Turn off budget throttling for the profile server
 user_pref("dom.timeout.enable_budget_timer_throttling", false);
 // TODO: Bug 1795750 - Re-enable this pref when we have a new version of the
