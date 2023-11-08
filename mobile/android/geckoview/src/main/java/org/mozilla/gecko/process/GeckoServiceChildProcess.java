@@ -177,7 +177,7 @@ public class GeckoServiceChildProcess extends Service {
   @Override
   public void onDestroy() {
     Log.i(LOGTAG, "Destroying GeckoServiceChildProcess");
-    System.exit(0);
+    // System.exit(0);
   }
 
   @Override
