@@ -465,8 +465,9 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
      * @return The number of content services defined in our manifest.
      */
     private static int getContentServiceCount() {
-      return ServiceUtils.getServiceCount(
-          GeckoAppShell.getApplicationContext(), GeckoProcessType.CONTENT);
+        return 2;
+      // return ServiceUtils.getServiceCount(
+      //     GeckoAppShell.getApplicationContext(), GeckoProcessType.CONTENT);
     }
   }
 

@@ -42,6 +42,9 @@
 #include "mozilla/UniquePtr.h"
 #include "XREChildData.h"
 
+#include <chrono>
+#include <thread>
+
 /* Android headers don't define RUSAGE_THREAD */
 #ifndef RUSAGE_THREAD
 #  define RUSAGE_THREAD 1
@@ -406,6 +409,7 @@ Java_org_mozilla_gecko_mozglue_GeckoLoader_nativeRun(
   gBootstrap->XRE_WriteLLVMProfData();
 #  endif
 #endif
+  std::this_thread::sleep_for(std::chrono::seconds(10));
   gBootstrap.reset();
   FreeArgv(argv, argc);
 }
