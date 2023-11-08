@@ -35,6 +35,11 @@
 #include "nsIObserverService.h"
 #include "nsIPropertyBag2.h"
 #include "ProfilerParent.h"
+#if defined(MOZ_WIDGET_ANDROID)
+#  include "mozilla/java/GeckoProcessManagerWrappers.h"
+#  include "mozilla/java/GeckoProcessTypeWrappers.h"
+#endif  // defined(MOZ_WIDGET_ANDROID)
+
 
 namespace mozilla {
 namespace gfx {
@@ -287,6 +292,22 @@ mozilla::ipc::IPCResult GPUChild::RecvAddMemoryReport(
 }
 
 void GPUChild::ActorDestroy(ActorDestroyReason aWhy) {
+  printf_stderr("jamiedbg GPUChild::ActorDestroy()\n");
+#if defined(MOZ_WIDGET_ANDROID)
+  nsCOMPtr<nsIEventTarget> launcherThread(ipc::GetIPCLauncher());
+  MOZ_ASSERT(launcherThread);
+
+  auto procType = java::GeckoProcessType::GPU();
+  auto selector =
+      java::GeckoProcessManager::Selector::New(procType, OtherPid());
+
+  launcherThread->Dispatch(NS_NewRunnableFunction(
+      "SocketProcessParent::ActorDestroy",
+      [selector = java::GeckoProcessManager::Selector::GlobalRef(selector)]() {
+        java::GeckoProcessManager::ShutdownProcess(selector);
+      }));
+#endif  // defined(MOZ_WIDGET_ANDROID)
+
   if (aWhy == AbnormalShutdown || mUnexpectedShutdown) {
     nsAutoString dumpId;
     GenerateCrashReport(OtherPid(), &dumpId);

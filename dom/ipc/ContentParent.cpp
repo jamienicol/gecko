@@ -2024,7 +2024,7 @@ void ContentParent::MarkAsDead() {
   PreallocatedProcessManager::Erase(this);
   StopRecyclingE10SOnly(false);
 
-#if defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_PROFILE_GENERATE)
+#if defined(MOZ_WIDGET_ANDROID)
   if (IsAlive()) {
     // We're intentionally killing the content process at this point to ensure
     // that we never have a "dead" content process sitting around and occupying
