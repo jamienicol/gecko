@@ -12,6 +12,7 @@ import android.content.ServiceConnection;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import java.security.SecureRandom;
@@ -72,7 +73,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
    * ServiceAllocator. ServiceAllocator clients should extend this class when implementing their
    * per-service connection objects.
    */
-  public abstract static class InstanceInfo {
+  public abstract static class InstanceInfo implements IBinder.DeathRecipient {
     private class Binding implements ServiceConnection {
       /**
        * This implementation of ServiceConnection.onServiceConnected simply bounces the connection
@@ -258,8 +259,14 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
       }
 
       mIsDefunct = true;
-      mAllocator.release(this);
-      onReleaseResources();
+
+      if (!mCalledConnected) {
+        // If we hadn't already connected to the service then we can release the ID from the
+        // allocator and release resources now. Otherwise must wait until we are notified that
+        // the child process has died.
+        mAllocator.release(this);
+        onReleaseResources();
+      }
     }
 
     private void onBinderConnectedInternal(@NonNull final IBinder service) {
@@ -270,6 +277,15 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
       }
 
       mCalledConnected = true;
+
+      try {
+        // We link to the service's death because onServiceDisconnected() only gets called when the
+        // child process dies if we had not previously unbound it, whereas binderDied() will be
+        // called regardless. We must do the same cleanup in either case.
+        service.linkToDeath(this, 0);
+      } catch (RemoteException e) {
+        onBinderConnectionLost();
+      }
 
       onBinderConnected(service);
     }
@@ -287,16 +303,43 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
       onBinderConnectionLost();
     }
 
+    @Override
+    public void binderDied() {
+      XPCOMEventTarget.runOnLauncherThread(
+          () -> {
+            onBinderDiedInternal();
+          });
+    }
+
+    private void onBinderDiedInternal() {
+      XPCOMEventTarget.assertOnLauncherThread();
+
+      if (mCalledConnectionLost) {
+        return;
+      }
+
+      mCalledConnectionLost = true;
+
+      onBinderConnectionLost();
+    }
+
     protected abstract void onBinderConnected(@NonNull final IBinder service);
 
     protected abstract void onReleaseResources();
 
-    // Optionally overridable by subclasses, but this is a sane default
-    protected void onBinderConnectionLost() {
+    // We call this from both on onServiceDisconnected() and binderDied(), whichever we receive
+    // first. This is because onServiceDisconnected is not called if we have already unbound from
+    // the Service. We have cleanup to do when the process dies regardless of whether we
+    // deliberately shut it down or it unexpectedly crashed.
+    private void onBinderConnectionLost() {
       // The binding has lost its connection, but the binding itself might still be active.
       // Gecko itself will request a process restart, so here we attempt to unbind so that
       // Android does not try to automatically restart and reconnect the service.
       unbindService();
+      // The process is now dead, so we can release the binding, allowing future bindings to use the
+      // ID.
+      mAllocator.release(this);
+      onReleaseResources();
     }
 
     /**
