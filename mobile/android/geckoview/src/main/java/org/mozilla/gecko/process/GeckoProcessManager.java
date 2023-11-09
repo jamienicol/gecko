@@ -294,6 +294,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
     @Override
     protected void onReleaseResources() {
+      Log.w(LOGTAG, "jamiedbg onReleaseResources() " + mPid);
       XPCOMEventTarget.assertOnLauncherThread();
 
       // NB: This must happen *before* resetting mPid!
@@ -561,6 +562,9 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
     }
 
     public void removeConnection(@NonNull final ChildConnection conn) {
+      Log.w(
+          LOGTAG,
+          "jamiedbg GeckoProcessManager.removeConnection() " + conn.getType() + ", " + conn.mPid);
       XPCOMEventTarget.assertOnLauncherThread();
 
       if (conn.getType() == GeckoProcessType.CONTENT) {
@@ -616,6 +620,8 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
         return getExistingContentConnection(selector);
       }
 
+      // FIXME: check the PID here?? Otherwise if we get a shutdownProcess after we have already
+      // removed the old process and added a new one, then we will shutdown the new one too
       return mNonContentConnections.get(type);
     }
 
@@ -639,6 +645,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
     /** Retrieve or create a new child process for the specified non-content process. */
     private ChildConnection getNonContentConnection(@NonNull final GeckoProcessType type) {
+      Log.w(LOGTAG, "getNonContentConnection() " + type);
       XPCOMEventTarget.assertOnLauncherThread();
       if (type == GeckoProcessType.CONTENT) {
         throw new IllegalArgumentException("Content processes not supported by this method");
@@ -646,6 +653,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
       NonContentConnection connection = mNonContentConnections.get(type);
       if (connection == null) {
+        Log.w(LOGTAG, "Creating new connection");
         if (type == GeckoProcessType.SOCKET) {
           connection = new SocketProcessConnection(mServiceAllocator);
         } else if (type == GeckoProcessType.GPU) {
@@ -655,6 +663,8 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
         }
 
         mNonContentConnections.put(type, connection);
+      } else {
+        Log.w(LOGTAG, "Found existing connection");
       }
 
       return connection;
@@ -662,6 +672,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
     /** Retrieve a ChildConnection for the purposes of starting a new child process. */
     public ChildConnection getConnectionForStart(@NonNull final GeckoProcessType type) {
+      Log.w(LOGTAG, "jamiedbg getContentConnectionForStart() " + type);
       if (type == GeckoProcessType.CONTENT) {
         return getContentConnectionForStart();
       }
@@ -671,6 +682,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
     /** Retrieve a ChildConnection for the purposes of preloading a new child process. */
     public ChildConnection getConnectionForPreload(@NonNull final GeckoProcessType type) {
+      Log.w(LOGTAG, "jamiedbg getContentConnectionForPreload() " + type);
       if (type == GeckoProcessType.CONTENT) {
         final ContentConnection conn = getNewContentConnection(PriorityLevel.BACKGROUND);
         mNonStartedContentConnections.add(conn);
@@ -721,9 +733,13 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
   @WrapForJNI
   private static void shutdownProcess(final Selector selector) {
+    Log.w(
+        LOGTAG,
+        "jamiedbg GeckoProcessManager.shutdownProcess() " + selector.mType + ", " + selector.mPid);
     XPCOMEventTarget.assertOnLauncherThread();
     final ChildConnection conn = INSTANCE.mConnections.getExistingConnection(selector);
     if (conn == null) {
+      Log.w(LOGTAG, "jamiedbg Process already shut down");
       return;
     }
 
@@ -814,6 +830,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
   private GeckoResult<Integer> retry(
       final StartInfo info, final List<Throwable> retryLog, final Throwable error) {
+    Log.w(LOGTAG, "jamiedbg GeckoProcessManager.retry() " + info.type);
     retryLog.add(error);
 
     if (error instanceof StartException) {
@@ -878,13 +895,26 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
   }
 
   private GeckoResult<Integer> startInternal(final StartInfo info) {
+    Log.w(LOGTAG, "jamiedbg GeckoProcessManager.startInternal() " + info.type);
     XPCOMEventTarget.assertOnLauncherThread();
 
     final ChildConnection connection = mConnections.getConnectionForStart(info.type);
+    Log.w(
+        LOGTAG,
+        "jamiedbg Calling connection.bind() "
+            + connection.getType()
+            + ", "
+            + connection.toString());
     return connection
         .bind()
         .map(
             child -> {
+              Log.w(
+                  LOGTAG,
+                  "jamiedbg Calling child.start() "
+                      + connection.getType()
+                      + ", "
+                      + connection.toString());
               final int result =
                   child.start(
                       this,
@@ -909,6 +939,7 @@ public final class GeckoProcessManager extends IProcessManager.Stub {
 
   private GeckoResult<Integer> handleBindError(
       final ChildConnection connection, final Throwable error) {
+    Log.w(LOGTAG, "jamiedbg GeckoProcessManager.handleBindError() " + connection.getType());
     return connection
         .unbind()
         .then(

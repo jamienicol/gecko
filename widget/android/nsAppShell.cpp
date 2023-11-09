@@ -352,6 +352,7 @@ class XPCOMEventTargetWrapper final
   void DispatchNative(mozilla::jni::Object::Param aJavaRunnable) {
     if (AppShutdown::GetCurrentShutdownPhase() >=
         ShutdownPhase::XPCOMShutdownThreads) {
+      printf_stderr("jamiedbg Already shutdown threads\n");
       // No point in trying to dispatch this if we're already shutting down.
       return;
     }

@@ -81,6 +81,9 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
        */
       @Override
       public final void onServiceConnected(final ComponentName name, final IBinder service) {
+        Log.w(
+            LOGTAG,
+            "jamiedbg InstanceInfo.Binding.onServiceConnected() " + name.flattenToShortString());
         XPCOMEventTarget.runOnLauncherThread(
             () -> {
               onBinderConnectedInternal(service);
@@ -93,6 +96,9 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
        */
       @Override
       public final void onServiceDisconnected(final ComponentName name) {
+        Log.w(
+            LOGTAG,
+            "jamiedbg InstanceInfo.Binding.onServiceDisconnected() " + name.flattenToShortString());
         XPCOMEventTarget.runOnLauncherThread(
             () -> {
               onBinderConnectionLostInternal();
@@ -233,6 +239,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
      * called multiple times even if we are already defunct.
      */
     protected void unbindService() {
+      Log.d(LOGTAG, "jamiedbg InstanceInfo.unbindService()");
       XPCOMEventTarget.assertOnLauncherThread();
 
       // This could happen if a service death races with our attempt to shut it down.
@@ -265,11 +272,13 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
         // allocator and release resources now. Otherwise must wait until we are notified that
         // the child process has died.
         mAllocator.release(this);
+        // FIXME: do I do this unconditionally?
         onReleaseResources();
       }
     }
 
     private void onBinderConnectedInternal(@NonNull final IBinder service) {
+      Log.w(LOGTAG, "jamiedbg InstanceInfo.onBinderConnectedInternal() " + mType + ", " + mId);
       XPCOMEventTarget.assertOnLauncherThread();
       // We only care about the first time this is called; subsequent bindings can be ignored.
       if (mCalledConnected) {
@@ -291,6 +300,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
     }
 
     private void onBinderConnectionLostInternal() {
+      Log.w(LOGTAG, "jamiedbg InstanceInfo.onBinderConnectionLostInternal() " + mType + ", " + mId);
       XPCOMEventTarget.assertOnLauncherThread();
       // We only care about the first time this is called; subsequent connection errors can be
       // ignored.
@@ -305,6 +315,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
 
     @Override
     public void binderDied() {
+      Log.w(LOGTAG, "jamiedbg InstanceInfo.Binding.binderDied()");
       XPCOMEventTarget.runOnLauncherThread(
           () -> {
             onBinderDiedInternal();
@@ -312,6 +323,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
     }
 
     private void onBinderDiedInternal() {
+      Log.w(LOGTAG, "jamiedbg InstanceInfo.onBinderDiedInternal() " + mType + ", " + mId);
       XPCOMEventTarget.assertOnLauncherThread();
 
       if (mCalledConnectionLost) {
@@ -332,6 +344,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
     // the Service. We have cleanup to do when the process dies regardless of whether we
     // deliberately shut it down or it unexpectedly crashed.
     private void onBinderConnectionLost() {
+      Log.w(LOGTAG, "jamiedbg onBinderConnectionLost() " + mType + ", " + mId);
       // The binding has lost its connection, but the binding itself might still be active.
       // Gecko itself will request a process restart, so here we attempt to unbind so that
       // Android does not try to automatically restart and reconnect the service.
@@ -339,6 +352,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
       // The process is now dead, so we can release the binding, allowing future bindings to use the
       // ID.
       mAllocator.release(this);
+      // FIXME: Do I want to do this here or in unbindService??
       onReleaseResources();
     }
 
@@ -508,7 +522,7 @@ import org.mozilla.gecko.util.XPCOMEventTarget;
      * @return The number of content services defined in our manifest.
      */
     private static int getContentServiceCount() {
-        return 2;
+      return 2;
       // return ServiceUtils.getServiceCount(
       //     GeckoAppShell.getApplicationContext(), GeckoProcessType.CONTENT);
     }

@@ -32,7 +32,7 @@ public class GeckoServiceChildProcess extends Service {
   private final MemoryController mMemoryController = new MemoryController();
 
   // Makes sure we don't reuse this process
-  private static boolean sCreateCalled;
+  private static int sCreateCalledCount = 0;
 
   @WrapForJNI(calledFrom = "gecko")
   private static void getEditableParent(
@@ -49,12 +49,9 @@ public class GeckoServiceChildProcess extends Service {
     super.onCreate();
     Log.i(LOGTAG, "onCreate");
 
-    if (sCreateCalled) {
-      // We don't support reusing processes, and this could get us in a really weird state,
-      // so let's throw here.
+    if (++sCreateCalledCount > 1) {
       throw new RuntimeException("Cannot reuse process.");
     }
-    sCreateCalled = true;
 
     GeckoAppShell.setApplicationContext(getApplicationContext());
     GeckoThread.launch(); // Preload Gecko.
@@ -79,6 +76,10 @@ public class GeckoServiceChildProcess extends Service {
         final ParcelFileDescriptor prefMapPfd,
         final ParcelFileDescriptor ipcPfd,
         final ParcelFileDescriptor crashReporterPfd) {
+
+      if (sCreateCalledCount > 1) {
+        return IChildProcess.STARTED_FAIL;
+      }
 
       final ParcelFileDescriptors pfds =
           ParcelFileDescriptors.builder()
