@@ -90,21 +90,45 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         # these are necessary since self.config is read only
         c = self.config
         self.installer_path = c.get("installer_path")
-        self.device_serial = "emulator-5554"
+        print(f"jamiedbg device_serial: {self.device_serial}")
+        if self.device_serial is None:
+            self.device_serial = "emulator-5554"
 
     def query_abs_dirs(self):
         if self.abs_dirs:
             return self.abs_dirs
         abs_dirs = super(AndroidProfileRun, self).query_abs_dirs()
+        print(f"abs_dirs: {abs_dirs}")
         dirs = {}
+
+        self.working_dir = os.environ.get("WORKING_DIR") or os.getcwd()
 
         dirs["abs_test_install_dir"] = os.path.join(abs_dirs["abs_src_dir"], "testing")
         dirs["abs_xre_dir"] = os.path.join(abs_dirs["abs_work_dir"], "hostutils")
-        dirs["abs_blob_upload_dir"] = "/builds/worker/artifacts/blobber_upload_dir"
-        work_dir = os.environ.get("MOZ_FETCHES_DIR") or abs_dirs["abs_work_dir"]
-        dirs["abs_sdk_dir"] = os.path.join(work_dir, "android-sdk-linux")
-        dirs["abs_avds_dir"] = os.path.join(work_dir, "android-device")
-        dirs["abs_bundletool_path"] = os.path.join(work_dir, "bundletool.jar")
+        dirs["abs_blob_upload_dir"] = os.path.join(
+            self.working_dir, "artifacts", "blobber_upload_dir"
+        )
+
+        if os.environ.get("MOZ_AUTOMATION", "0") == "1":
+            work_dir = os.environ.get("MOZ_FETCHES_DIR") or abs_dirs["abs_work_dir"]
+            dirs["abs_sdk_dir"] = os.path.join(work_dir, "android-sdk-linux")
+            dirs["abs_avds_dir"] = os.path.join(work_dir, "android-device")
+            dirs["abs_bundletool_path"] = os.path.join(work_dir, "bundletool.jar")
+        else:
+            mozbuild_path = os.environ.get(
+                "MOZBUILD_STATE_PATH", os.path.expanduser("~/.mozbuild")
+            )
+            mozbuild_sdk = os.environ.get(
+                "ANDROID_SDK_HOME", os.path.join(mozbuild_path, "android-sdk-linux")
+            )
+            abs_dirs["abs_sdk_dir"] = mozbuild_sdk
+            avds_dir = os.environ.get(
+                "ANDROID_EMULATOR_HOME", os.path.join(mozbuild_path, "android-device")
+            )
+            abs_dirs["abs_avds_dir"] = avds_dir
+            abs_dirs["abs_bundletool_path"] = os.path.join(
+                mozbuild_path, "bundletool.jar"
+            )
 
         for key in dirs.keys():
             if key not in abs_dirs:
@@ -142,7 +166,7 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         assert (
             self.installer_path is not None
         ), "Either add installer_path to the config or use --installer-path."
-        self.install_android_app(self.installer_path)
+        self.install_android_app(self.installer_path, replace=True)
         self.info("Finished installing apps for %s" % self.device_serial)
 
     def run_tests(self):
@@ -197,7 +221,10 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
                 v = v.format(**interpolation)
             prefs[k] = Preferences.cast(v)
 
-        outputdir = self.config.get("output_directory", "/sdcard/pgo_profile")
+        adbdevice = ADBDeviceFactory(adb=adb, device=self.device_serial)
+
+        outputdir = os.path.join(adbdevice.test_root, "pgo_profile")
+
         jarlog = posixpath.join(outputdir, "en-US.log")
         profdata = posixpath.join(outputdir, "default_%p_random_%m.profraw")
 
@@ -207,34 +234,16 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         env["MOZ_JAR_LOG_FILE"] = jarlog
         env["LLVM_PROFILE_FILE"] = profdata
 
-        if self.query_minidump_stackwalk():
-            os.environ["MINIDUMP_STACKWALK"] = self.minidump_stackwalk_path
+        if os.environ.get("MOZ_AUTOMATION", "0") == "1":
+            if self.query_minidump_stackwalk():
+                os.environ["MINIDUMP_STACKWALK"] = self.minidump_stackwalk_path
         os.environ["MINIDUMP_SAVE_PATH"] = self.query_abs_dirs()["abs_blob_upload_dir"]
         if not self.symbols_path:
             self.symbols_path = os.environ.get("MOZ_FETCHES_DIR")
 
-        # Force test_root to be on the sdcard for android pgo
-        # builds which fail for Android 4.3 when profiles are located
-        # in /data/local/tmp/test_root with
-        # E AndroidRuntime: FATAL EXCEPTION: Gecko
-        # E AndroidRuntime: java.lang.IllegalArgumentException: \
-        #    Profile directory must be writable if specified: /data/local/tmp/test_root/profile
-        # This occurs when .can-write-sentinel is written to
-        # the profile in
-        # mobile/android/geckoview/src/main/java/org/mozilla/gecko/GeckoProfile.java.
-        # This is not a problem on later versions of Android. This
-        # over-ride of test_root should be removed when Android 4.3 is no
-        # longer supported.
-        sdcard_test_root = "/sdcard/test_root"
-        adbdevice = ADBDeviceFactory(
-            adb=adb, device="emulator-5554", test_root=sdcard_test_root
-        )
-        if adbdevice.test_root != sdcard_test_root:
-            # If the test_root was previously set and shared
-            # the initializer will not have updated the shared
-            # value. Force it to match the sdcard_test_root.
-            adbdevice.test_root = sdcard_test_root
         adbdevice.mkdir(outputdir, parents=True)
+
+        workspace_dir = os.path.join(self.working_dir, "workspace")
 
         try:
             # Run Fennec a first time to initialize its profile
@@ -288,25 +297,31 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
                 raise Exception("Android App (%s) never quit" % app)
 
             # Pull all the profraw files and en-US.log
-            adbdevice.pull(outputdir, "/builds/worker/workspace/")
+            adbdevice.pull(outputdir, workspace_dir)
         except ADBTimeoutError:
             self.fatal(
                 "INFRA-ERROR: Failed with an ADBTimeoutError",
                 EXIT_STATUS_DICT[TBPL_RETRY],
             )
 
-        profraw_files = glob.glob("/builds/worker/workspace/*.profraw")
+        profraw_files = glob.glob(os.path.join(workspace_dir, "*.profraw"))
         if not profraw_files:
-            self.fatal("Could not find any profraw files in /builds/worker/workspace")
+            self.fatal(f"Could not find any profraw files in {workspace_dir}")
         elif len(profraw_files) == 1:
             self.fatal(
                 "Only found 1 profraw file. Did child processes terminate early?"
             )
+
+        llvm_profdata = (
+            os.path.join(os.environ["MOZ_FETCHES_DIR"], "clang/bin/llvm-profdata")
+            if os.environ.get("MOZ_AUTOMATION", "0") == "1"
+            else "llvm-profdata"
+        )
         merge_cmd = [
-            os.path.join(os.environ["MOZ_FETCHES_DIR"], "clang/bin/llvm-profdata"),
+            llvm_profdata,
             "merge",
             "-o",
-            "/builds/worker/workspace/merged.profdata",
+            os.path.join(workspace_dir, "merged.profdata"),
         ] + profraw_files
         rc = subprocess.call(merge_cmd)
         if rc != 0:
@@ -319,9 +334,9 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         tar_cmd = [
             "tar",
             "-acvf",
-            "/builds/worker/artifacts/profdata.tar.xz",
+            os.path.join(self.working_dir, "artifacts", "profdata.tar.xz"),
             "-C",
-            "/builds/worker/workspace",
+            workspace_dir,
             "merged.profdata",
             "en-US.log",
         ]
