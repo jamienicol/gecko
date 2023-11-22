@@ -221,7 +221,10 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
                 v = v.format(**interpolation)
             prefs[k] = Preferences.cast(v)
 
-        outputdir = self.config.get("output_directory", "/sdcard/pgo_profile")
+        adbdevice = ADBDeviceFactory(adb=adb, device=self.device_serial)
+
+        outputdir = os.path.join(adbdevice.test_root, "pgo_profile")
+
         jarlog = posixpath.join(outputdir, "en-US.log")
         profdata = posixpath.join(outputdir, "default_%p_random_%m.profraw")
 
@@ -238,7 +241,7 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         if not self.symbols_path:
             self.symbols_path = os.environ.get("MOZ_FETCHES_DIR")
 
-        adbdevice = ADBDeviceFactory(adb=adb, device=self.device_serial)
+
         adbdevice.mkdir(outputdir, parents=True)
 
         workspace_dir = os.path.join(self.working_dir, "workspace")
