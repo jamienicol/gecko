@@ -584,7 +584,8 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
   }
 
   bool NeedsNewDecoder() const override {
-    return !mSurface || mSurface->IsReleased();
+    // FIXME: handle this when using ImageReader
+    return false; // !mSurface || mSurface->IsReleased();
   }
 
   const VideoInfo mConfig;
