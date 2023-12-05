@@ -213,7 +213,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
 
     mJavaDecoder = java::CodecProxy::Create(
         false,  // false indicates to create a decoder and true denotes encoder
-        mFormat, mSurface, mJavaCallbacks, mDrmStubId);
+        mFormat, mSurface->GetSurface(), mJavaCallbacks, mDrmStubId);
     if (mJavaDecoder == nullptr) {
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
