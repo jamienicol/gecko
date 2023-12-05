@@ -15,6 +15,7 @@
 #include "mozilla/java/GeckoAppShellWrappers.h"
 #include "mozilla/jni/Utils.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
@@ -89,6 +90,8 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
 
   RegisterStrongMemoryReporter(new FreetypeReporter());
 
+  layers::AndroidImageApi::Init();
+
   mOffscreenFormat = GetScreenDepth() == 16 ? SurfaceFormat::R5G6B5_UINT16
                                             : SurfaceFormat::X8R8G8B8_UINT32;
 
@@ -102,6 +105,7 @@ gfxAndroidPlatform::~gfxAndroidPlatform() {
   gPlatformFTLibrary = nullptr;
   layers::AndroidHardwareBufferManager::Shutdown();
   layers::AndroidHardwareBufferApi::Shutdown();
+  layers::AndroidImageApi::Shutdown();
 }
 
 void gfxAndroidPlatform::InitAcceleration() { gfxPlatform::InitAcceleration(); }

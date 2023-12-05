@@ -27,6 +27,7 @@
 #include "mozilla/java/SampleBufferWrappers.h"
 #include "mozilla/java/SampleWrappers.h"
 #include "mozilla/java/SurfaceAllocatorWrappers.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/Maybe.h"
 #include "nsPromiseFlatString.h"
 #include "nsThreadUtils.h"
@@ -168,9 +169,13 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     if (mSurface) {
       java::SurfaceAllocator::DisposeSurface(mSurface);
     }
+    if (mImageReader) {
+      layers::AndroidImageApi::Get()->AImageReader_delete(mImageReader);
+    }
   }
 
   RefPtr<InitPromise> Init() override {
+    printf_stderr("jamiedbg RemoteVideoDecoder::Init()\n");
     mThread = GetCurrentSerialEventTarget();
     java::sdk::MediaCodec::BufferInfo::LocalRef bufferInfo;
     if (NS_FAILED(java::sdk::MediaCodec::BufferInfo::New(&bufferInfo)) ||
@@ -179,15 +184,51 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     }
     mInputBufferInfo = bufferInfo;
 
-    mSurface =
-        java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
-            mConfig.mImage.width, mConfig.mImage.height, false));
-    if (!mSurface) {
-      return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                                          __func__);
-    }
+    bool useImageReader = true;
+    if (useImageReader) {
+      const auto* api = layers::AndroidImageApi::Get();
+      media_status_t status = api->AImageReader_new(
+          mConfig.mImage.width, mConfig.mImage.height,
+          AIMAGE_FORMAT_YUV_420_888,  // FIXME: detect format
+          6, &mImageReader);
+      if (status != AMEDIA_OK) {
+        printf_stderr("jamiedbg Error in AImageReader_new() status=%d\n",
+                      status);
+      }
+      MOZ_ASSERT(mImageReader);
+      status = api->AImageReader_getWindow(mImageReader, &mNativeWindow);
+      if (status != AMEDIA_OK) {
+        printf_stderr("jamiedbg Error in AImageReader_getWindow() status=%d\n",
+                      status);
+      }
+      MOZ_ASSERT(mNativeWindow);
+      jobject surf =
+          api->ANativeWindow_toSurface(jni::GetEnvForThread(), mNativeWindow);
+      if (!surf) {
+        printf_stderr("jamiedbg Error in AImageReader_toSurface()");
+      }
+      MOZ_ASSERT(surf);
+      mImageReaderSurface = java::sdk::Surface::GlobalRef::From(surf);
+      if (!mImageReaderSurface) {
+        printf_stderr("jamiedbg Error converting to Surface LocalRef");
+      }
 
-    mSurfaceHandle = mSurface->GetHandle();
+      AImageReader_ImageListener imageListener;
+      imageListener.context = this;
+      imageListener.onImageAvailable = [](void* ctx, AImageReader* reader) {
+        printf_stderr("jamiedbg OnImageAvailable()\n");
+      };
+      api->AImageReader_setImageListener(mImageReader, &imageListener);
+    } else {
+      mSurface =
+          java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
+              mConfig.mImage.width, mConfig.mImage.height, false));
+      if (!mSurface) {
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+      mSurfaceHandle = mSurface->GetHandle();
+    }
 
     // Register native methods.
     JavaCallbacksSupport::Init();
@@ -200,9 +241,15 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     JavaCallbacksSupport::AttachNative(
         mJavaCallbacks, mozilla::MakeUnique<CallbacksSupport>(this));
 
-    mJavaDecoder = java::CodecProxy::Create(
-        false,  // false indicates to create a decoder and true denotes encoder
-        mFormat, mSurface->GetSurface(), mJavaCallbacks, mDrmStubId);
+    java::sdk::Surface::LocalRef surface =
+        mImageReaderSurface
+            ? java::sdk::Surface::Ref::From(mImageReaderSurface)
+            : java::sdk::Surface::Ref::From(mSurface->GetSurface());
+
+    mJavaDecoder =
+        java::CodecProxy::Create(false,  // false indicates to create a
+                                         // decoder and true denotes encoder
+                                 mFormat, surface, mJavaCallbacks, mDrmStubId);
     if (mJavaDecoder == nullptr) {
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
@@ -543,6 +590,9 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
   const VideoInfo mConfig;
   java::GeckoSurface::GlobalRef mSurface;
   AndroidSurfaceTextureHandle mSurfaceHandle{};
+  AImageReader* mImageReader = nullptr;
+  java::sdk::Surface::GlobalRef mImageReaderSurface;
+  ANativeWindow* mNativeWindow = nullptr;
   // Used to override the SurfaceTexture transform on some devices where the
   // decoder provides a buggy value.
   Maybe<gfx::Matrix4x4> mTransformOverride;
