@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import org.mozilla.gecko.gfx.GeckoSurface;
 
 /* package */ final class Codec extends ICodec.Stub implements IBinder.DeathRecipient {
   private static final String LOGTAG = "GeckoRemoteCodec";
@@ -362,7 +361,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
   }
 
   private volatile ICodecCallbacks mCallbacks;
-  private GeckoSurface mSurface;
+  private Surface mSurface;
   private AsyncCodec mCodec;
   private InputProcessor mInputProcessor;
   private OutputProcessor mOutputProcessor;
@@ -391,7 +390,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
   @Override
   public synchronized boolean configure(
-      final FormatParam format, final GeckoSurface surface, final int flags, final String drmStubId)
+      final FormatParam format, final Surface surface, final int flags, final String drmStubId)
       throws RemoteException {
     if (mCallbacks == null) {
       Log.e(LOGTAG, "FAIL: callbacks must be set before calling configure()");
@@ -419,9 +418,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
     final List<String> found =
         findMatchingCodecNames(fmt, flags == MediaCodec.CONFIGURE_FLAG_ENCODE);
     for (final String name : found) {
-      final AsyncCodec codec =
-          configureCodec(
-              name, fmt, surface != null ? surface.getSurface() : null, flags, drmStubId);
+      final AsyncCodec codec = configureCodec(name, fmt, surface, flags, drmStubId);
       if (codec == null) {
         Log.w(LOGTAG, "unable to configure " + name + ". Try next.");
         continue;

@@ -13,11 +13,11 @@ import android.os.DeadObjectException;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
+import android.view.Surface;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.mozilla.gecko.GeckoAppShell;
-import org.mozilla.gecko.gfx.GeckoSurface;
 
 public final class RemoteManager implements IBinder.DeathRecipient {
   private static final String LOGTAG = "GeckoRemoteManager";
@@ -129,7 +129,7 @@ public final class RemoteManager implements IBinder.DeathRecipient {
   public synchronized CodecProxy createCodec(
       final boolean isEncoder,
       final MediaFormat format,
-      final GeckoSurface surface,
+      final Surface surface,
       final CodecProxy.Callbacks callbacks,
       final String drmStubId) {
     if (mRemote == null) {
