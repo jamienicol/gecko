@@ -330,6 +330,7 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   uint32_t mIdNamespace;
   uint32_t mResourceId;
 
+  bool mHasProcessEverBeenStable = false;
   uint32_t mUnstableProcessAttempts;
   uint32_t mTotalProcessAttempts;
   TimeStamp mProcessAttemptLastTime;

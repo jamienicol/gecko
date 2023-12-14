@@ -218,10 +218,20 @@ bool GPUProcessManager::LaunchGPUProcess() {
   // Start the Vsync I/O thread so can use it as soon as the process launches.
   EnsureVsyncIOThread();
 
-  // If the process didn't live long enough, reset the stable flag so that we
-  // don't end up in a restart loop.
+  // If the previous process didn't live long enough, increment our unstable
+  // attempts counter so that we don't end up in a restart loop. If the process
+  // did live long enough, reset the counter so that we don't disable the
+  // process too eagerly.
   auto newTime = TimeStamp::Now();
-  if (!IsProcessStable(newTime)) {
+  if (IsProcessStable(newTime)) {
+    mUnstableProcessAttempts = 0;
+    // mProcessStable is true initially so that we don't record an unstable
+    // attempt here. But equally we must be careful not to record that we have
+    // already been stable on the first launch.
+    if (mTotalProcessAttempts > 0) {
+      mHasProcessEverBeenStable = true;
+    }
+  } else {
     mUnstableProcessAttempts++;
   }
   mTotalProcessAttempts++;
@@ -293,6 +303,12 @@ bool GPUProcessManager::MaybeDisableGPUProcess(const char* aMessage,
   MOZ_ASSERT(!gfxConfig::IsEnabled(Feature::GPU_PROCESS));
 
   gfxCriticalNote << aMessage;
+
+  if (mHasProcessEverBeenStable &&
+      !StaticPrefs::layers_gpu_process_allow_disabling_AtStartup()) {
+    MOZ_CRASH(
+        "GPU process had too many unstable attempts and cannot be disabled");
+  }
 
   gfxPlatform::DisableGPUProcess();
 
@@ -796,8 +812,9 @@ void GPUProcessManager::OnProcessUnexpectedShutdown(GPUProcessHost* aHost) {
   if (mUnstableProcessAttempts >
       uint32_t(StaticPrefs::layers_gpu_process_max_restarts())) {
     char disableMessage[64];
-    SprintfLiteral(disableMessage, "GPU process disabled after %d attempts",
-                   mTotalProcessAttempts);
+    SprintfLiteral(disableMessage,
+                   "GPU process disabled after %d unstable attempts",
+                   mUnstableProcessAttempts);
     if (!MaybeDisableGPUProcess(disableMessage, /* aAllowRestart */ true)) {
       // Fallback wants the GPU process. Reset our counter.
       mUnstableProcessAttempts = 0;

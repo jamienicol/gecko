@@ -7935,6 +7935,13 @@
 #endif
   mirror: always
 
+# Whether we allow disabling the GPU process at runtime following enough
+# unstable restarts, or whether we crash the parent process instead.
+- name: layers.gpu-process.allow-disabling
+  type: bool
+  value: @IS_NOT_NIGHTLY_BUILD@
+  mirror: once
+
 # How many frames we must render before declaring the GPU process stable, and
 # allow restarts without it counting against our maximum restarts.
 - name: layers.gpu-process.stable.frame-threshold
