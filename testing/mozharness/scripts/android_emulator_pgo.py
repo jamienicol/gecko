@@ -92,6 +92,7 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         c = self.config
         self.installer_path = c.get("installer_path")
         self.device_serial = "emulator-5554"
+        self.use_gles3 = True
 
     def query_abs_dirs(self):
         if self.abs_dirs:
