@@ -119,6 +119,7 @@ enum class EGLExtension {
   EXT_image_dma_buf_import_modifiers,
   MESA_image_dma_buf_export,
   KHR_no_config_context,
+  ANDROID_get_frame_timestamps,
   Max
 };
 
@@ -407,6 +408,11 @@ class GLLibraryEGL final {
     WRAP(fDestroyImageKHR(dpy, image));
   }
 
+  EGLBoolean fSurfaceAttrib(EGLDisplay dpy, EGLSurface surface,
+                            EGLint attribute, EGLint value) {
+    WRAP(fSurfaceAttrib(dpy, surface, attribute, value));
+  }
+
   EGLBoolean fQuerySurface(EGLDisplay dpy, EGLSurface surface, EGLint attribute,
                            EGLint* value) const {
     WRAP(fQuerySurface(dpy, surface, attribute, value));
@@ -540,6 +546,41 @@ class GLLibraryEGL final {
     WRAP(fQueryDevicesEXT(max_devices, devices, num_devices));
   }
 
+  // EGL_ANDROID_get_frame_timestamps
+  EGLBoolean fGetNextFrameIdANDROID(EGLDisplay dpy, EGLSurface surface,
+                                    EGLuint64KHR* frameId) {
+    WRAP(fGetNextFrameIdANDROID(dpy, surface, frameId));
+  }
+
+  EGLBoolean fGetCompositorTimingANDROID(EGLDisplay dpy, EGLSurface surface,
+                                         EGLint numTimestamps,
+                                         const EGLint* names,
+                                         EGLnsecsANDROID* values) {
+    WRAP(fGetCompositorTimingANDROID(dpy, surface, numTimestamps, names,
+                                     values));
+  }
+
+  EGLBoolean fGetFrameTimestampsANDROID(EGLDisplay dpy, EGLSurface surface,
+                                        EGLuint64KHR frameId,
+                                        EGLint numTimestamps,
+                                        const EGLint* timestamps,
+                                        EGLnsecsANDROID* values) {
+    WRAP(fGetFrameTimestampsANDROID(dpy, surface, frameId, numTimestamps,
+                                    timestamps, values));
+  }
+
+  EGLBoolean fGetCompositorTimingSupportedANDROID(EGLDisplay dpy,
+                                                  EGLSurface surface,
+                                                  EGLint name) {
+    WRAP(fGetCompositorTimingSupportedANDROID(dpy, surface, name));
+  }
+
+  EGLBoolean fGetFrameTimestampSupportedANDROID(EGLDisplay dpy,
+                                                EGLSurface surface,
+                                                EGLint timestamp) {
+    WRAP(fGetFrameTimestampSupportedANDROID(dpy, surface, timestamp));
+  }
+
 #undef WRAP
 
 #undef WRAP
@@ -611,6 +652,9 @@ class GLLibraryEGL final {
                                           EGLClientBuffer buffer,
                                           const EGLint* attrib_list);
     EGLBoolean(GLAPIENTRY* fDestroyImageKHR)(EGLDisplay dpy, EGLImage image);
+    EGLBoolean(GLAPIENTRY* fSurfaceAttrib)(EGLDisplay display,
+                                           EGLSurface surface, EGLint attribute,
+                                           EGLint value);
     EGLBoolean(GLAPIENTRY* fQuerySurface)(EGLDisplay dpy, EGLSurface surface,
                                           EGLint attribute, EGLint* value);
     EGLBoolean(GLAPIENTRY* fQuerySurfacePointerANGLE)(EGLDisplay dpy,
@@ -691,6 +735,24 @@ class GLLibraryEGL final {
     EGLBoolean(GLAPIENTRY* fQueryDevicesEXT)(EGLint max_devices,
                                              EGLDeviceEXT* devices,
                                              EGLint* num_devices);
+
+    // EGL_ANDROID_get_frame_timestamps
+    EGLBoolean(GLAPIENTRY* fGetNextFrameIdANDROID)(EGLDisplay dpy,
+                                                   EGLSurface surface,
+                                                   EGLuint64KHR* frameId);
+    EGLBoolean(GLAPIENTRY* fGetCompositorTimingANDROID)(
+        EGLDisplay dpy, EGLSurface surface, EGLint numTimestamps,
+        const EGLint* names, EGLnsecsANDROID* values);
+    EGLBoolean(GLAPIENTRY* fGetFrameTimestampsANDROID)(EGLDisplay dpy,
+                                                       EGLSurface surface,
+                                                       EGLuint64KHR frameId,
+                                                       EGLint numTimestamps,
+                                                       const EGLint* timestamps,
+                                                       EGLnsecsANDROID* values);
+    EGLBoolean(GLAPIENTRY* fGetCompositorTimingSupportedANDROID)(
+        EGLDisplay dpy, EGLSurface surface, EGLint name);
+    EGLBoolean(GLAPIENTRY* fGetFrameTimestampSupportedANDROID)(
+        EGLDisplay dpy, EGLSurface surface, EGLint timestamp);
 
   } mSymbols = {};
 };
@@ -844,6 +906,11 @@ class EglDisplay final {
   EGLBoolean fDestroyImage(EGLImage image) const {
     MOZ_ASSERT(HasKHRImageBase());
     return mLib->fDestroyImage(mDisplay, image);
+  }
+
+  EGLBoolean fSurfaceAttrib(EGLSurface surface, EGLint attribute,
+                            EGLint value) const {
+    return mLib->fSurfaceAttrib(mDisplay, surface, attribute, value);
   }
 
   EGLBoolean fQuerySurface(EGLSurface surface, EGLint attribute,
