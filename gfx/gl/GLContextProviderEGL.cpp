@@ -538,6 +538,7 @@ bool GLContextEGL::SwapBuffers() {
   if (surface) {
     ProcessFrameTimestamps();
 
+    AUTO_PROFILER_MARKER_TEXT("SwapBuffers", GRAPHICS, {}, "SwapBuffers"_ns);
     if ((mEgl->IsExtensionSupported(
              EGLExtension::EXT_swap_buffers_with_damage) ||
          mEgl->IsExtensionSupported(
@@ -596,9 +597,12 @@ GLint GLContextEGL::GetBufferAge() const {
   EGLSurface surface =
       mSurfaceOverride != EGL_NO_SURFACE ? mSurfaceOverride : mSurface;
 
+  AUTO_PROFILER_MARKER_TEXT("GetBufferAge", GRAPHICS, {}, "GetBufferAge"_ns);
   if (surface && (HasExtBufferAge() || HasKhrPartialUpdate())) {
     EGLint result;
     mEgl->fQuerySurface(surface, LOCAL_EGL_BUFFER_AGE_EXT, &result);
+    PROFILER_MARKER_TEXT("Buffer Age", GRAPHICS, {},
+                         nsPrintfCString("%d", result));
     return result;
   }
 
