@@ -95,7 +95,7 @@ static const char* sEGLExtensionNames[] = {
     "EGL_EXT_image_dma_buf_import_modifiers",
     "EGL_MESA_image_dma_buf_export",
     "EGL_KHR_no_config_context",
-};
+    "EGL_ANDROID_get_frame_timestamps"};
 
 PRLibrary* LoadApitraceLibrary() {
   const char* path = nullptr;
@@ -593,6 +593,7 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
                                   SYMBOL(BindTexImage),
                                   SYMBOL(ReleaseTexImage),
                                   SYMBOL(SwapInterval),
+                                  SYMBOL(SurfaceAttrib),
                                   SYMBOL(QuerySurface),
                                   END_OF_SYMBOLS};
 
@@ -755,6 +756,16 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
   }
   {
     const SymLoadStruct symbols[] = {SYMBOL(QueryDevicesEXT), END_OF_SYMBOLS};
+    (void)fnLoadSymbols(symbols);
+  }
+  {
+    const SymLoadStruct symbols[] = {
+        SYMBOL(GetNextFrameIdANDROID),
+        SYMBOL(GetCompositorTimingANDROID),
+        SYMBOL(GetFrameTimestampsANDROID),
+        SYMBOL(GetCompositorTimingSupportedANDROID),
+        SYMBOL(GetFrameTimestampSupportedANDROID),
+        END_OF_SYMBOLS};
     (void)fnLoadSymbols(symbols);
   }
 

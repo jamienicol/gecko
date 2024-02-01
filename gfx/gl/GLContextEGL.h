@@ -11,6 +11,8 @@
 #include "GLLibraryEGL.h"
 #include "nsRegion.h"
 #include <memory>
+#include <queue>
+#include <vector>
 
 namespace mozilla {
 namespace layers {
@@ -123,6 +125,10 @@ class GLContextEGL final : public GLContext {
 
   virtual void OnMarkDestroyed() override;
 
+  // Processes frame timestamps using the ANDROID_get_frame_timestamps extension,
+  // outputting data to the profiler, if active.
+  void ProcessFrameTimestamps();
+
  public:
   const std::shared_ptr<EglDisplay> mEgl;
   const EGLConfig mSurfaceConfig;
@@ -142,6 +148,11 @@ class GLContextEGL final : public GLContext {
   bool mOwnsContext = true;
 
   nsIntRegion mDamageRegion;
+
+  // Queue of pending frames whose timestamps need to be processed in
+  // ProcessFrameTimestamps().
+  std::queue<EGLuint64KHR> mPendingFrameTimestampIds;
+  Maybe<std::vector<EGLint>> mSupportedFrameTimestamps;
 
   static EGLSurface CreatePBufferSurfaceTryingPowerOfTwo(
       EglDisplay&, EGLConfig, EGLenum bindToTextureFormat,
