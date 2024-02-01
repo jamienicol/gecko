@@ -95,6 +95,8 @@ typedef void* EGLImage;
 typedef void* EGLSync;
 typedef void* EGLStreamKHR;
 typedef uint64_t EGLTime;
+typedef uint64_t EGLuint64KHR;
+typedef int64_t EGLnsecsANDROID;
 
 #define EGL_NO_CONTEXT ((EGLContext)0)
 #define EGL_NO_DISPLAY ((EGLDisplay)0)

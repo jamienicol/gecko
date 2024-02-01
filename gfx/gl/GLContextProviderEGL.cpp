@@ -62,6 +62,7 @@
 #include "GLLibraryLoader.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -198,6 +199,12 @@ static EGLSurface CreateSurfaceFromNativeWindow(
     const auto err = egl.mLib->fGetError();
     gfxCriticalNote << "Failed to create EGLSurface!: " << gfx::hexa(err);
   }
+
+  if (egl.IsExtensionSupported(EGLExtension::ANDROID_get_frame_timestamps)) {
+    egl.fSurfaceAttrib(newSurface, LOCAL_EGL_TIMESTAMPS_ANDROID,
+                       LOCAL_EGL_TRUE);
+  }
+
   return newSurface;
 }
 
@@ -529,6 +536,8 @@ bool GLContextEGL::SwapBuffers() {
   EGLSurface surface =
       mSurfaceOverride != EGL_NO_SURFACE ? mSurfaceOverride : mSurface;
   if (surface) {
+    ProcessFrameTimestamps();
+
     if ((mEgl->IsExtensionSupported(
              EGLExtension::EXT_swap_buffers_with_damage) ||
          mEgl->IsExtensionSupported(
@@ -594,6 +603,95 @@ GLint GLContextEGL::GetBufferAge() const {
   }
 
   return 0;
+}
+
+static std::string_view GetFrameTimestampName(EGLint timestamp) {
+  using namespace std::string_view_literals;
+  switch (timestamp) {
+    case LOCAL_EGL_REQUESTED_PRESENT_TIME_ANDROID:
+      return "EGL_REQUESTED_PRESENT_TIME"sv;
+    case LOCAL_EGL_RENDERING_COMPLETE_TIME_ANDROID:
+      return "EGL_RENDERING_COMPLETE_TIME"sv;
+    case LOCAL_EGL_COMPOSITION_LATCH_TIME_ANDROID:
+      return "EGL_COMPOSITION_LATCH_TIME"sv;
+    case LOCAL_EGL_FIRST_COMPOSITION_START_TIME_ANDROID:
+      return "EGL_FIRST_COMPOSITION_START_TIME"sv;
+    case LOCAL_EGL_LAST_COMPOSITION_START_TIME_ANDROID:
+      return "EGL_LAST_COMPOSITION_START_TIME"sv;
+    case LOCAL_EGL_FIRST_COMPOSITION_GPU_FINISHED_TIME_ANDROID:
+      return "EGL_FIRST_COMPOSITION_GPU_FINISHED_TIME"sv;
+    case LOCAL_EGL_DISPLAY_PRESENT_TIME_ANDROID:
+      return "EGL_DISPLAY_PRESENT_TIME"sv;
+    case LOCAL_EGL_DEQUEUE_READY_TIME_ANDROID:
+      return "EGL_DEQUEUE_READY_TIME"sv;
+    case LOCAL_EGL_READS_DONE_TIME_ANDROID:
+      return "EGL_READS_DONE_TIME"sv;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown EGL Frame Timestamp");
+      return "Unknown"sv;
+  }
+}
+
+void GLContextEGL::ProcessFrameTimestamps() {
+  if (!mEgl->IsExtensionSupported(EGLExtension::ANDROID_get_frame_timestamps)) {
+    return;
+  }
+
+  if (!profiler_thread_is_being_profiled_for_markers()) {
+    return;
+  }
+
+  const EGLSurface surface =
+      mSurfaceOverride != EGL_NO_SURFACE ? mSurfaceOverride : mSurface;
+
+  if (mSupportedFrameTimestamps.isNothing()) {
+    mSupportedFrameTimestamps.emplace();
+    const EGLint allTimestamps[] = {
+        LOCAL_EGL_REQUESTED_PRESENT_TIME_ANDROID,
+        LOCAL_EGL_RENDERING_COMPLETE_TIME_ANDROID,
+        LOCAL_EGL_COMPOSITION_LATCH_TIME_ANDROID,
+        LOCAL_EGL_FIRST_COMPOSITION_START_TIME_ANDROID,
+        LOCAL_EGL_LAST_COMPOSITION_START_TIME_ANDROID,
+        LOCAL_EGL_FIRST_COMPOSITION_GPU_FINISHED_TIME_ANDROID,
+        LOCAL_EGL_DISPLAY_PRESENT_TIME_ANDROID,
+        LOCAL_EGL_DEQUEUE_READY_TIME_ANDROID,
+        LOCAL_EGL_READS_DONE_TIME_ANDROID,
+    };
+    for (EGLint timestamp : allTimestamps) {
+      if (mEgl->mLib->fGetFrameTimestampSupportedANDROID(mEgl->mDisplay,
+                                                         surface, timestamp)) {
+        mSupportedFrameTimestamps->push_back(timestamp);
+      }
+    }
+  }
+
+  // Process all pending frames after a certain delay in order
+  // to allow time for them to have been presented.
+  while (mPendingFrameTimestampIds.size() >= 5) {
+    EGLuint64KHR frameId = mPendingFrameTimestampIds.front();
+    mPendingFrameTimestampIds.pop();
+
+    EGLnsecsANDROID values[mSupportedFrameTimestamps->size()];
+    bool success = mEgl->mLib->fGetFrameTimestampsANDROID(
+        mEgl->mDisplay, surface, frameId, mSupportedFrameTimestamps->size(),
+        mSupportedFrameTimestamps->data(), values);
+    if (success) {
+      for (size_t i = 0; i < mSupportedFrameTimestamps->size(); i++) {
+        if (values[i] >= 0) {
+          PROFILER_MARKER_TEXT(
+              GetFrameTimestampName((*mSupportedFrameTimestamps)[i]), GRAPHICS,
+              MarkerTiming::InstantAt(TimeStamp::FromSystemTime(values[i])),
+              nsPrintfCString("Frame %" PRIu64, frameId));
+        }
+      }
+    }
+  }
+
+  EGLuint64KHR nextFrameId;
+  if (mEgl->mLib->fGetNextFrameIdANDROID(mEgl->mDisplay, surface,
+                                         &nextFrameId)) {
+    mPendingFrameTimestampIds.push(nextFrameId);
+  }
 }
 
 #define LOCAL_EGL_CONTEXT_PROVOKING_VERTEX_DONT_CARE_MOZ 0x6000
