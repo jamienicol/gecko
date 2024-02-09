@@ -195,7 +195,13 @@ bool RenderCompositorEGL::Resume() {
     }
     mHandlingNewSurfaceError = false;
 
-    gl::GLContextEGL::Cast(gl())->SetEGLSurfaceOverride(mEGLSurface);
+    const auto& gle = gl::GLContextEGL::Cast(gl());
+    const auto& egl = gle->mEgl;
+
+    gle->SetEGLSurfaceOverride(mEGLSurface);
+
+    const int interval = gfx::gfxVars::SwapIntervalEGL() ? 1 : 0;
+    egl->fSwapInterval(interval);
   } else if (kIsLinux) {
     // Destroy EGLSurface if it exists and create a new one. We will set the
     // swap interval after MakeCurrent() has been called.
