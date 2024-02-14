@@ -1249,6 +1249,9 @@ class LayerViewSupport final
   void SyncPauseCompositor() {
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
 
+    // Set this true prior to attempting to pause the compositor, so that if
+    // pausing fails the subsequent recovery knows to initialize the compositor
+    // in a paused state.
     mCompositorPaused = true;
 
     if (mUiCompositorControllerChild) {
@@ -1283,8 +1286,12 @@ class LayerViewSupport final
   void SyncResumeCompositor() {
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
 
+    // Set this false prior to attempting to resume the compositor, so that if
+    // resumption fails the subsequent recovery knows to initialize the
+    // compositor in a resumed state.
+    mCompositorPaused = false;
+
     if (mUiCompositorControllerChild) {
-      mCompositorPaused = false;
       bool resumed = mUiCompositorControllerChild->Resume();
       if (!resumed) {
         gfxCriticalNote
@@ -1299,6 +1306,11 @@ class LayerViewSupport final
       int32_t aWidth, int32_t aHeight, jni::Object::Param aSurface,
       jni::Object::Param aSurfaceControl) {
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
+
+    // Set this false prior to attempting to resume the compositor, so that if
+    // resumption fails the subsequent recovery knows to initialize the
+    // compositor in a resumed state.
+    mCompositorPaused = false;
 
     mX = aX;
     mY = aY;
@@ -1345,8 +1357,6 @@ class LayerViewSupport final
     }
 
     mRequestedNewSurface = false;
-
-    mCompositorPaused = false;
 
     class OnResumedEvent : public nsAppShell::Event {
       GeckoSession::Compositor::GlobalRef mCompositor;
