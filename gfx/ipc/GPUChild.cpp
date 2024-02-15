@@ -108,6 +108,33 @@ bool GPUChild::EnsureGPUReady() {
 
 void GPUChild::OnUnexpectedShutdown() { mUnexpectedShutdown = true; }
 
+void GPUChild::GeneratePairedMinidump() {
+  // At most generate the paired minidumps twice per session in order to
+  // avoid accumulating a large number of unsubmitted minidumps on disk.
+  if (mCrashReporter && mNumPairedMinidumpsCreated < 2) {
+    nsAutoCString additionalDumps("browser");
+    mCrashReporter->AddAnnotation(
+        CrashReporter::Annotation::additional_minidumps, additionalDumps);
+
+    nsAutoCString reason("GPUProcessKill");
+    mCrashReporter->AddAnnotation(CrashReporter::Annotation::ipc_channel_error,
+                                  reason);
+
+    if (mCrashReporter->GenerateMinidumpAndPair(this, "browser"_ns)) {
+      mCrashReporter->FinalizeCrashReport();
+      mCreatedPairedMinidumps = true;
+      mNumPairedMinidumpsCreated++;
+    }
+  }
+}
+
+void GPUChild::DeletePairedMinidump() {
+  if (mCrashReporter && mCreatedPairedMinidumps) {
+    mCrashReporter->DeleteCrashReport();
+    mCreatedPairedMinidumps = false;
+  }
+}
+
 mozilla::ipc::IPCResult GPUChild::RecvInitComplete(const GPUDeviceData& aData) {
   // We synchronously requested GPU parameters before this arrived.
   if (mGPUReady) {
@@ -288,13 +315,17 @@ mozilla::ipc::IPCResult GPUChild::RecvAddMemoryReport(
 
 void GPUChild::ActorDestroy(ActorDestroyReason aWhy) {
   if (aWhy == AbnormalShutdown || mUnexpectedShutdown) {
-    nsAutoString dumpId;
-    GenerateCrashReport(OtherPid(), &dumpId);
-
     Telemetry::Accumulate(
         Telemetry::SUBPROCESS_ABNORMAL_ABORT,
         nsDependentCString(XRE_GeckoProcessTypeToString(GeckoProcessType_GPU)),
         1);
+
+    nsAutoString dumpId;
+    if (!mCreatedPairedMinidumps) {
+      GenerateCrashReport(OtherPid(), &dumpId);
+    } else if (mCrashReporter) {
+      dumpId = mCrashReporter->MinidumpID();
+    }
 
     // Notify the Telemetry environment so that we can refresh and do a
     // subsession split. This also notifies the crash reporter on geckoview.
