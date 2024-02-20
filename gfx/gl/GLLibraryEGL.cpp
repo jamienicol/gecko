@@ -95,7 +95,8 @@ static const char* sEGLExtensionNames[] = {
     "EGL_EXT_image_dma_buf_import_modifiers",
     "EGL_MESA_image_dma_buf_export",
     "EGL_KHR_no_config_context",
-    "EGL_ANDROID_get_frame_timestamps"};
+    "EGL_ANDROID_get_frame_timestamps",
+    "EGL_ANDROID_presentation_time"};
 
 PRLibrary* LoadApitraceLibrary() {
   const char* path = nullptr;
@@ -766,6 +767,11 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
         SYMBOL(GetCompositorTimingSupportedANDROID),
         SYMBOL(GetFrameTimestampSupportedANDROID),
         END_OF_SYMBOLS};
+    (void)fnLoadSymbols(symbols);
+  }
+  {
+    const SymLoadStruct symbols[] = {SYMBOL(PresentationTimeANDROID),
+                                     END_OF_SYMBOLS};
     (void)fnLoadSymbols(symbols);
   }
 

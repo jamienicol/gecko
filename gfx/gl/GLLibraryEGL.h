@@ -120,6 +120,7 @@ enum class EGLExtension {
   MESA_image_dma_buf_export,
   KHR_no_config_context,
   ANDROID_get_frame_timestamps,
+  ANDROID_presentation_time,
   Max
 };
 
@@ -581,6 +582,13 @@ class GLLibraryEGL final {
     WRAP(fGetFrameTimestampSupportedANDROID(dpy, surface, timestamp));
   }
 
+  // ANDROID_presentation_time
+  EGLBoolean fPresentationTimeANDROID(EGLDisplay dpy, EGLSurface surface,
+                                      int64_t  // EGLnsecsANDROID
+                                          time) {
+    WRAP(fPresentationTimeANDROID(dpy, surface, time));
+  }
+
 #undef WRAP
 
 #undef WRAP
@@ -753,6 +761,11 @@ class GLLibraryEGL final {
         EGLDisplay dpy, EGLSurface surface, EGLint name);
     EGLBoolean(GLAPIENTRY* fGetFrameTimestampSupportedANDROID)(
         EGLDisplay dpy, EGLSurface surface, EGLint timestamp);
+
+    // ANDROID_presentation_time
+    EGLBoolean(GLAPIENTRY* fPresentationTimeANDROID)(EGLDisplay dpy,
+                                                     EGLSurface surface,
+                                                     EGLnsecsANDROID time);
 
   } mSymbols = {};
 };
@@ -1051,6 +1064,13 @@ class EglDisplay final {
                                 EGLint* offsets) const {
     MOZ_ASSERT(IsExtensionSupported(EGLExtension::MESA_image_dma_buf_export));
     return mLib->fExportDMABUFImage(mDisplay, image, fds, strides, offsets);
+  }
+
+  // ANDROID_presentation_time
+  EGLBoolean fPresentationTimeANDROID(EGLDisplay dpy, EGLSurface surface,
+                                      EGLnsecsANDROID time) {
+    MOZ_ASSERT(IsExtensionSupported(EGLExtension::ANDROID_presentation_time));
+    return mLib->fPresentationTimeANDROID(dpy, surface, time);
   }
 };
 
