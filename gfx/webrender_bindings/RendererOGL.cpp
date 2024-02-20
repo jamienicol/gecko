@@ -148,7 +148,7 @@ static void DoWebRenderDisableNativeCompositor(
 }
 
 RenderedFrameId RendererOGL::UpdateAndRender(
-    const Maybe<gfx::IntSize>& aReadbackSize,
+    const TimeStamp& aOutputTime, const Maybe<gfx::IntSize>& aReadbackSize,
     const Maybe<wr::ImageFormat>& aReadbackFormat,
     const Maybe<Range<uint8_t>>& aReadbackBuffer, bool* aNeedsYFlip,
     RendererStats* aOutStats) {
@@ -223,7 +223,7 @@ RenderedFrameId RendererOGL::UpdateAndRender(
   // invalidate it.
   MaybeRecordFrame(mLastPipelineInfo);
 
-  RenderedFrameId frameId = mCompositor->EndFrame(dirtyRects);
+  RenderedFrameId frameId = mCompositor->EndFrame(aOutputTime, dirtyRects);
 
   mCompositor->GetWidget()->PostRender(&widgetContext);
 

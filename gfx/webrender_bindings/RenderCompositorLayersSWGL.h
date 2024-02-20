@@ -37,7 +37,8 @@ class RenderCompositorLayersSWGL : public RenderCompositor {
 
   bool BeginFrame() override;
   void CancelFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) override;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) override;
 
   bool SurfaceOriginIsTopLeft() override { return true; }
 

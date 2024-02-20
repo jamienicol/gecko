@@ -645,7 +645,8 @@ void RenderThread::HandleFrameOneDocInner(wr::WindowId aWindowId, bool aRender,
     SetFramePublishId(aWindowId, aPublishId.ref());
   }
 
-  UpdateAndRender(aWindowId, frame.mStartId, frame.mStartTime, render,
+  UpdateAndRender(aWindowId, frame.mStartId, frame.mStartTime,
+                  frame.mOutputTime, render,
                   /* aReadbackSize */ Nothing(),
                   /* aReadbackFormat */ Nothing(),
                   /* aReadbackBuffer */ Nothing());
@@ -765,7 +766,7 @@ void RenderThread::SetFramePublishId(wr::WindowId aWindowId,
 
 void RenderThread::UpdateAndRender(
     wr::WindowId aWindowId, const VsyncId& aStartId,
-    const TimeStamp& aStartTime, bool aRender,
+    const TimeStamp& aStartTime, const TimeStamp& aOutputTime, bool aRender,
     const Maybe<gfx::IntSize>& aReadbackSize,
     const Maybe<wr::ImageFormat>& aReadbackFormat,
     const Maybe<Range<uint8_t>>& aReadbackBuffer, bool* aNeedsYFlip) {
@@ -801,8 +802,9 @@ void RenderThread::UpdateAndRender(
   wr::RenderedFrameId latestFrameId;
   RendererStats stats = {0};
   if (aRender) {
-    latestFrameId = renderer->UpdateAndRender(
-        aReadbackSize, aReadbackFormat, aReadbackBuffer, aNeedsYFlip, &stats);
+    latestFrameId =
+        renderer->UpdateAndRender(aOutputTime, aReadbackSize, aReadbackFormat,
+                                  aReadbackBuffer, aNeedsYFlip, &stats);
   } else {
     renderer->Update();
   }
@@ -902,6 +904,8 @@ bool RenderThread::TooManyPendingFrames(wr::WindowId aWindowId) {
   }
   WindowInfo* info = it->second.get();
 
+  // FIXME: should this be >= (on android at least?)
+  // probably not. in asap mode this causes a lot of dropped frames
   if (info->PendingCount() > maxFrameCount) {
     return true;
   }
@@ -931,7 +935,8 @@ void RenderThread::SetDestroyed(wr::WindowId aWindowId) {
 
 void RenderThread::IncPendingFrameCount(wr::WindowId aWindowId,
                                         const VsyncId& aStartId,
-                                        const TimeStamp& aStartTime) {
+                                        const TimeStamp& aStartTime,
+                                        const TimeStamp& aOutputTime) {
   auto windows = mWindowInfos.Lock();
   auto it = windows->find(AsUint64(aWindowId));
   if (it == windows->end()) {
@@ -939,7 +944,7 @@ void RenderThread::IncPendingFrameCount(wr::WindowId aWindowId,
     return;
   }
   it->second->mPendingFrameBuild++;
-  it->second->mPendingFrames.push(PendingFrameInfo{aStartTime, aStartId});
+  it->second->mPendingFrames.push(PendingFrameInfo{aStartTime, aStartId, aOutputTime});
 }
 
 void RenderThread::DecPendingFrameBuildCount(wr::WindowId aWindowId) {

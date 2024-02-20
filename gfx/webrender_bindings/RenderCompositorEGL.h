@@ -24,7 +24,8 @@ class RenderCompositorEGL : public RenderCompositor {
   virtual ~RenderCompositorEGL();
 
   bool BeginFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) final;
   void Pause() override;
   bool Resume() override;
   bool IsPaused() override;

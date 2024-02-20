@@ -53,6 +53,7 @@ class RenderCompositor {
   // have been pushed to the queue.
   // @return a RenderedFrameId for the frame
   virtual RenderedFrameId EndFrame(
+      const TimeStamp& aOutputTime,
       const nsTArray<DeviceIntRect>& aDirtyRects) = 0;
   // Returns false when waiting gpu tasks is failed.
   // It might happen when rendering context is lost.

@@ -268,8 +268,8 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent,
     mLastComposeTime = SampleTime::FromVsync(aVsyncEvent.mTime);
 
     // Tell the owner to do a composite
-    mVsyncSchedulerOwner->CompositeToTarget(aVsyncEvent.mId, aReasons, nullptr,
-                                            nullptr);
+    mVsyncSchedulerOwner->CompositeToTarget(
+        aVsyncEvent.mId, aVsyncEvent.mOutputTime, aReasons, nullptr, nullptr);
 
     mVsyncNotificationsSkipped = 0;
 
@@ -306,7 +306,8 @@ void CompositorVsyncScheduler::ForceComposeToTarget(wr::RenderReasons aReasons,
 
   mLastComposeTime = SampleTime::FromNow();
   MOZ_ASSERT(mVsyncSchedulerOwner);
-  mVsyncSchedulerOwner->CompositeToTarget(VsyncId(), aReasons, aTarget, aRect);
+  mVsyncSchedulerOwner->CompositeToTarget(VsyncId(), TimeStamp::Now(), aReasons,
+                                          aTarget, aRect);
 }
 
 bool CompositorVsyncScheduler::NeedsComposite() {

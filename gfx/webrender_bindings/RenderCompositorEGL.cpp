@@ -111,7 +111,7 @@ bool RenderCompositorEGL::BeginFrame() {
 }
 
 RenderedFrameId RenderCompositorEGL::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
 #ifdef MOZ_WIDGET_ANDROID
   const auto& gle = gl::GLContextEGL::Cast(gl());
   const auto& egl = gle->mEgl;

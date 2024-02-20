@@ -29,7 +29,8 @@ class RenderCompositorSWGL : public RenderCompositor {
 
   bool BeginFrame() override;
   void CancelFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) final;
 
   void StartCompositing(wr::ColorF aClearColor,
                         const wr::DeviceIntRect* aDirtyRects,
