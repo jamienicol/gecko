@@ -569,6 +569,19 @@ void GLContextEGL::SetDamage(const nsIntRegion& aDamageRegion) {
   mDamageRegion = aDamageRegion;
 }
 
+void GLContextEGL::SetPresentationTime(const TimeStamp& aPresentationTime) {
+#ifdef XP_LINUX
+  if (mEgl->IsExtensionSupported(EGLExtension::ANDROID_presentation_time)) {
+    const EGLSurface surface =
+        mSurfaceOverride != EGL_NO_SURFACE ? mSurfaceOverride : mSurface;
+
+    mEgl->fPresentationTimeANDROID(
+        mEgl->mDisplay, surface,
+        aPresentationTime.RawClockMonotonicNanosecondsSinceBoot());
+  }
+#endif
+}
+
 void GLContextEGL::GetWSIInfo(nsCString* const out) const {
   out->AppendLiteral("EGL_VENDOR: ");
   out->Append(
