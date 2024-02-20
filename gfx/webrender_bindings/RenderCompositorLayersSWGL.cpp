@@ -158,7 +158,7 @@ void RenderCompositorLayersSWGL::CompositorEndFrame() {
 }
 
 RenderedFrameId RenderCompositorLayersSWGL::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
   MOZ_ASSERT(mInFrame);
   mInFrame = false;
   if (mCompositingStarted) {

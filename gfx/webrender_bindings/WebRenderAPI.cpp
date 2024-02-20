@@ -661,10 +661,12 @@ void WebRenderAPI::Readback(const TimeStamp& aStartTime, gfx::IntSize size,
   class Readback : public RendererEvent {
    public:
     explicit Readback(layers::SynchronousTask* aTask, TimeStamp aStartTime,
-                      gfx::IntSize aSize, const gfx::SurfaceFormat& aFormat,
+                      const TimeStamp& aOutputTime, gfx::IntSize aSize,
+                      const gfx::SurfaceFormat& aFormat,
                       const Range<uint8_t>& aBuffer, bool* aNeedsYFlip)
         : mTask(aTask),
           mStartTime(aStartTime),
+          mOutputTime(aOutputTime),
           mSize(aSize),
           mFormat(aFormat),
           mBuffer(aBuffer),
@@ -675,15 +677,16 @@ void WebRenderAPI::Readback(const TimeStamp& aStartTime, gfx::IntSize size,
     MOZ_COUNTED_DTOR_OVERRIDE(Readback)
 
     void Run(RenderThread& aRenderThread, WindowId aWindowId) override {
-      aRenderThread.UpdateAndRender(aWindowId, VsyncId(), mStartTime,
-                                    /* aRender */ true, Some(mSize),
-                                    wr::SurfaceFormatToImageFormat(mFormat),
-                                    Some(mBuffer), mNeedsYFlip);
+      aRenderThread.UpdateAndRender(
+          aWindowId, VsyncId(), mStartTime, mOutputTime,
+          /* aRender */ true, Some(mSize),
+          wr::SurfaceFormatToImageFormat(mFormat), Some(mBuffer), mNeedsYFlip);
       layers::AutoCompleteTask complete(mTask);
     }
 
     layers::SynchronousTask* mTask;
     TimeStamp mStartTime;
+    TimeStamp mOutputTime;
     gfx::IntSize mSize;
     gfx::SurfaceFormat mFormat;
     const Range<uint8_t>& mBuffer;
@@ -694,7 +697,8 @@ void WebRenderAPI::Readback(const TimeStamp& aStartTime, gfx::IntSize size,
   UpdateDebugFlags(0);
 
   layers::SynchronousTask task("Readback");
-  auto event = MakeUnique<Readback>(&task, aStartTime, size, aFormat, buffer,
+  // FIXME: what output time?
+  auto event = MakeUnique<Readback>(&task, aStartTime, TimeStamp::Now(), size, aFormat, buffer,
                                     aNeedsYFlip);
   // This event will be passed from wr_backend thread to renderer thread. That
   // implies that all frame data have been processed when the renderer runs this

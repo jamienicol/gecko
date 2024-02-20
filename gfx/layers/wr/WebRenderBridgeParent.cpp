@@ -1578,7 +1578,9 @@ void WebRenderBridgeParent::FlushFrameGeneration(wr::RenderReasons aReasons) {
     mCompositorScheduler->CancelCurrentCompositeTask();
     // Update timestamp of scheduler for APZ and animation.
     mCompositorScheduler->UpdateLastComposeTime();
-    MaybeGenerateFrame(VsyncId(), /* aForceGenerateFrame */ true,
+    // FIXME: what output time to use here?
+    MaybeGenerateFrame(VsyncId(), TimeStamp::Now(),
+                       /* aForceGenerateFrame */ true,
                        aReasons | wr::RenderReasons::FLUSH);
   }
 }
@@ -2233,6 +2235,7 @@ void WebRenderBridgeParent::RetrySkippedComposite() {
 }
 
 void WebRenderBridgeParent::CompositeToTarget(VsyncId aId,
+                                              const TimeStamp& aOutputTime,
                                               wr::RenderReasons aReasons,
                                               gfx::DrawTarget* aTarget,
                                               const gfx::IntRect* aRect) {
@@ -2295,7 +2298,8 @@ void WebRenderBridgeParent::CompositeToTarget(VsyncId aId,
   }
 
   mCompositionOpportunityId = mCompositionOpportunityId.Next();
-  MaybeGenerateFrame(aId, /* aForceGenerateFrame */ false, aReasons);
+  MaybeGenerateFrame(aId, aOutputTime, /* aForceGenerateFrame */ false,
+                     aReasons);
 }
 
 TimeDuration WebRenderBridgeParent::GetVsyncInterval() const {
@@ -2308,6 +2312,7 @@ TimeDuration WebRenderBridgeParent::GetVsyncInterval() const {
 }
 
 void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
+                                               const TimeStamp& aOutputTime,
                                                bool aForceGenerateFrame,
                                                wr::RenderReasons aReasons) {
   // This function should only get called in the root WRBP
@@ -2386,7 +2391,8 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
 #endif
 
   fastTxn.GenerateFrame(aId, aReasons);
-  wr::RenderThread::Get()->IncPendingFrameCount(mApi->GetId(), aId, start);
+  wr::RenderThread::Get()->IncPendingFrameCount(mApi->GetId(), aId, start,
+                                                aOutputTime);
 
   mApi->SendTransaction(fastTxn);
 
@@ -2483,6 +2489,7 @@ void WebRenderBridgeParent::NotifyDidSceneBuild(
   }
 
   CompositeToTarget(mCompositorScheduler->GetLastVsyncId(),
+                    mCompositorScheduler->GetLastVsyncOutputTime(),
                     wr::RenderReasons::SCENE, nullptr, nullptr);
 }
 

@@ -69,7 +69,7 @@ bool RenderCompositorOGL::BeginFrame() {
 }
 
 RenderedFrameId RenderCompositorOGL::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
   RenderedFrameId frameId = GetNextRenderFrameId();
   if (UsePartialPresent() && aDirtyRects.Length() > 0) {
     gfx::IntRegion bufferInvalid;

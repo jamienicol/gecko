@@ -35,7 +35,8 @@ class RenderCompositorNative : public RenderCompositor {
   virtual ~RenderCompositorNative();
 
   bool BeginFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) final;
   void Pause() override;
   bool Resume() override;
 

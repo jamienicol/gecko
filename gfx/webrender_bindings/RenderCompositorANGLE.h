@@ -42,7 +42,8 @@ class RenderCompositorANGLE : public RenderCompositor {
   bool Initialize(nsACString& aError);
 
   bool BeginFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) final;
   bool WaitForGPU() override;
   RenderedFrameId GetLastCompletedFrameId() final;
   RenderedFrameId UpdateFrameId() final;

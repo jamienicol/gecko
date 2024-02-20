@@ -83,7 +83,7 @@ bool RenderCompositorNative::BeginFrame() {
 }
 
 RenderedFrameId RenderCompositorNative::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
   RenderedFrameId frameId = GetNextRenderFrameId();
 
   DoSwap();

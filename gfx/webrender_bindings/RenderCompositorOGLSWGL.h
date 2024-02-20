@@ -33,7 +33,8 @@ class RenderCompositorOGLSWGL : public RenderCompositorLayersSWGL {
   bool MakeCurrent() override;
 
   bool BeginFrame() override;
-  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) override;
+  RenderedFrameId EndFrame(const TimeStamp& aOutputTime,
+                           const nsTArray<DeviceIntRect>& aDirtyRects) override;
 
   void GetCompositorCapabilities(CompositorCapabilities* aCaps) override;
 

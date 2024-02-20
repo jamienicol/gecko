@@ -434,7 +434,7 @@ bool RenderCompositorANGLE::BeginFrame() {
 }
 
 RenderedFrameId RenderCompositorANGLE::EndFrame(
-    const nsTArray<DeviceIntRect>& aDirtyRects) {
+    const TimeStamp& aOutputTime, const nsTArray<DeviceIntRect>& aDirtyRects) {
   RenderedFrameId frameId = GetNextRenderFrameId();
   InsertGraphicsCommandsFinishedWaitQuery(frameId);
 
