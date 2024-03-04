@@ -130,7 +130,7 @@ RenderedFrameId RenderCompositorEGL::EndFrame(
   }
 #endif
 
-  gl()->SetPresentationTime(aOutputTime);
+  // gl()->SetPresentationTime(aOutputTime);
 
   RenderedFrameId frameId = GetNextRenderFrameId();
 #ifdef MOZ_WIDGET_GTK
