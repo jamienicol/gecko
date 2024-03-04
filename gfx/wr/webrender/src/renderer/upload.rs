@@ -142,6 +142,8 @@ pub fn upload_to_texture_cache(
                 rect.height() <= BATCH_UPLOAD_TEXTURE_SIZE.height &&
                 rect.area() < renderer.device.batched_upload_threshold();
 
+            // error!("jamiedbg use_batch_upload: {}", use_batch_upload);
+
             if use_batch_upload
                 && arc_data.is_some()
                 && matches!(renderer.device.upload_method(), &UploadMethod::Immediate)
@@ -510,6 +512,8 @@ fn copy_from_staging_to_cache(
     batch_upload_textures: &[Texture],
     batch_upload_copies: Vec<BatchUploadCopy>,
 ) {
+    // error!("jamiedbg using copy");
+
     for copy in batch_upload_copies {
         let dest_texture = &renderer.texture_resolver.texture_cache_map[&copy.dest_texture_id].texture;
 
@@ -537,6 +541,7 @@ fn copy_from_staging_to_cache_using_draw_calls(
     batch_upload_textures: &[Texture],
     batch_upload_copies: Vec<BatchUploadCopy>,
 ) {
+    // error!("jamiedbg using draw call");
     let mut copy_instances = Vec::new();
     let mut prev_src = None;
     let mut prev_dst = None;

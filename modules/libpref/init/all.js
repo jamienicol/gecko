@@ -438,7 +438,7 @@ pref("gfx.webrender.debug.texture-cache.clear-evicted", true);
 pref("gfx.webrender.debug.render-targets", false);
 pref("gfx.webrender.debug.gpu-cache", false);
 pref("gfx.webrender.debug.alpha-primitives", false);
-pref("gfx.webrender.debug.profiler", false);
+pref("gfx.webrender.debug.profiler", true);
 pref("gfx.webrender.debug.gpu-time-queries", false);
 pref("gfx.webrender.debug.gpu-sample-queries", false);
 pref("gfx.webrender.debug.disable-batching", false);
@@ -463,8 +463,8 @@ pref("gfx.webrender.batched-texture-uploads", true);
 pref("gfx.webrender.draw-calls-for-texture-copy", true);
 #else
 pref("gfx.webrender.pbo-uploads", true);
-pref("gfx.webrender.batched-texture-uploads", false);
-pref("gfx.webrender.draw-calls-for-texture-copy", false);
+pref("gfx.webrender.batched-texture-uploads", true);
+pref("gfx.webrender.draw-calls-for-texture-copy", true);
 #endif
 
 
@@ -4044,3 +4044,6 @@ pref("extensions.webcompat.useScriptingAPI", true);
 pref("privacy.fingerprintingProtection.WebCompatService.logLevel", "Error");
 // To test strip on share site specific parameters by enabling a different list to be used
 pref("privacy.query_stripping.strip_on_share.enableTestMode", false);
+
+// pref("layers.offmainthreadcomposition.frame-rate", 0);
+// pref("gfx.swap-interval.egl", false);

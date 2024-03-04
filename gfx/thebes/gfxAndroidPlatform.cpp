@@ -338,7 +338,7 @@ class AndroidVsyncSource final : public VsyncSource,
     // is in the future.
     TimeStamp now = TimeStamp::Now();
     TimeStamp vsyncTime = aTimeStamp < now ? aTimeStamp : now;
-    TimeStamp outputTime = vsyncTime + GetVsyncRate();
+    TimeStamp outputTime = vsyncTime + GetVsyncRate() * 2; // FIXME: use 2 frames in future?
 
     NotifyVsync(vsyncTime, outputTime);
   }
