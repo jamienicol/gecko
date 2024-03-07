@@ -701,8 +701,10 @@ void GLContextEGL::ProcessFrameTimestamps() {
         if (values[i] >= 0) {
           PROFILER_MARKER_TEXT(
               GetFrameTimestampName((*mSupportedFrameTimestamps)[i]), GRAPHICS,
-              MarkerTiming::InstantAt(TimeStamp::FromSystemTime(values[i])),
-              nsPrintfCString("Frame %" PRIu64, uint64_t(vsyncId)));
+              MarkerTiming::Interval(TimeStamp::FromSystemTime(values[i]),
+                                     TimeStamp::FromSystemTime(values[i]) +
+                                         TimeDuration::FromMilliseconds(3)),
+              nsPrintfCString("%" PRIu64, uint64_t(vsyncId)));
         }
       }
     }
