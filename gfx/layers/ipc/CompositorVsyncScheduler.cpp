@@ -144,8 +144,9 @@ void CompositorVsyncScheduler::ScheduleComposition(wr::RenderReasons aReasons) {
 
   // Make a synthetic vsync event for the calls to PostCompositeTask below.
   TimeStamp vsyncTime = TimeStamp::Now();
-  TimeStamp outputTime = vsyncTime + mVsyncSchedulerOwner->GetVsyncInterval();
-  VsyncEvent vsyncEvent(VsyncId(), vsyncTime, outputTime);
+  TimeStamp deadline = vsyncTime + mVsyncSchedulerOwner->GetVsyncInterval(); // FIXME: plus 2 frames??
+  TimeStamp outputTime = vsyncTime + mVsyncSchedulerOwner->GetVsyncInterval(); // FIXME: plus 2 (or 3) frames??
+  VsyncEvent vsyncEvent(VsyncId(), vsyncTime, 0, deadline, outputTime);
 
   if (mAsapScheduling) {
     // Used only for performance testing purposes, and when recording/replaying

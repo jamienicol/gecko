@@ -30,6 +30,7 @@ class SoftwareVsyncSource : public VsyncSource {
   bool IsVsyncEnabled() override;
   bool IsInSoftwareVsyncThread();
   void NotifyVsync(const TimeStamp& aVsyncTimestamp,
+                   const int64_t aNativeVsyncId, const TimeStamp& aDeadline,
                    const TimeStamp& aOutputTimestamp) override;
   TimeDuration GetVsyncRate() override;
   void ScheduleNextVsync(TimeStamp aVsyncTimestamp);

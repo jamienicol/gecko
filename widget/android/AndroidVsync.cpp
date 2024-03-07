@@ -47,10 +47,13 @@ class AndroidVsyncSupport final
 
   // Called by Java
   void NotifyVsync(const java::AndroidVsync::LocalRef& aInstance,
-                   int64_t aFrameTimeNanos) {
+                   int64_t aFrameTimeNanos, int64_t aVsyncId,
+                   int64_t aDeadlineNanos, int64_t aPresentTimeNanos) {
     auto androidVsync = mAndroidVsync.Lock();
     if (*androidVsync) {
-      (*androidVsync)->NotifyVsync(aFrameTimeNanos);
+      (*androidVsync)
+          ->NotifyVsync(aFrameTimeNanos, aVsyncId, aDeadlineNanos,
+                        aPresentTimeNanos);
     }
   }
 
@@ -113,13 +116,18 @@ void AndroidVsync::Impl::UpdateObservingVsync() {
 }
 
 // Always called on the Java UI thread.
-void AndroidVsync::NotifyVsync(int64_t aFrameTimeNanos) {
+void AndroidVsync::NotifyVsync(int64_t aFrameTimeNanos, int64_t aVsyncId,
+                               int64_t aDeadlineNanos,
+                               int64_t aPresentTimeNanos) {
   MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
 
   // Convert aFrameTimeNanos to a TimeStamp. The value converts trivially to
   // the internal ticks representation of TimeStamp_posix; both use the
   // monotonic clock and are in nanoseconds.
-  TimeStamp timeStamp = TimeStamp::FromSystemTime(aFrameTimeNanos);
+  const TimeStamp timeStamp = TimeStamp::FromSystemTime(aFrameTimeNanos);
+  const TimeStamp deadline = TimeStamp::FromSystemTime(aDeadlineNanos);
+  const TimeStamp presentationTime =
+      TimeStamp::FromSystemTime(aPresentTimeNanos);
 
   // Do not keep the lock held while calling OnVsync.
   nsTArray<Observer*> observers;
@@ -129,7 +137,7 @@ void AndroidVsync::NotifyVsync(int64_t aFrameTimeNanos) {
     observers.AppendElements(impl->mRenderObservers);
   }
   for (Observer* observer : observers) {
-    observer->OnVsync(timeStamp);
+    observer->OnVsync(timeStamp, aVsyncId, deadline, presentationTime);
   }
 }
 

@@ -46,7 +46,7 @@ void SoftwareVsyncSource::EnableVsync() {
   MOZ_ASSERT(IsInSoftwareVsyncThread());
   TimeStamp vsyncTime = TimeStamp::Now();
   TimeStamp outputTime = vsyncTime + GetVsyncRate();
-  NotifyVsync(vsyncTime, outputTime);
+  NotifyVsync(vsyncTime, 0, outputTime, outputTime);
 }
 
 void SoftwareVsyncSource::DisableVsync() {
@@ -80,6 +80,8 @@ bool SoftwareVsyncSource::IsInSoftwareVsyncThread() {
 }
 
 void SoftwareVsyncSource::NotifyVsync(const TimeStamp& aVsyncTimestamp,
+                                      const int64_t aNativeVsyncId,
+                                      const TimeStamp& aDeadline,
                                       const TimeStamp& aOutputTimestamp) {
   MOZ_ASSERT(IsInSoftwareVsyncThread());
 
@@ -94,7 +96,7 @@ void SoftwareVsyncSource::NotifyVsync(const TimeStamp& aVsyncTimestamp,
     displayVsyncTime = now;
   }
 
-  VsyncSource::NotifyVsync(displayVsyncTime, aOutputTimestamp);
+  VsyncSource::NotifyVsync(displayVsyncTime, aNativeVsyncId, aDeadline, aOutputTimestamp);
 
   // Prevent skew by still scheduling based on the original
   // vsync timestamp
@@ -123,9 +125,9 @@ void SoftwareVsyncSource::ScheduleNextVsync(TimeStamp aVsyncTimestamp) {
 
   TimeStamp outputTime = nextVsync + vsyncRate;
 
-  mCurrentVsyncTask = NewCancelableRunnableMethod<TimeStamp, TimeStamp>(
+  mCurrentVsyncTask = NewCancelableRunnableMethod<TimeStamp, int64_t, TimeStamp, TimeStamp>(
       "SoftwareVsyncSource::NotifyVsync", this,
-      &SoftwareVsyncSource::NotifyVsync, nextVsync, outputTime);
+      &SoftwareVsyncSource::NotifyVsync, nextVsync, 0, outputTime, outputTime);
 
   RefPtr<Runnable> addrefedTask = mCurrentVsyncTask;
   mVsyncThread->message_loop()->PostDelayedTask(addrefedTask.forget(),

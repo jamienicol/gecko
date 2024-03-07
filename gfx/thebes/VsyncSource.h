@@ -51,6 +51,8 @@ class VsyncSource {
   //     stable and consistent timing source than the time at which the vsync
   //     callback is called.
   virtual void NotifyVsync(const TimeStamp& aVsyncTimestamp,
+                           const int64_t aNativeVsyncId,
+                           const TimeStamp& aDeadline,
                            const TimeStamp& aOutputTimestamp);
 
   // Can be called on any thread.
@@ -106,11 +108,18 @@ class VsyncSource {
 struct VsyncEvent {
   VsyncId mId;
   TimeStamp mTime;
+  int64_t mNativeVsyncId;  // Platform-specific native vsync ID
+  TimeStamp mDeadline;    // Deadline at which we must complete rendering to reach the output time
   TimeStamp mOutputTime;  // estimate
 
   VsyncEvent(const VsyncId& aId, const TimeStamp& aVsyncTime,
+             const int64_t aNativeVsyncId, const TimeStamp& aDeadline,
              const TimeStamp& aOutputTime)
-      : mId(aId), mTime(aVsyncTime), mOutputTime(aOutputTime) {}
+      : mId(aId),
+        mTime(aVsyncTime),
+        mNativeVsyncId(aNativeVsyncId),
+        mDeadline(aDeadline),
+        mOutputTime(aOutputTime) {}
   VsyncEvent() = default;
 };
 

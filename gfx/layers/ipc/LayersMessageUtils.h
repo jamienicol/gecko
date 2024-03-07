@@ -65,11 +65,15 @@ struct ParamTraits<mozilla::VsyncEvent> {
   static void Write(MessageWriter* writer, const paramType& param) {
     WriteParam(writer, param.mId);
     WriteParam(writer, param.mTime);
+    WriteParam(writer, param.mNativeVsyncId);
+    WriteParam(writer, param.mDeadline);
     WriteParam(writer, param.mOutputTime);
   }
   static bool Read(MessageReader* reader, paramType* result) {
     return ReadParam(reader, &result->mId) &&
            ReadParam(reader, &result->mTime) &&
+           ReadParam(reader, &result->mNativeVsyncId) &&
+           ReadParam(reader, &result->mDeadline) &&
            ReadParam(reader, &result->mOutputTime);
   }
 };

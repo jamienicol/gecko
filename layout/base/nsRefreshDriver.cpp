@@ -706,6 +706,8 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
                         self->NotifyVsyncOnMainThread({self->mPendingVsyncId,
                                                        self->mPendingVsync,
                                                        /* unused */
+                                                       0,
+                                                       TimeStamp(),
                                                        TimeStamp()});
                       }
                     }),

@@ -25,6 +25,8 @@ VsyncSource::~VsyncSource() { MOZ_ASSERT(NS_IsMainThread()); }
 
 // Called on the vsync thread
 void VsyncSource::NotifyVsync(const TimeStamp& aVsyncTimestamp,
+                              const int64_t aNativeVsyncId,
+                              const TimeStamp& aDeadline,
                               const TimeStamp& aOutputTimestamp) {
   VsyncId vsyncId;
   nsTArray<DispatcherRefWithCount> dispatchers;
@@ -37,7 +39,8 @@ void VsyncSource::NotifyVsync(const TimeStamp& aVsyncTimestamp,
   }
 
   // Notify our listeners, outside of the lock.
-  const VsyncEvent event(vsyncId, aVsyncTimestamp, aOutputTimestamp);
+  const VsyncEvent event(vsyncId, aVsyncTimestamp, aNativeVsyncId, aDeadline,
+                         aOutputTimestamp);
   for (const auto& dispatcher : dispatchers) {
     dispatcher.mDispatcher->NotifyVsync(event);
   }

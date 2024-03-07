@@ -269,7 +269,9 @@ class NPZCSupport final
     explicit Observer(jni::NativeWeakPtr<NPZCSupport>&& aNPZCSupport)
         : mNPZCSupport(std::move(aNPZCSupport)) {}
 
-    void OnVsync(const TimeStamp& aTimeStamp) override {
+    void OnVsync(const TimeStamp& aTimeStamp, int64_t aVsyncId,
+                 const TimeStamp& aDeadline,
+                 const TimeStamp& aPresentationTime) override {
       auto accessor = mNPZCSupport.Access();
 
       if (!accessor) {

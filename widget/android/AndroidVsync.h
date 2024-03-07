@@ -34,7 +34,9 @@ class AndroidVsync final : public SupportsThreadSafeWeakPtr<AndroidVsync> {
   class Observer {
    public:
     // Will be called on the Java UI thread.
-    virtual void OnVsync(const TimeStamp& aTimeStamp) = 0;
+    virtual void OnVsync(const TimeStamp& aTimeStamp, int64_t aVsyncId,
+                         const TimeStamp& aDeadline,
+                         const TimeStamp& aPresentationTime) = 0;
     // Will be called on the Java UI thread.
     virtual void OnMaybeUpdateRefreshRate() {}
     // Called when the observer is unregistered, in case it wants to
@@ -56,7 +58,8 @@ class AndroidVsync final : public SupportsThreadSafeWeakPtr<AndroidVsync> {
   AndroidVsync();
 
   // Called by Java, via AndroidVsyncSupport
-  void NotifyVsync(int64_t aFrameTimeNanos);
+  void NotifyVsync(int64_t aFrameTimeNanos, int64_t aVsyncId,
+                   int64_t aDeadlineNanos, int64_t aPresentTimeNanos);
 
   struct Impl {
     void UpdateObservingVsync();

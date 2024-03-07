@@ -333,14 +333,16 @@ class AndroidVsyncSource final : public VsyncSource,
   void Shutdown() override { DisableVsync(); }
 
   // Override for the widget::AndroidVsync::Observer method
-  void OnVsync(const TimeStamp& aTimeStamp) override {
+  void OnVsync(const TimeStamp& aTimeStamp, int64_t aVsyncId,
+                         const TimeStamp& aDeadline,
+                         const TimeStamp& aPresentationTime) override {
     // Use the timebase from the frame callback as the vsync time, unless it
     // is in the future.
     TimeStamp now = TimeStamp::Now();
     TimeStamp vsyncTime = aTimeStamp < now ? aTimeStamp : now;
-    TimeStamp outputTime = vsyncTime + GetVsyncRate();
+    // TimeStamp outputTime = vsyncTime + GetVsyncRate() * 2; // FIXME: use 2 frames in future?
 
-    NotifyVsync(vsyncTime, outputTime);
+    NotifyVsync(vsyncTime, aVsyncId, aDeadline, aPresentationTime);
   }
 
   void OnMaybeUpdateRefreshRate() override {
