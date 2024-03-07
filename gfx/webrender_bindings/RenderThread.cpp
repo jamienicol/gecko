@@ -798,6 +798,8 @@ void RenderThread::UpdateAndRender(
       NewRunnableFunction("NotifyDidStartRenderRunnable", &NotifyDidStartRender,
                           renderer->GetCompositorBridge()));
 
+  renderer->gl()->SetCurrentFrameVsyncId(aStartId);
+
   wr::RenderedFrameId latestFrameId;
   RendererStats stats = {0};
   if (aRender) {
