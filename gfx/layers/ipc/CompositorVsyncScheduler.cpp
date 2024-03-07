@@ -173,6 +173,27 @@ void CompositorVsyncScheduler::ScheduleComposition(wr::RenderReasons aReasons) {
 void CompositorVsyncScheduler::NotifyVsync(const VsyncEvent& aVsync) {
   // Called from the vsync dispatch thread. When in the GPU Process, that's
   // the same as the compositor thread.
+
+  PROFILER_MARKER_TEXT(
+      "NotifyVsync", GRAPHICS,
+      MarkerTiming::Interval(aVsync.mTime,
+                             aVsync.mTime + TimeDuration::FromMilliseconds(3)),
+      nsPrintfCString("%" PRIu64, uint64_t(aVsync.mId)));
+
+  PROFILER_MARKER_TEXT(
+      "Deadline", GRAPHICS,
+      MarkerTiming::Interval(
+          aVsync.mDeadline,
+          aVsync.mDeadline + TimeDuration::FromMilliseconds(3)),
+      nsPrintfCString("%" PRIu64, uint64_t(aVsync.mId)));
+
+  PROFILER_MARKER_TEXT(
+      "Output Time", GRAPHICS,
+      MarkerTiming::Interval(
+          aVsync.mOutputTime,
+          aVsync.mOutputTime + TimeDuration::FromMilliseconds(3)),
+      nsPrintfCString("%" PRIu64, uint64_t(aVsync.mId)));
+
 #ifdef DEBUG
 #  ifdef MOZ_WAYLAND
   // On Wayland, we dispatch vsync from the main thread, without a GPU process.

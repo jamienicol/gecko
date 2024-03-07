@@ -807,8 +807,12 @@ void RenderThread::UpdateAndRender(
     latestFrameId =
         renderer->UpdateAndRender(aOutputTime, aReadbackSize, aReadbackFormat,
                                   aReadbackBuffer, aNeedsYFlip, &stats);
+    PROFILER_MARKER_TEXT("UpdateAndRender", GRAPHICS,
+      MarkerTiming::IntervalUntilNowFrom(start), nsPrintfCString("%" PRIu64, uint64_t(aStartId)));
   } else {
     renderer->Update();
+    PROFILER_MARKER_TEXT("Update", GRAPHICS,
+      MarkerTiming::IntervalUntilNowFrom(start), nsPrintfCString("%" PRIu64, uint64_t(aStartId)));
   }
   // Check graphics reset status even when rendering is skipped.
   renderer->CheckGraphicsResetStatus("PostUpdate", /* aForce */ false);
@@ -957,6 +961,9 @@ void RenderThread::DecPendingFrameBuildCount(wr::WindowId aWindowId) {
     return;
   }
   WindowInfo* info = it->second.get();
+  const PendingFrameInfo& frame = info->mPendingFrames.back();
+  PROFILER_MARKER_TEXT("FrameBuild", GRAPHICS,
+    MarkerTiming::IntervalUntilNowFrom(frame.mStartTime), nsPrintfCString("%" PRIu64, uint64_t(frame.mStartId)));
   MOZ_RELEASE_ASSERT(info->mPendingFrameBuild >= 1);
   info->mPendingFrameBuild--;
 }

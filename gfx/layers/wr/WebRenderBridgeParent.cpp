@@ -2292,7 +2292,7 @@ void WebRenderBridgeParent::CompositeToTarget(VsyncId aId,
 
     PROFILER_MARKER_TEXT("SkippedComposite", GRAPHICS,
                          MarkerInnerWindowId(innerWindowId),
-                         "Too many pending frames");
+                         nsPrintfCString("%" PRIu64 " - Too many pending frames", uint64_t(aId)));
 
     Telemetry::ScalarAdd(Telemetry::ScalarID::GFX_SKIPPED_COMPOSITES, 1);
 
@@ -2373,7 +2373,7 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
     // Could skip generating frame now.
     PROFILER_MARKER_TEXT("SkippedComposite", GRAPHICS,
                          MarkerTiming::InstantAt(start),
-                         "No reason to generate frame");
+                         nsPrintfCString("%" PRIu64 " - No reason to generate frame", uint64_t(aId)));
     ResetPreviousSampleTime();
     return;
   }
