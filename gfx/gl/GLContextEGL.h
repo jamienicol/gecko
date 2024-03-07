@@ -153,7 +153,7 @@ class GLContextEGL final : public GLContext {
 
   // Queue of pending frames whose timestamps need to be processed in
   // ProcessFrameTimestamps().
-  std::queue<EGLuint64KHR> mPendingFrameTimestampIds;
+  std::queue<std::pair<EGLuint64KHR, VsyncId>> mPendingFrameTimestampIds;
   Maybe<std::vector<EGLint>> mSupportedFrameTimestamps;
 
   static EGLSurface CreatePBufferSurfaceTryingPowerOfTwo(

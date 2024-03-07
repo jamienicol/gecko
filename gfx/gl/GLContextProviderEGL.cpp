@@ -689,7 +689,7 @@ void GLContextEGL::ProcessFrameTimestamps() {
   // Process all pending frames after a certain delay in order
   // to allow time for them to have been presented.
   while (mPendingFrameTimestampIds.size() >= 5) {
-    EGLuint64KHR frameId = mPendingFrameTimestampIds.front();
+    const auto [frameId, vsyncId] = mPendingFrameTimestampIds.front();
     mPendingFrameTimestampIds.pop();
 
     EGLnsecsANDROID values[mSupportedFrameTimestamps->size()];
@@ -702,7 +702,7 @@ void GLContextEGL::ProcessFrameTimestamps() {
           PROFILER_MARKER_TEXT(
               GetFrameTimestampName((*mSupportedFrameTimestamps)[i]), GRAPHICS,
               MarkerTiming::InstantAt(TimeStamp::FromSystemTime(values[i])),
-              nsPrintfCString("Frame %" PRIu64, frameId));
+              nsPrintfCString("Frame %" PRIu64, uint64_t(vsyncId)));
         }
       }
     }
@@ -711,7 +711,8 @@ void GLContextEGL::ProcessFrameTimestamps() {
   EGLuint64KHR nextFrameId;
   if (mEgl->mLib->fGetNextFrameIdANDROID(mEgl->mDisplay, surface,
                                          &nextFrameId)) {
-    mPendingFrameTimestampIds.push(nextFrameId);
+    mPendingFrameTimestampIds.push(
+        std::make_pair(nextFrameId, mCurrentFrameVsyncId));
   }
 }
 

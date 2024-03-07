@@ -45,6 +45,8 @@
 #include "mozilla/GenericRefCounted.h"
 #include "mozilla/WeakPtr.h"
 
+#include "VsyncSource.h"
+
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/ProfilerLabels.h"
 #endif
@@ -3783,6 +3785,13 @@ class GLContext : public GenericAtomicRefCounted, public SupportsWeakPtr {
   void DeleteFramebuffer(const GLuint x) { fDeleteFramebuffers(1, &x); }
   void DeleteRenderbuffer(const GLuint x) { fDeleteRenderbuffers(1, &x); }
   void DeleteTexture(const GLuint x) { fDeleteTextures(1, &x); }
+
+  public:
+    void SetCurrentFrameVsyncId(VsyncId aId) {
+      mCurrentFrameVsyncId = aId;
+    }
+  protected:
+    VsyncId mCurrentFrameVsyncId = VsyncId();
 };
 
 bool DoesStringMatch(const char* aString, const char* aWantedString);
