@@ -801,6 +801,12 @@ void RenderThread::UpdateAndRender(
 
   renderer->gl()->SetCurrentFrameVsyncId(aStartId);
 
+  if (start > aStartTime + TimeDuration::FromMilliseconds(8)) {
+    PROFILER_MARKER_TEXT("SkippedRender", GRAPHICS,
+      MarkerTiming::InstantNow(), nsPrintfCString("%" PRIu64, uint64_t(aStartId)));
+      aRender = false;
+  }
+
   wr::RenderedFrameId latestFrameId;
   RendererStats stats = {0};
   if (aRender) {

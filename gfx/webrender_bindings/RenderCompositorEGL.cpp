@@ -130,6 +130,8 @@ RenderedFrameId RenderCompositorEGL::EndFrame(
   }
 #endif
 
+  gl()->SetPresentationTime(aOutputTime);
+
   RenderedFrameId frameId = GetNextRenderFrameId();
 #ifdef MOZ_WIDGET_GTK
   if (mWidget->IsHidden()) {

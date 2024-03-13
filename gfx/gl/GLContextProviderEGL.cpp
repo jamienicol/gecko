@@ -575,9 +575,12 @@ void GLContextEGL::SetPresentationTime(const TimeStamp& aPresentationTime) {
     const EGLSurface surface =
         mSurfaceOverride != EGL_NO_SURFACE ? mSurfaceOverride : mSurface;
 
+    // Setting the exact presentation time sometimes causes it to be presented a
+    // frame late, perhaps due to a rounding error. Subtracting 100us from the
+    // presentation time seems to work around this issue.
     mEgl->fPresentationTimeANDROID(
         mEgl->mDisplay, surface,
-        aPresentationTime.RawClockMonotonicNanosecondsSinceBoot());
+        aPresentationTime.RawClockMonotonicNanosecondsSinceBoot() - 100000);
   }
 #endif
 }
@@ -688,7 +691,7 @@ void GLContextEGL::ProcessFrameTimestamps() {
 
   // Process all pending frames after a certain delay in order
   // to allow time for them to have been presented.
-  while (mPendingFrameTimestampIds.size() >= 5) {
+  while (mPendingFrameTimestampIds.size() >= 3) {
     const auto [frameId, vsyncId] = mPendingFrameTimestampIds.front();
     mPendingFrameTimestampIds.pop();
 
@@ -709,6 +712,17 @@ void GLContextEGL::ProcessFrameTimestamps() {
       }
     }
   }
+
+  EGLnsecsANDROID compositeDeadline;
+  const EGLint compositeTimings[1] = { LOCAL_EGL_COMPOSITE_DEADLINE_ANDROID };
+  mEgl->mLib->fGetCompositorTimingANDROID(mEgl->mDisplay, surface, 1, compositeTimings, &compositeDeadline);
+
+  PROFILER_MARKER_TEXT(
+              "CompositeDeadline", GRAPHICS,
+              MarkerTiming::Interval(TimeStamp::FromSystemTime(compositeDeadline),
+                                     TimeStamp::FromSystemTime(compositeDeadline) +
+                                         TimeDuration::FromMilliseconds(3)),
+              "CompositeDeadline"_ns);
 
   EGLuint64KHR nextFrameId;
   if (mEgl->mLib->fGetNextFrameIdANDROID(mEgl->mDisplay, surface,
