@@ -38,6 +38,7 @@ export class GeckoViewContent extends GeckoViewModule {
       "GeckoView:UpdateInitData",
       "GeckoView:ZoomToInput",
       "GeckoView:IsPdfJs",
+      "GeckoView:WrCapture",
     ]);
   }
 
@@ -304,6 +305,9 @@ export class GeckoViewContent extends GeckoViewModule {
         break;
       case "GeckoView:IsPdfJs":
         aCallback.onSuccess(this.isPdfJs);
+        break;
+      case "GeckoView:WrCapture":
+        this.window.windowUtils.wrCapture();
         break;
       case "GeckoView:HasCookieBannerRuleForBrowsingContextTree":
         this._hasCookieBannerRuleForBrowsingContextTree(aCallback);
