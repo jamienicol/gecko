@@ -1339,6 +1339,9 @@ public class GeckoViewActivity extends AppCompatActivity
       case R.id.translate_manage:
         translateManage();
         break;
+      case R.id.wr_capture:
+        session.wrCapture();
+        break;
       default:
         return super.onOptionsItemSelected(item);
     }
