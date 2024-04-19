@@ -90,7 +90,7 @@ static PROFILER_PRESETS: &'static[(&'static str, &'static str)] = &[
     // Misc:
 
     (&"Memory", &"Image templates,Image templates mem,Font templates,Font templates mem,DisplayList mem,Picture tiles mem"),
-    (&"Interners", "Interned primitives,Interned clips,Interned pictures,Interned text runs,Interned normal borders,Interned image borders,Interned images,Interned YUV images,Interned line decorations,Interned linear gradients,Interned radial gradients,Interned conic gradients,Interned filter data,Interned backdrops"),
+    (&"Interners", "Interned primitives,Interned clips,Interned pictures,Interned text runs,Interned normal borders,Interned image borders,Interned images,Interned YUV images,Interned line decorations,Interned linear gradients,Interned radial gradients,Interned conic gradients,Interned filter data,Interned backdrop captures,Interned backdrop renders"),
     // Gpu sampler queries (need the pref gfx.webrender.debug.gpu-sampler-queries).
     (&"GPU samplers", &"Alpha targets samplers,Transparent pass samplers,Opaque pass samplers,Total samplers"),
 
@@ -732,7 +732,7 @@ impl Profiler {
                         flush_counters(&mut counters, selection);
                         self.append_to_ui(selection, preset_str);
                     } else {
-                        selection.push(Item::Text(format!("Unknonw counter: {}", name)));
+                        selection.push(Item::Text(format!("Unknown counter: {}", name)));
                     }
                 }
             }
