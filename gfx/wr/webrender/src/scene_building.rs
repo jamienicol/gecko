@@ -649,6 +649,7 @@ impl<'a> SceneBuilder<'a> {
         prim_instances: &[PrimitiveInstance],
         clip_interner: &Interner<ClipIntern>,
     ) {
+        warn!("SceneBuilder::finalize_picture() pic_index: {:?} prim_index: {:?}", pic_index, prim_index);
         // Extract the prim_list (borrow check) and select the spatial node to
         // assign to unknown clusters
         let (mut prim_list, spatial_node_index) = {
@@ -3640,6 +3641,7 @@ impl<'a> SceneBuilder<'a> {
             },
         );
 
+        warn!("add_backdrop_filter() prim_instances len: {:?}", self.prim_instances.len());
         // Create a prim_list for this backdrop prim and add to a picture chain builder, which
         // is needed for the call to `wrap_prim_with_filters` below
         let mut prim_list = PrimitiveList::empty();
@@ -3691,12 +3693,16 @@ impl<'a> SceneBuilder<'a> {
                 &mut self.clip_tree_builder,
             );
 
+            warn!("filtered_instance: {:?}", filtered_instance);
+
             // Extract the pic index for the intermediate surface. We need to
             // supply this to the capture prim below.
             let output_pic_index = match filtered_instance.kind {
                 PrimitiveInstanceKind::Picture { pic_index, .. } => pic_index,
                 _ => panic!("bug: not a picture"),
             };
+
+            warn!("output_pic_index: {:?}", output_pic_index);
 
             // Find which stacking context (or root tile cache) to add the
             // backdrop-filter chain to

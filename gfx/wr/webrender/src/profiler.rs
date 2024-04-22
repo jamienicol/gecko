@@ -41,7 +41,7 @@ macro_rules! set_text {
     };
 }
 
-const GRAPH_WIDTH: f32 = 1024.0;
+const GRAPH_WIDTH: f32 = 768.0;
 const GRAPH_HEIGHT: f32 = 320.0;
 const GRAPH_PADDING: f32 = 8.0;
 const GRAPH_FRAME_HEIGHT: f32 = 16.0;
@@ -54,7 +54,7 @@ const ONE_SECOND_NS: u64 = 1_000_000_000;
 /// Profiler UI string presets. Defined in the profiler UI string syntax, can contain other presets.
 static PROFILER_PRESETS: &'static[(&'static str, &'static str)] = &[
     // Default view, doesn't show everything, but still shows quite a bit.
-    (&"Default", &"FPS,|,Slow indicators,_,Time graphs,|,Frame times, ,Transaction times, ,Frame stats, ,Memory, ,Interners,_,GPU time queries,_,Paint phase graph"),
+    (&"Default", &"FPS,|,Slow indicators,_,Time graphs,|,Frame times, ,Transaction times, ,Frame stats, ,Memory, ,Interners,_,GPU time queries,"),
     // Smaller, less intrusive overview
     (&"Compact", &"FPS, ,Frame times, ,Frame stats"),
     // Even less intrusive, only slow transactions and frame indicators.
