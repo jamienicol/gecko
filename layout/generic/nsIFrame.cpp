@@ -3224,6 +3224,16 @@ void nsIFrame::BuildDisplayListForStackingContext(
                              IsVisibleForPainting() &&
                              !style.IsRootElementStyle();
 
+  if (usingBackdropFilter) {
+    nscolor bg = style.StyleBackground()->BackgroundColor(this);
+    // printf_stderr("jamiedbg nsIFrame usingBackdropFilter. bg color: r: 0x%x, g: 0x%x, b: 0x%x, a: 0x%x\n",
+        // NS_GET_R(bg), NS_GET_G(bg), NS_GET_B(bg), NS_GET_A(bg));
+    if (NS_GET_A(bg) == 0xFF) {
+      // printf_stderr("jamiedbg Background color is opaque, eliding backdrop filter\n");
+      usingBackdropFilter = false;
+    }
+  }
+
   nsRect visibleRectOutsideTransform = visibleRect;
   nsDisplayTransform::PrerenderInfo prerenderInfo;
   bool inTransform = aBuilder->IsInTransform();
