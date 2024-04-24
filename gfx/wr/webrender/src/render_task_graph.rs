@@ -267,6 +267,7 @@ impl RenderTaskGraphBuilder {
         task_id: RenderTaskId,
         input: RenderTaskId,
     ) {
+        println!("add_dependency() task_id: {:?}, input: {:?}", task_id, input);
         self.tasks[task_id.index as usize].children.push(input);
 
         // Once a task is an input, it's no longer a root

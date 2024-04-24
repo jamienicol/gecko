@@ -948,6 +948,7 @@ fn add_svg_filter_instances(
 // Information required to do a blit from a source to a target.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(Debug)]
 pub struct BlitJob {
     pub source: RenderTaskId,
     pub target_rect: DeviceIntRect,

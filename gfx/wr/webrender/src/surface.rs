@@ -204,6 +204,7 @@ impl SurfaceBuilder {
         for builder in self.builder_stack.iter_mut().rev() {
             if builder.establishes_sub_graph {
                 assert_eq!(builder.resolve_source, None);
+                println!("register_resolve_source() setting resolve_source = {:?}", surface_task_id);
                 builder.resolve_source = Some(surface_task_id);
                 return;
             }
@@ -330,17 +331,22 @@ impl SurfaceBuilder {
         rg_builder: &mut RenderTaskGraphBuilder,
         cmd_buffers: &mut CommandBufferList,
     ) {
+        println!("SurfaceBuilder.pop_surface() {:?}", pic_index);
         let builder = self.builder_stack.pop().unwrap();
 
         if builder.establishes_sub_graph {
+            println!("establishes sub graph");
             // If we are popping a sub-graph off the stack the dependency setup is rather more complex...
             match builder.kind {
                 CommandBufferBuilderKind::Tiled { .. } | CommandBufferBuilderKind::Invalid => {
                     unreachable!("bug: sub-graphs can only be simple surfaces");
                 }
                 CommandBufferBuilderKind::Simple { render_task_id: child_render_task_id, root_task_id: child_root_task_id, .. } => {
+                    println!("child_render_task_id: {:?}, child_root_task_id: {:?}",
+                             child_render_task_id, child_root_task_id);
                     // Get info about the resolve operation to copy from parent surface or tiles to the picture cache task
                     if let Some(resolve_task_id) = builder.resolve_source {
+                        println!("resolve_task_id: {:?}", resolve_task_id);
                         let mut src_task_ids = Vec::new();
 
                         // Make the output of the sub-graph a dependency of the new replacement tile task
@@ -365,6 +371,12 @@ impl SurfaceBuilder {
                                 for key in keys {
                                     let descriptor = tiles.remove(&key).unwrap();
                                     let parent_task_id = descriptor.current_task_id;
+                                    println!("tile parent_task_id: {:?}", parent_task_id);
+
+                                    // // JAMIEHACK
+                                    // let parent_task_id = RenderTaskId { index: 0 };
+                                    // println!("tile overriding parent_task_id from {:?} to {:?}", descriptor.current_task_id, parent_task_id);
+
                                     let parent_task = rg_builder.get_task_mut(parent_task_id);
 
                                     match parent_task.location {
@@ -401,6 +413,7 @@ impl SurfaceBuilder {
                                                     RenderTaskKind::Picture(pic_task),
                                                 ),
                                             );
+                                            println!("new_task_id: {:?}", new_task_id);
 
                                             // Ensure that the parent task will get scheduled earlier during
                                             // pass assignment since we are reusing the existing surface,
@@ -433,6 +446,7 @@ impl SurfaceBuilder {
                                 }
                             }
                             CommandBufferBuilderKind::Simple { render_task_id: ref mut parent_task_id, .. } => {
+                                println!("non-tiled parent_task_id: {:?}", parent_task_id);
                                 let parent_task = rg_builder.get_task_mut(*parent_task_id);
 
                                 // Get info about the parent tile task location and params
@@ -468,6 +482,8 @@ impl SurfaceBuilder {
                                     ),
                                 );
 
+                                println!("new_task_id: {:?}", new_task_id);
+
                                 // Ensure that the parent task will get scheduled earlier during
                                 // pass assignment since we are reusing the existing surface,
                                 // even though it's not technically needed for rendering order.
@@ -485,14 +501,15 @@ impl SurfaceBuilder {
                         }
 
                         let dest_task = rg_builder.get_task_mut(resolve_task_id);
-
                         match dest_task.kind {
                             RenderTaskKind::Picture(ref mut dest_task_info) => {
                                 assert!(dest_task_info.resolve_op.is_none());
-                                dest_task_info.resolve_op = Some(ResolveOp {
+                                let resolve_op = ResolveOp {
                                     src_task_ids,
                                     dest_task_id: resolve_task_id,
-                                })
+                                };
+                                println!("adding resolve op {:?}", resolve_op);
+                                dest_task_info.resolve_op = Some(resolve_op);
                             }
                             _ => {
                                 unreachable!("bug: not a picture");
@@ -514,6 +531,12 @@ impl SurfaceBuilder {
                                     descriptor.current_task_id,
                                     child_root_task_id.unwrap_or(child_render_task_id),
                                 );
+                                // // JAMIEHACK
+                                // println!("also adding render task 2 as a dependency!!");
+                                // rg_builder.add_dependency(
+                                //     descriptor.current_task_id,
+                                //     RenderTaskId { index: 2 },
+                                // );
                             }
                         }
                         CommandBufferBuilderKind::Simple { render_task_id: parent_task_id, .. } => {
@@ -529,6 +552,7 @@ impl SurfaceBuilder {
                 }
             }
         } else {
+            println!("no sub graph");
             match builder.kind {
                 CommandBufferBuilderKind::Tiled { ref tiles } => {
                     for (_, descriptor) in tiles {
@@ -578,18 +602,25 @@ impl SurfaceBuilder {
 
         // Step through the dependencies for this builder and add them to the finalized
         // render task root(s) for this surface
+
         match builder.kind {
             CommandBufferBuilderKind::Tiled { ref tiles } => {
+                println!("tiled builder extra_dependencies: {:?}", builder.extra_dependencies);
                 for (_, descriptor) in tiles {
                     for task_id in &builder.extra_dependencies {
                         rg_builder.add_dependency(
                             descriptor.current_task_id,
                             *task_id,
                         );
+                        rg_builder.add_dependency(
+                            descriptor.current_task_id,
+                            RenderTaskId { index: 2 },
+                        );
                     }
                 }
             }
             CommandBufferBuilderKind::Simple { render_task_id, .. } => {
+                println!("simple builder extra_dependencies: {:?}", builder.extra_dependencies);
                 for task_id in &builder.extra_dependencies {
                     rg_builder.add_dependency(
                         render_task_id,

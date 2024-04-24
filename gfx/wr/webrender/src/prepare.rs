@@ -1097,13 +1097,16 @@ fn prepare_interned_prim_for_render(
             }
         }
         PrimitiveInstanceKind::BackdropCapture { .. } => {
+            println!("prepare_interned_prim_for_render() BackdropCapture");
             // Register the owner picture of this backdrop primitive as the
             // target for resolve of the sub-graph
             frame_state.surface_builder.register_resolve_source();
         }
         PrimitiveInstanceKind::BackdropRender { pic_index, .. } => {
+            println!("prepare_interned_prim_for_render() BackdropRender pic_index: {:?}", pic_index);
             match frame_state.surface_builder.sub_graph_output_map.get(pic_index).cloned() {
                 Some(sub_graph_output_id) => {
+                    println!("add_child_render_task() sub_graph_output_id: {:?}", sub_graph_output_id);
                     frame_state.surface_builder.add_child_render_task(
                         sub_graph_output_id,
                         frame_state.rg_builder,

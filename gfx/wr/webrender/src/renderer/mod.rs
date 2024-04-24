@@ -2158,6 +2158,7 @@ impl Renderer {
             return;
         }
 
+        println!("handle_resolves() {:?}", resolve_ops);
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_BLIT);
 
         for resolve_op in resolve_ops {
@@ -2179,6 +2180,7 @@ impl Renderer {
         projection: &default::Transform3D<f32>,
         stats: &mut RendererStats,
     ) {
+        println!("handle_prims() {:?} {:?}", prim_instances, prim_instances_with_scissor);
         self.device.disable_depth_write();
 
         {
@@ -2402,6 +2404,8 @@ impl Renderer {
             return;
         }
 
+        println!("handle_blits() {:?}", blits);
+
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_BLIT);
 
         // TODO(gw): For now, we don't bother batching these by source texture.
@@ -2451,6 +2455,8 @@ impl Renderer {
         if scalings.is_empty() {
             return
         }
+
+        println!("handle_scaling() {:?}", scalings);
 
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_SCALE);
 
@@ -2509,6 +2515,8 @@ impl Renderer {
         if svg_filters.is_empty() {
             return;
         }
+
+        println!("handle_svg_filters() {:?}", svg_filters);
 
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_SVG_FILTER);
 
@@ -2620,6 +2628,7 @@ impl Renderer {
         render_tasks: &RenderTaskGraph,
         stats: &mut RendererStats,
     ) {
+        println!("\ndraw_picture_cache_target() {:?}", target.surface);
         profile_scope!("draw_picture_cache_target");
 
         self.profile.inc(profiler::RENDERED_PICTURE_TILES);
@@ -2756,6 +2765,7 @@ impl Renderer {
         render_tasks: &RenderTaskGraph,
         stats: &mut RendererStats,
     ) {
+        println!("draw_alpha_batch_container() {:?}", alpha_batch_container.task_rect);
         let uses_scissor = alpha_batch_container.task_scissor_rect.is_some();
 
         if uses_scissor {
@@ -2795,6 +2805,7 @@ impl Renderer {
                         );
 
                     let _timer = self.gpu_profiler.start_timer(batch.key.kind.sampler_tag());
+                    println!("draw_instanced_batch() opaque key: {:?}, num_instances: {}", batch.key, batch.instances.len());
                     self.draw_instanced_batch(
                         &batch.instances,
                         VertexArrayKind::Primitive,
@@ -2896,6 +2907,7 @@ impl Renderer {
                     &mut self.profile,
                 );
 
+                println!("draw_instanced_batch() alpha key: {:?}, num_instances: {}", batch.key, batch.instances.len());
                 self.draw_instanced_batch(
                     &batch.instances,
                     VertexArrayKind::Primitive,
@@ -3435,6 +3447,7 @@ impl Renderer {
         projection: &default::Transform3D<f32>,
         stats: &mut RendererStats,
     ) {
+        println!("\ndraw_color_target() {:?}", target.texture_id());
         profile_scope!("draw_color_target");
 
         self.profile.inc(profiler::COLOR_PASSES);
@@ -3616,6 +3629,7 @@ impl Renderer {
         blurs: &FastHashMap<TextureSource, Vec<BlurInstance>>,
         stats: &mut RendererStats,
     ) {
+        println!("draw_blurs() {:?}", blurs);
         for (texture, blurs) in blurs {
             let textures = BatchTextures::composite_rgb(
                 *texture,
@@ -4468,6 +4482,7 @@ impl Renderer {
         buffer_age: usize,
         results: &mut RenderResults,
     ) {
+        println!("\n\ndraw_frame()");
         profile_scope!("draw_frame");
 
         // These markers seem to crash a lot on Android, see bug 1559834

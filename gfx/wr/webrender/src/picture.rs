@@ -5070,6 +5070,7 @@ impl PicturePrimitive {
                                             ),
                                         ),
                                     );
+                                    println!("composite_task_id: {:?}", composite_task_id);
 
                                     surface_render_tasks.insert(
                                         tile_key,
