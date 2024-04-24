@@ -204,8 +204,12 @@ impl SurfaceBuilder {
         for builder in self.builder_stack.iter_mut().rev() {
             if builder.establishes_sub_graph {
                 assert_eq!(builder.resolve_source, None);
-                println!("register_resolve_source() setting resolve_source = {:?}", surface_task_id);
-                builder.resolve_source = Some(surface_task_id);
+                // println!("register_resolve_source() setting resolve_source = {:?}", surface_task_id);
+                // builder.resolve_source = Some(surface_task_id);
+
+                println!("register_resolve_source() setting resolve_source = {:?} instead of {:?}",
+                            RenderTaskId { index: 3 }, surface_task_id);
+                builder.resolve_source = Some(RenderTaskId { index: 3 });
                 return;
             }
         }
