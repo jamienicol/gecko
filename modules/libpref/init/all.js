@@ -4220,3 +4220,4 @@ pref("privacy.fingerprintingProtection.WebCompatService.logLevel", "Error");
 pref("privacy.query_stripping.strip_on_share.enableTestMode", false);
 
 pref("gfx.webrender.low-quality-pinch-zoom", false);
+pref("layers.gpu-process.enabled", false);
