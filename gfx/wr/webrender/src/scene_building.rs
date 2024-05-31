@@ -1193,6 +1193,7 @@ impl<'a> SceneBuilder<'a> {
 
         self.id_to_index_mapper_stack.push(NodeIdToIndexMapper::default());
 
+        println!("jamiedbg push_iframe() snap_rect()");
         let bounds = self.snap_rect(
             &info.bounds.translate(external_scroll_offset),
             spatial_node_index,

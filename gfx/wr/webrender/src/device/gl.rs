@@ -2553,6 +2553,7 @@ impl Device {
     }
 
     pub fn bind_program(&mut self, program: &Program) -> bool {
+        warn!("jamiedbg bind_program() {:?}", program.source_info.full_name());
         debug_assert!(self.inside_frame);
         debug_assert!(program.is_initialized());
         if !program.is_initialized() {
