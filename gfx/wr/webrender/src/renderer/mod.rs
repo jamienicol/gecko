@@ -3357,6 +3357,8 @@ impl Renderer {
                 &tile.local_rect,
                 tile.transform_index
             );
+            warn!("jamiedbg");
+            warn!("jamiedbg device_tile_box: {:.8?}", device_tile_box);
 
             // Determine a clip rect to apply to this tile, depending on what
             // the partial present mode is.
@@ -3368,12 +3370,14 @@ impl Renderer {
             // Simple compositor needs the valid rect in device space to match clip rect
             let device_valid_rect = composite_state
                 .get_device_rect(&tile.local_valid_rect, tile.transform_index);
+            warn!("jamiedbg device_valid_rect: {:.8?}", device_valid_rect);
 
             let rect = device_tile_box
                 .intersection_unchecked(&tile.device_clip_rect)
                 .intersection_unchecked(&partial_clip_rect)
                 .intersection_unchecked(&device_valid_rect);
 
+            warn!("jamiedbg final clip_rect: {:.8?}", device_valid_rect);
             if rect.is_empty() {
                 continue;
             }

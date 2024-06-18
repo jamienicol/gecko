@@ -2715,6 +2715,7 @@ impl TileCacheInstance {
         is_opaque: bool,
         surface_kind: CompositorSurfaceKind,
     ) -> Result<CompositorSurfaceKind, SurfacePromotionFailure> {
+        warn!("jamiedbg setup_compositor_surfaces_impl()");
         use crate::picture::SurfacePromotionFailure::*;
 
         let map_local_to_picture = SpaceMapper::new_with_target(
@@ -2729,6 +2730,8 @@ impl TileCacheInstance {
             Some(rect) => rect,
             None => return Ok(surface_kind),
         };
+
+        warn!("prim_rect: {:.8?}", prim_rect);
 
         // If the rect is invalid, no need to create dependencies.
         if prim_rect.is_empty() {
@@ -2745,6 +2748,8 @@ impl TileCacheInstance {
         let world_clip_rect = pic_to_world_mapper
             .map(&prim_info.prim_clip_box)
             .expect("bug: unable to map clip to world space");
+
+        warn!("world_clip_rect: {:.8?}", world_clip_rect);
 
         let is_visible = world_clip_rect.intersects(&frame_context.global_screen_world_rect);
         if !is_visible {
@@ -2796,7 +2801,9 @@ impl TileCacheInstance {
             compositor_transform_index,
         ).size();
 
+        // FIXME: Is this round() the culprit???
         let clip_rect = (world_clip_rect * frame_context.global_device_pixel_scale).round();
+        warn!("clip_rect: {:.8?}", clip_rect);
 
         if surface_size.width >= MAX_COMPOSITOR_SURFACES_SIZE ||
            surface_size.height >= MAX_COMPOSITOR_SURFACES_SIZE {

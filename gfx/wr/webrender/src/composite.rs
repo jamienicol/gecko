@@ -677,10 +677,12 @@ impl CompositeState {
         gpu_cache: &mut GpuCache,
         deferred_resolves: &mut Vec<DeferredResolve>,
     ) {
+        warn!("jamiedbg CompositeState.push_compositor_surface() clip_rect: {:.8?}", external_surface.clip_rect);
         let clip_rect = external_surface
             .clip_rect
             .intersection(&device_clip_rect)
             .unwrap_or_else(DeviceRect::zero);
+        warn!("jamiedbg clipped against device_clip_rect: {:.8?}", clip_rect);
 
         // Skip compositor surfaces with empty clip rects.
         if clip_rect.is_empty() {
@@ -780,6 +782,7 @@ impl CompositeState {
         gpu_cache: &mut GpuCache,
         deferred_resolves: &mut Vec<DeferredResolve>,
     ) {
+        warn!("jamiedbg CompositeState.push_surface() device_clip_rect: {:.8?}", device_clip_rect);
         let slice_transform = self.get_compositor_transform(tile_cache.transform_index);
 
         let image_rendering = if self.low_quality_pinch_zoom {
