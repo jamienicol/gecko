@@ -613,7 +613,7 @@ impl CompositeState {
         transform_index: CompositorTransformIndex,
     ) -> DeviceRect {
         let transform = &self.transforms[transform_index.0];
-        transform.local_to_device.map_rect(&local_rect).round()
+        transform.local_to_device.map_rect(&local_rect)
     }
 
     /// Calculate the device-space rect of a local compositor surface rect, normalized
