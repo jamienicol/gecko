@@ -190,7 +190,7 @@ pub enum ExternalSurfaceDependency {
 pub struct ExternalSurfaceDescriptor {
     // Normalized rectangle of this surface in local coordinate space
     // TODO(gw): Fix up local_rect unit kinds in ExternalSurfaceDescriptor (many flow on effects)
-    pub local_surface_size: LayoutSize,
+    pub local_surface_rect: LayoutRect,
     pub local_rect: PictureRect,
     pub local_clip_rect: PictureRect,
     pub clip_rect: DeviceRect,
@@ -738,7 +738,12 @@ impl CompositeState {
         };
 
         let surface = CompositeTileSurface::ExternalSurface { external_surface_index };
-        let local_rect = external_surface.local_surface_size.cast_unit().into();
+        let local_rect = external_surface.local_surface_rect.cast_unit();
+
+        // warn!("jamiedbg external_surface.local_rect: {:.8?}", external_surface.local_rect);
+        // warn!("jamiedbg external_surface.local_surface_rect: {:.8?}", external_surface.local_surface_rect);
+        warn!("jamiedbg local_rect: {:.8?}", local_rect);
+        warn!("jamiedbg in device space: {:.8?}", self.get_device_rect(&local_rect, external_surface.transform_index));
 
         let tile = CompositeTile {
             kind: tile_kind(&surface, is_opaque),
@@ -782,7 +787,6 @@ impl CompositeState {
         gpu_cache: &mut GpuCache,
         deferred_resolves: &mut Vec<DeferredResolve>,
     ) {
-        warn!("jamiedbg CompositeState.push_surface() device_clip_rect: {:.8?}", device_clip_rect);
         let slice_transform = self.get_compositor_transform(tile_cache.transform_index);
 
         let image_rendering = if self.low_quality_pinch_zoom {

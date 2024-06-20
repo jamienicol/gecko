@@ -3142,6 +3142,9 @@ impl Renderer {
             let clip_rect = item.rectangle;
             let transform = composite_state.get_device_transform(tile.transform_index);
             let tile_rect = transform.map_rect(&tile.local_rect);
+            // warn!("jamiedbg");
+            // warn!("jamiedbg tile_rect: {:.8?}", tile_rect);
+            // warn!("jamiedbg clip_rect: {:.8?}", clip_rect);
             let flip = (transform.scale.x < 0.0, transform.scale.y < 0.0);
 
             // Work out the draw params based on the tile surface
@@ -3326,6 +3329,8 @@ impl Renderer {
         results: &mut RenderResults,
         partial_present_mode: Option<PartialPresentMode>,
     ) {
+        // warn!("jamiedbg");
+        // warn!("jamiedbg composite_simple()");
         let _gm = self.gpu_profiler.start_marker("framebuffer");
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_COMPOSITE);
 
@@ -3357,8 +3362,9 @@ impl Renderer {
                 &tile.local_rect,
                 tile.transform_index
             );
-            warn!("jamiedbg");
-            warn!("jamiedbg device_tile_box: {:.8?}", device_tile_box);
+            // warn!("jamiedbg");
+            // warn!("jamiedbg tile.local_rect: {:.8?}", tile.local_rect);
+            // warn!("jamiedbg device_tile_box: {:.8?}", device_tile_box);
 
             // Determine a clip rect to apply to this tile, depending on what
             // the partial present mode is.
@@ -3370,14 +3376,16 @@ impl Renderer {
             // Simple compositor needs the valid rect in device space to match clip rect
             let device_valid_rect = composite_state
                 .get_device_rect(&tile.local_valid_rect, tile.transform_index);
-            warn!("jamiedbg device_valid_rect: {:.8?}", device_valid_rect);
+            // warn!("jamiedbg tile.device_clip_rect: {:.8?}", tile.device_clip_rect);
+            // warn!("jamiedbg partial_clip_rect: {:.8?}", partial_clip_rect);
+            // warn!("jamiedbg device_valid_rect: {:.8?}", device_valid_rect);
 
             let rect = device_tile_box
                 .intersection_unchecked(&tile.device_clip_rect)
                 .intersection_unchecked(&partial_clip_rect)
                 .intersection_unchecked(&device_valid_rect);
 
-            warn!("jamiedbg final clip_rect: {:.8?}", device_valid_rect);
+            // warn!("jamiedbg final clip_rect: {:.8?}", rect);
             if rect.is_empty() {
                 continue;
             }

@@ -286,6 +286,8 @@ pub fn update_prim_visibility(
                 frame_state.clip_tree,
             );
 
+            warn!("jamiedbg update_prim_visibility() local_coverage_rect: {:.8?}", local_coverage_rect);
+
             let clip_chain = frame_state
                 .clip_store
                 .build_clip_chain_instance(

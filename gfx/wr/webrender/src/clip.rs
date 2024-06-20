@@ -1269,6 +1269,7 @@ impl ClipStore {
         clip_data_store: &ClipDataStore,
         clip_tree: &ClipTree,
     ) {
+        warn!("jamiedbg set_active_clips()");
         self.active_clip_node_info.clear();
         self.active_local_clip_rect = None;
         self.active_pic_coverage_rect = PictureRect::max_rect();
@@ -1280,6 +1281,7 @@ impl ClipStore {
         let mut current = clip_leaf.node_id;
 
         while current != clip_root {
+            warn!("jamiedbg local_clip_rect: {:.8?}", local_clip_rect);
             let node = clip_tree.get_node(current);
 
             if !add_clip_node_to_current_chain(
@@ -1298,6 +1300,7 @@ impl ClipStore {
             current = node.parent;
         }
 
+        warn!("jamiedbg final clip: {:.8?}", local_clip_rect);
         self.active_local_clip_rect = Some(local_clip_rect);
     }
 
@@ -1314,6 +1317,7 @@ impl ClipStore {
         //           We could consider optimizing this if it ever shows up in a profile.
 
         self.active_clip_node_info.clear();
+        warn!("jamiedbg set_active_clips_from_clip_chain() {:.8?}", prim_clip_chain.local_clip_rect);
         self.active_local_clip_rect = Some(prim_clip_chain.local_clip_rect);
         self.active_pic_coverage_rect = prim_clip_chain.pic_coverage_rect;
 
@@ -1415,8 +1419,12 @@ impl ClipStore {
         };
         profile_scope!("build_clip_chain_instance");
 
+        warn!("jamiedbg build_clip_chain_instance() local_prim_rect: {:.8?}", local_prim_rect);
+        warn!("jamiedbg local_clip_rect: {:.8?}", local_clip_rect);
         let local_bounding_rect = local_prim_rect.intersection(&local_clip_rect)?;
+        warn!("jamiedbg local_bounding_rect: {:.8?}", local_bounding_rect);
         let mut pic_coverage_rect = prim_to_pic_mapper.map(&local_bounding_rect)?;
+        warn!("jamiedbg pic_coverage_rect: {:.8?}", pic_coverage_rect);
         let world_clip_rect = pic_to_world_mapper.map(&pic_coverage_rect)?;
 
         // Now, we've collected all the clip nodes that *potentially* affect this
@@ -1516,6 +1524,8 @@ impl ClipStore {
         // we currently only support a local clip rect in the vertex shader).
         if needs_mask {
             pic_coverage_rect = pic_coverage_rect.intersection(&self.active_pic_coverage_rect)?;
+            warn!("jamiedbg needs_mask-adjusted pic_coverage_rect: {:.8?}", pic_coverage_rect);
+
         }
 
         // Return a valid clip chain instance

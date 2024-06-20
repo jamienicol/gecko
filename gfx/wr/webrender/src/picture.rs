@@ -577,6 +577,7 @@ impl PrimitiveDependencyInfo {
         prim_uid: ItemUid,
         prim_clip_box: PictureBox2D,
     ) -> Self {
+        warn!("jamiedbg PrimitiveDependencyInfo::new() uid: {:?}, clip_box: {:.8?}", prim_uid, prim_clip_box);
         PrimitiveDependencyInfo {
             prim_uid,
             images: SmallVec::new(),
@@ -2725,13 +2726,16 @@ impl TileCacheInstance {
             frame_context.spatial_tree,
         );
 
+        warn!("jamiedbg local_prim_rect: {:.8?}", local_prim_rect);
+
+
         // Map the primitive local rect into picture space.
         let prim_rect = match map_local_to_picture.map(&local_prim_rect) {
             Some(rect) => rect,
             None => return Ok(surface_kind),
         };
 
-        warn!("prim_rect: {:.8?}", prim_rect);
+        warn!("jamiedbg prim_rect: {:.8?}", prim_rect);
 
         // If the rect is invalid, no need to create dependencies.
         if prim_rect.is_empty() {
@@ -2745,11 +2749,13 @@ impl TileCacheInstance {
             frame_context.spatial_tree,
         );
 
+        warn!("jamiedbg prim_info.prim_clip_box: {:.8?}", prim_info.prim_clip_box);
+
         let world_clip_rect = pic_to_world_mapper
             .map(&prim_info.prim_clip_box)
             .expect("bug: unable to map clip to world space");
 
-        warn!("world_clip_rect: {:.8?}", world_clip_rect);
+        warn!("jamiedbg world_clip_rect: {:.8?}", world_clip_rect);
 
         let is_visible = world_clip_rect.intersects(&frame_context.global_screen_world_rect);
         if !is_visible {
@@ -2802,8 +2808,9 @@ impl TileCacheInstance {
         ).size();
 
         // FIXME: Is this round() the culprit???
-        let clip_rect = (world_clip_rect * frame_context.global_device_pixel_scale).round();
-        warn!("clip_rect: {:.8?}", clip_rect);
+        // let clip_rect = (world_clip_rect * frame_context.global_device_pixel_scale).round();
+        let clip_rect = world_clip_rect * frame_context.global_device_pixel_scale;
+        warn!("jamiedbg clip_rect: {:.8?}", clip_rect);
 
         if surface_size.width >= MAX_COMPOSITOR_SURFACES_SIZE ||
            surface_size.height >= MAX_COMPOSITOR_SURFACES_SIZE {
@@ -2906,7 +2913,7 @@ impl TileCacheInstance {
         };
 
         let descriptor = ExternalSurfaceDescriptor {
-            local_surface_size: local_prim_rect.size(),
+            local_surface_rect: local_prim_rect,
             local_rect: prim_rect,
             local_clip_rect: prim_info.prim_clip_box,
             dependency,
@@ -3030,6 +3037,7 @@ impl TileCacheInstance {
         is_root_tile_cache: bool,
         surfaces: &mut [SurfaceInfo],
     ) {
+        warn!("jamiedbg update_prim_dependencies() local_prim_rect: {:.8?}", local_prim_rect);
         use crate::picture::SurfacePromotionFailure::*;
 
         // This primitive exists on the last element on the current surface stack.
@@ -3046,6 +3054,7 @@ impl TileCacheInstance {
         // the intermediate picture space into the picture cache space.
         let on_picture_surface = prim_surface_index == self.surface_index;
         let pic_coverage_rect = if on_picture_surface {
+            warn!("jamiedbg pic_coverage_rect: {:.8?} (from clip chain)", prim_clip_chain.pic_coverage_rect);
             prim_clip_chain.pic_coverage_rect
         } else {
             // We want to get the rect in the tile cache picture space that this primitive
@@ -3093,6 +3102,7 @@ impl TileCacheInstance {
                 current_spatial_node_index = surface.surface_spatial_node_index;
             }
 
+            warn!("jamiedbg pic_coverage_rect: {:.8?} (from mapping)", prim_clip_chain.pic_coverage_rect);
             current_pic_coverage_rect
         };
 
