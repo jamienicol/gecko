@@ -218,60 +218,50 @@ impl VertexAttribute {
 
     fn bind_to_vao(
         &self,
+        device: &Device,
         attr_index: gl::GLuint,
+        binding_index: gl::GLuint,
         divisor: gl::GLuint,
-        stride: gl::GLint,
+        stride: gl::GLsizei,
         offset: gl::GLuint,
-        gl: &dyn gl::Gl,
     ) {
-        gl.enable_vertex_attrib_array(attr_index);
-        gl.vertex_attrib_divisor(attr_index, divisor);
+        device.gl.enable_vertex_attrib_array(attr_index);
+        if device.capabilities.supports_vertex_attrib_format {
+            device.gl.vertex_attrib_binding(attr_index, binding_index);
+        } else {
+            device.gl.vertex_attrib_divisor(attr_index, divisor);
+        }
 
-        match self.kind {
-            VertexAttributeKind::F32 => {
-                gl.vertex_attrib_pointer(
+        let (gl_type, normalized) = match self.kind {
+            VertexAttributeKind::F32 => (gl::FLOAT, Some(false)),
+            VertexAttributeKind::U8Norm => (gl::UNSIGNED_BYTE, Some(true)),
+            VertexAttributeKind::U16Norm => (gl::UNSIGNED_SHORT, Some(true)),
+            VertexAttributeKind::I32 => (gl::INT, None),
+            VertexAttributeKind::U16 => (gl::UNSIGNED_SHORT, None)
+        };
+
+        match (device.capabilities.supports_vertex_attrib_format, normalized) {
+            (true, Some(normalized)) => {
+                device.gl.vertex_attrib_format(attr_index, self.count as gl::GLint, gl_type, normalized, offset)
+            }
+            (true, None) => {
+                device.gl.vertex_attrib_i_format(attr_index, self.count as gl::GLint, gl_type, offset)
+            }
+            (false, Some(normalized)) => {
+                device.gl.vertex_attrib_pointer(
                     attr_index,
                     self.count as gl::GLint,
-                    gl::FLOAT,
-                    false,
+                    gl_type,
+                    normalized,
                     stride,
                     offset,
                 );
             }
-            VertexAttributeKind::U8Norm => {
-                gl.vertex_attrib_pointer(
+            (false, None) => {
+                device.gl.vertex_attrib_i_pointer(
                     attr_index,
                     self.count as gl::GLint,
-                    gl::UNSIGNED_BYTE,
-                    true,
-                    stride,
-                    offset,
-                );
-            }
-            VertexAttributeKind::U16Norm => {
-                gl.vertex_attrib_pointer(
-                    attr_index,
-                    self.count as gl::GLint,
-                    gl::UNSIGNED_SHORT,
-                    true,
-                    stride,
-                    offset,
-                );
-            }
-            VertexAttributeKind::I32 => {
-                gl.vertex_attrib_i_pointer(
-                    attr_index,
-                    self.count as gl::GLint,
-                    gl::INT,
-                    stride,
-                    offset,
-                );
-            }
-            VertexAttributeKind::U16 => {
-                gl.vertex_attrib_i_pointer(
-                    attr_index,
-                    self.count as gl::GLint,
-                    gl::UNSIGNED_SHORT,
+                    gl_type,
                     stride,
                     offset,
                 );
@@ -289,40 +279,51 @@ impl VertexDescriptor {
     }
 
     fn bind_attributes(
+        device: &Device,
         attributes: &[VertexAttribute],
-        start_index: usize,
+        start_attr_index: usize,
+        binding_index: usize,
         divisor: u32,
-        gl: &dyn gl::Gl,
         vbo: VBOId,
     ) {
-        vbo.bind(gl);
-
-        let stride: u32 = attributes
+        let stride = attributes
             .iter()
-            .map(|attr| attr.size_in_bytes())
+            .map(|attr| attr.size_in_bytes() as gl::GLsizei)
             .sum();
+
+        vbo.bind(device.gl());
+        if device.capabilities.supports_vertex_attrib_format {
+            device.gl.vertex_binding_divisor(binding_index as gl::GLuint, divisor);
+            device.gl.bind_vertex_buffer(binding_index as gl::GLuint, vbo.0, 0, stride as _);
+        }
 
         let mut offset = 0;
         for (i, attr) in attributes.iter().enumerate() {
-            let attr_index = (start_index + i) as gl::GLuint;
-            attr.bind_to_vao(attr_index, divisor, stride as _, offset, gl);
+            let attr_index = (start_attr_index + i) as gl::GLuint;
+            attr.bind_to_vao(device, attr_index, binding_index as gl::GLuint, divisor, stride, offset);
             offset += attr.size_in_bytes();
         }
     }
 
-    fn bind(&self, gl: &dyn gl::Gl, main: VBOId, instance: VBOId, instance_divisor: u32) {
-        Self::bind_attributes(self.vertex_attributes, 0, 0, gl, main);
+    fn bind(&self, device: &Device, main: VBOId, instance: VBOId, instance_divisor: u32) {
+        Self::bind_attributes(device, self.vertex_attributes, /* start_index */ 0, /* binding_index */ 0, /* divisor */ 0, main);
 
         if !self.instance_attributes.is_empty() {
             Self::bind_attributes(
+                device,
                 self.instance_attributes,
                 self.vertex_attributes.len(),
+                /* binding_index */ 1,
                 instance_divisor,
-                gl,
                 instance,
             );
         }
     }
+
+    // FIXME: ensure we render correctly using new style functions. then implement this
+    // fn bind_instance_buffer(&self, device: &Device, vbo: VBOId, offset: gl::GLsizei) {
+    //     assert!(device.capabilities.supports_vertex_attrib_format);
+    // }
 }
 
 impl VBOId {
@@ -987,6 +988,9 @@ pub struct Capabilities {
     pub supports_r8_texture_upload: bool,
     /// Whether the extension QCOM_tiled_rendering is supported.
     pub supports_qcom_tiled_rendering: bool,
+    /// Whether the driver supports using glVertexAttribFormat and glBindVertexBuffer,
+    /// rather than glVertexAttribPointer.
+    pub supports_vertex_attrib_format: bool,
     /// Whether clip-masking is supported natively by the GL implementation
     /// rather than emulated in shaders.
     pub uses_native_clip_mask: bool,
@@ -1875,6 +1879,11 @@ impl Device {
         // an attached buffer has been orphaned.
         let requires_vao_rebind_after_orphaning = is_adreno_3xx;
 
+        let supports_vertex_attrib_format = match gl.get_type() {
+            gl::GlType::Gl => gl_version >= [4, 3],
+            gl::GlType::Gles => gl_version >= [3, 1],
+        };
+
         Device {
             gl,
             base_gl: None,
@@ -1909,6 +1918,7 @@ impl Device {
                 supports_render_target_invalidate,
                 supports_r8_texture_upload,
                 supports_qcom_tiled_rendering,
+                supports_vertex_attrib_format,
                 uses_native_clip_mask,
                 uses_native_antialiasing,
                 supports_image_external_essl3,
@@ -3387,7 +3397,7 @@ impl Device {
 
         self.bind_vao_impl(vao_id);
 
-        descriptor.bind(self.gl(), main_vbo_id, instance_vbo_id, instance_divisor);
+        descriptor.bind(&self, main_vbo_id, instance_vbo_id, instance_divisor);
         ibo_id.bind(self.gl()); // force it to be a part of VAO
 
         VAO {
@@ -3411,12 +3421,13 @@ impl Device {
         self.bind_vao_impl(vao_id);
 
         let mut attrib_index = 0;
-        for stream in streams {
+        for (stream_index, stream) in streams.iter().enumerate() {
             VertexDescriptor::bind_attributes(
+                self,
                 stream.attributes,
                 attrib_index,
+                stream_index,
                 0,
-                self.gl(),
                 stream.vbo,
             );
             attrib_index += stream.attributes.len();
