@@ -162,7 +162,7 @@ impl GeckoLogger {
         let default_level = if cfg!(debug_assertions) {
             "warn"
         } else {
-            "error"
+            "warn"
         };
         let logger = match env::var("RUST_LOG") {
             Ok(v) => builder.parse_filters(&v).build(),
