@@ -47,6 +47,7 @@ use api::units::*;
 use api::channel::{Sender, Receiver};
 pub use api::DebugFlags;
 use core::time::Duration;
+use std::ops::Range;
 
 use crate::pattern::PatternKind;
 use crate::render_api::{DebugCommand, ApiMsg, MemoryReport};
@@ -753,6 +754,20 @@ impl BufferDamageTracker {
             _ => None,
         }
     }
+}
+
+#[derive(Debug, PartialEq)]
+struct CompositeShaderParams {
+    format: CompositeSurfaceFormat,
+    buffer_kind: ImageBufferKind,
+    features: CompositeFeatures,
+    texture_size: Option<DeviceSize>,
+}
+#[derive(Debug)]
+struct CompositeTileBatch {
+    instances: Range<usize>,
+    textures: BatchTextures,
+    shader_params: CompositeShaderParams,
 }
 
 /// The renderer is responsible for submitting to the GPU the work prepared by the
@@ -2028,6 +2043,10 @@ impl Renderer {
             data.len()
         };
 
+        // Ensure the instance buffer is bound at offset 0 as this may have been
+        // changed by a call to draw_staged_instanced_batch().
+        self.device.bind_vao_instance_buffer_offset(vao, 0);
+
         for chunk in data.chunks(chunk_size) {
             if self.enable_instancing {
                 self.device
@@ -2045,6 +2064,28 @@ impl Renderer {
         }
 
         self.profile.add(profiler::VERTICES, 6 * data.len());
+    }
+
+    fn draw_staged_instanced_batch(
+        &mut self,
+        vertex_array_kind: VertexArrayKind,
+        instances: &Range<usize>,
+        textures: &BatchTextures,
+        stats: &mut RendererStats,
+    ) {
+        self.bind_textures(textures);
+
+        let vao = &self.vaos[vertex_array_kind];
+        self.device.bind_vao(vao);
+
+        // FIXME: handle disabled instancing and disable batching??
+
+        self.device.bind_vao_instance_buffer_offset(vao, instances.start);
+        self.device.draw_indexed_triangles_instanced_u16(6, instances.len() as i32);
+        self.profile.inc(profiler::DRAW_CALLS);
+        stats.total_draw_calls += 1;
+
+        self.profile.add(profiler::VERTICES, 6 * instances.len());
     }
 
     fn handle_readback_composite(
@@ -3104,37 +3145,24 @@ impl Renderer {
         self.gpu_profiler.finish_sampler(opaque_sampler);
     }
 
-    /// Draw a list of tiles to the framebuffer
-    fn draw_tile_list<'a, I: Iterator<Item = &'a occlusion::Item>>(
+    /// Generate batches for a list of composite tiles
+    fn batch_tile_list<'a, I: Iterator<Item = &'a occlusion::Item>>(
         &mut self,
         tiles_iter: I,
         composite_state: &CompositeState,
         external_surfaces: &[ResolvedExternalSurface],
-        projection: &default::Transform3D<f32>,
-        stats: &mut RendererStats,
-    ) {
-        let mut current_shader_params = (
-            CompositeSurfaceFormat::Rgba,
-            ImageBufferKind::Texture2D,
-            CompositeFeatures::empty(),
-            None,
-        );
+        instances: &mut Vec<CompositeInstance>,
+    ) -> Vec<CompositeTileBatch> {
+        let mut current_shader_params = CompositeShaderParams {
+            format: CompositeSurfaceFormat::Rgba,
+            buffer_kind: ImageBufferKind::Texture2D,
+            features: CompositeFeatures::empty(),
+            texture_size: None,
+        };
         let mut current_textures = BatchTextures::empty();
-        let mut instances = Vec::new();
 
-        self.shaders
-            .borrow_mut()
-            .get_composite_shader(
-                current_shader_params.0,
-                current_shader_params.1,
-                current_shader_params.2,
-            ).bind(
-                &mut self.device,
-                projection,
-                None,
-                &mut self.renderer_errors,
-                &mut self.profile,
-            );
+        let mut batches = Vec::new();
+        let mut current_batch_first_instance = instances.len();
 
         for item in tiles_iter {
             let tile = &composite_state.tiles[item.key];
@@ -3148,7 +3176,7 @@ impl Renderer {
             let (instance, textures, shader_params) = match tile.surface {
                 CompositeTileSurface::Color { color } => {
                     let dummy = TextureSource::Dummy;
-                    let image_buffer_kind = dummy.image_buffer_kind();
+                    let buffer_kind = dummy.image_buffer_kind();
                     let instance = CompositeInstance::new(
                         tile_rect,
                         clip_rect,
@@ -3159,7 +3187,12 @@ impl Renderer {
                     (
                         instance,
                         BatchTextures::composite_rgb(dummy),
-                        (CompositeSurfaceFormat::Rgba, image_buffer_kind, features, None),
+                        CompositeShaderParams {
+                            format: CompositeSurfaceFormat::Rgba,
+                            buffer_kind,
+                            features,
+                            texture_size: None,
+                        },
                     )
                 }
                 CompositeTileSurface::Texture { surface: ResolvedSurfaceTexture::TextureCache { texture } } => {
@@ -3173,12 +3206,12 @@ impl Renderer {
                     (
                         instance,
                         BatchTextures::composite_rgb(texture),
-                        (
-                            CompositeSurfaceFormat::Rgba,
-                            ImageBufferKind::Texture2D,
+                        CompositeShaderParams {
+                            format: CompositeSurfaceFormat::Rgba,
+                            buffer_kind: ImageBufferKind::Texture2D,
                             features,
-                            None,
-                        ),
+                            texture_size: None,
+                        },
                     )
                 }
                 CompositeTileSurface::ExternalSurface { external_surface_index } => {
@@ -3214,12 +3247,12 @@ impl Renderer {
                                     flip,
                                 ),
                                 textures,
-                                (
-                                    CompositeSurfaceFormat::Yuv,
-                                    surface.image_buffer_kind,
-                                    CompositeFeatures::empty(),
-                                    None
-                                ),
+                                CompositeShaderParams {
+                                    format: CompositeSurfaceFormat::Yuv,
+                                    buffer_kind: surface.image_buffer_kind,
+                                    features: CompositeFeatures::empty(),
+                                    texture_size: None,
+                                },
                             )
                         },
                         ResolvedExternalSurfaceColorData::Rgb { ref plane, .. } => {
@@ -3235,19 +3268,19 @@ impl Renderer {
                             (
                                 instance,
                                 BatchTextures::composite_rgb(plane.texture),
-                                (
-                                    CompositeSurfaceFormat::Rgba,
-                                    surface.image_buffer_kind,
+                                CompositeShaderParams {
+                                    format: CompositeSurfaceFormat::Rgba,
+                                    buffer_kind: surface.image_buffer_kind,
                                     features,
-                                    Some(self.texture_resolver.get_texture_size(&plane.texture).to_f32()),
-                                ),
+                                    texture_size: Some(self.texture_resolver.get_texture_size(&plane.texture).to_f32()),
+                                },
                             )
                         },
                     }
                 }
                 CompositeTileSurface::Clear => {
                     let dummy = TextureSource::Dummy;
-                    let image_buffer_kind = dummy.image_buffer_kind();
+                    let buffer_kind = dummy.image_buffer_kind();
                     let instance = CompositeInstance::new(
                         tile_rect,
                         clip_rect,
@@ -3258,7 +3291,12 @@ impl Renderer {
                     (
                         instance,
                         BatchTextures::composite_rgb(dummy),
-                        (CompositeSurfaceFormat::Rgba, image_buffer_kind, features, None),
+                        CompositeShaderParams {
+                            format: CompositeSurfaceFormat::Rgba,
+                            buffer_kind,
+                            features,
+                            texture_size: None,
+                        },
                     )
                 }
                 CompositeTileSurface::Texture { surface: ResolvedSurfaceTexture::Native { .. } } => {
@@ -3271,47 +3309,68 @@ impl Renderer {
                 shader_params != current_shader_params;
 
             if flush_batch {
-                if !instances.is_empty() {
-                    self.draw_instanced_batch(
-                        &instances,
-                        VertexArrayKind::Composite,
-                        &current_textures,
-                        stats,
-                    );
-                    instances.clear();
+                let instance_range = current_batch_first_instance..instances.len();
+                if !instance_range.is_empty() {
+                    batches.push(CompositeTileBatch {
+                        instances: instance_range,
+                        textures: current_textures,
+                        shader_params: current_shader_params,
+                    });
                 }
+                current_batch_first_instance = instances.len();
             }
-
-            if shader_params != current_shader_params {
-                self.shaders
-                    .borrow_mut()
-                    .get_composite_shader(shader_params.0, shader_params.1, shader_params.2)
-                    .bind(
-                        &mut self.device,
-                        projection,
-                        shader_params.3,
-                        &mut self.renderer_errors,
-                        &mut self.profile,
-                    );
-
-                current_shader_params = shader_params;
-            }
-
-            current_textures = textures;
-
-            // Add instance to current batch
             instances.push(instance);
+
+            current_shader_params = shader_params;
+            current_textures = textures;
         }
 
-        // Flush the last batch
-        if !instances.is_empty() {
-            self.draw_instanced_batch(
-                &instances,
+        // Add the last batch
+        let instance_range = current_batch_first_instance..instances.len();
+        if !instance_range.is_empty() {
+            batches.push(CompositeTileBatch {
+                instances: instance_range,
+                textures: current_textures,
+                shader_params: current_shader_params,
+            });
+        }
+
+        batches
+    }
+
+    /// Draw a list of composite tile batches to the framebuffer
+    fn draw_tile_batches(
+        &mut self,
+        _instances: &[CompositeInstance],
+        batches: &[CompositeTileBatch],
+        projection: &default::Transform3D<f32>,
+        stats: &mut RendererStats,
+    ) {
+        for batch in batches {
+            self.shaders
+                .borrow_mut()
+                .get_composite_shader(
+                    batch.shader_params.format,
+                    batch.shader_params.buffer_kind,
+                    batch.shader_params.features,
+                )
+                .bind(
+                    &mut self.device,
+                    projection,
+                    batch.shader_params.texture_size,
+                    &mut self.renderer_errors,
+                    &mut self.profile,
+                );
+
+            // FIXME: use draw_instanced_batch if bind_vertex_buffer is not supported
+            self.draw_staged_instanced_batch(
                 VertexArrayKind::Composite,
-                &current_textures,
+                &batch.instances,
+                &batch.textures,
                 stats,
             );
         }
+
     }
 
     /// Composite picture cache tiles into the framebuffer. This is currently
@@ -3421,45 +3480,58 @@ impl Renderer {
             .filter(|tile| tile.kind != TileKind::Clear).count();
         self.profile.set(profiler::PICTURE_TILES, num_tiles);
 
-        if !occlusion.opaque_items().is_empty() {
+        let mut instances = Vec::new();
+
+        let opaque_batches = self.batch_tile_list(
+            occlusion.opaque_items().iter(),
+            &composite_state,
+            &composite_state.external_surfaces,
+            &mut instances,
+        );
+
+        let clear_batches = self.batch_tile_list(
+            clear_tiles.iter(),
+            &composite_state,
+            &composite_state.external_surfaces,
+            &mut instances,
+        );
+
+        let alpha_batches = self.batch_tile_list(
+            occlusion.alpha_items().iter().rev(),
+            &composite_state,
+            &composite_state.external_surfaces,
+            &mut instances,
+        );
+
+        // FIXME: only upload all the data if bind_vertex_buffer is supported
+        let vao = &self.vaos[VertexArrayKind::Composite];
+        self.device.bind_vao(vao);
+        self.device.update_vao_instances(vao, &instances, ONE_TIME_USAGE_HINT, None);
+
+        if !opaque_batches.is_empty() {
             let opaque_sampler = self.gpu_profiler.start_sampler(GPU_SAMPLER_TAG_OPAQUE);
             self.set_blend(false, FramebufferKind::Main);
-            self.draw_tile_list(
-                occlusion.opaque_items().iter(),
-                &composite_state,
-                &composite_state.external_surfaces,
-                projection,
-                &mut results.stats,
-            );
+
+            self.draw_tile_batches(&instances, &opaque_batches, projection, &mut results.stats);
+
             self.gpu_profiler.finish_sampler(opaque_sampler);
         }
-
-        if !clear_tiles.is_empty() {
+        if !clear_batches.is_empty() {
             let transparent_sampler = self.gpu_profiler.start_sampler(GPU_SAMPLER_TAG_TRANSPARENT);
             self.set_blend(true, FramebufferKind::Main);
             self.device.set_blend_mode_premultiplied_dest_out();
-            self.draw_tile_list(
-                clear_tiles.iter(),
-                &composite_state,
-                &composite_state.external_surfaces,
-                projection,
-                &mut results.stats,
-            );
+
+            self.draw_tile_batches(&instances, &clear_batches, projection, &mut results.stats);
+
             self.gpu_profiler.finish_sampler(transparent_sampler);
         }
-
-        // Draw alpha tiles
-        if !occlusion.alpha_items().is_empty() {
+        if !alpha_batches.is_empty() {
             let transparent_sampler = self.gpu_profiler.start_sampler(GPU_SAMPLER_TAG_TRANSPARENT);
             self.set_blend(true, FramebufferKind::Main);
             self.set_blend_mode_premultiplied_alpha(FramebufferKind::Main);
-            self.draw_tile_list(
-                occlusion.alpha_items().iter().rev(),
-                &composite_state,
-                &composite_state.external_surfaces,
-                projection,
-                &mut results.stats,
-            );
+
+            self.draw_tile_batches(&instances, &alpha_batches, projection, &mut results.stats);
+
             self.gpu_profiler.finish_sampler(transparent_sampler);
         }
     }

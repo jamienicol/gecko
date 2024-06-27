@@ -319,11 +319,6 @@ impl VertexDescriptor {
             );
         }
     }
-
-    // FIXME: ensure we render correctly using new style functions. then implement this
-    // fn bind_instance_buffer(&self, device: &Device, vbo: VBOId, offset: gl::GLsizei) {
-    //     assert!(device.capabilities.supports_vertex_attrib_format);
-    // }
 }
 
 impl VBOId {
@@ -3616,6 +3611,18 @@ impl Device {
             self.bind_vao_impl(0);
             self.bind_vao_impl(vao.id);
         }
+    }
+
+    pub fn bind_vao_instance_buffer_offset(&mut self, vao: &VAO, offset: usize) {
+        debug_assert!(self.inside_frame);
+        debug_assert_eq!(self.bound_vao, vao.id);
+
+        self.gl.bind_vertex_buffer(
+            1, // FIXME: make this not a magic variable
+            vao.instance_vbo_id.0,
+            (offset * vao.instance_stride) as gl::GLintptr,
+            vao.instance_stride as gl::GLint,
+        );
     }
 
     pub fn update_vao_indices<I>(&mut self, vao: &VAO, indices: &[I], usage_hint: VertexUsageHint) {
