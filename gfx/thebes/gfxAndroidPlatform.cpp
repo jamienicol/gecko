@@ -90,7 +90,7 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
 
   RegisterStrongMemoryReporter(new FreetypeReporter());
 
-  widget::AndroidChoreographerApi::Init();
+  // widget::AndroidChoreographerApi::Init();
 
   // Bug 1886573: At this point, we don't yet have primary screen depth.
   // This setting of screen depth to 0 is preserving existing behavior,

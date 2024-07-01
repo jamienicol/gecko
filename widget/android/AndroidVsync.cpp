@@ -8,6 +8,8 @@
 
 #include "AndroidBridge.h"
 #include "AndroidChoreographer.h"
+#include "AndroidUiThread.h"
+#include "mozilla/RecursiveMutex.h"
 #include "nsTArray.h"
 
 /**
@@ -72,34 +74,35 @@ class AndroidNativeVsync {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AndroidNativeVsync);
 
   AndroidNativeVsync(AndroidVsync* aAndroidVsync)
-      : mAndroidVsync(std::move(aAndroidVsync),
-                      "AndroidNativeVsync::mAndroidVsync") {
-    const auto* api = AndroidChoreographerApi::Get();
-    mChoreographer = api->AChoreographer_getInstance();
-  }
+      : mMutex("AndroidNativeVsync::mMutex"), mAndroidVsync(aAndroidVsync) {}
 
   // Called by NDK callback
   void NotifyVsync(int64_t aFrameTimeNanos) {
     printf_stderr("jamiedbg AndroidNativeVsync::NotifyVsync()");
-    auto androidVsync = mAndroidVsync.Lock();
-    if (*androidVsync && mObservingVsync) {
-      (*androidVsync)->NotifyVsync(aFrameTimeNanos);
+    auto lock = RecursiveMutexAutoLock(mMutex);
+    mPendingCallback = false;
+    if (mObservingVsync) {
+      PostCallback();
+      if (mAndroidVsync) {
+        mAndroidVsync->NotifyVsync(aFrameTimeNanos);
+      }
     }
   }
 
   // Called by the AndroidVsync destructor
   void Unlink() {
     printf_stderr("jamiedbg AndroidNativeVsync::Unlink()");
-    auto androidVsync = mAndroidVsync.Lock();
-    *androidVsync = nullptr;
+    auto lock = RecursiveMutexAutoLock(mMutex);
+    mAndroidVsync = nullptr;
   }
 
   bool ObserveVsync(bool aEnable) {
-    printf_stderr("jamiedbg AndroidNativeVsync::ObserveVsync() enable: %d", aEnable);
-    auto androidVsync = mAndroidVsync.Lock();
+    printf_stderr("jamiedbg AndroidNativeVsync::ObserveVsync() enable: %d",
+                  aEnable);
+    auto lock = RecursiveMutexAutoLock(mMutex);
     if (aEnable != mObservingVsync) {
       mObservingVsync = aEnable;
-      if (*androidVsync && aEnable) {
+      if (mAndroidVsync && mObservingVsync) {
         PostCallback();
       }
     }
@@ -107,31 +110,64 @@ class AndroidNativeVsync {
   }
 
  private:
- ~AndroidNativeVsync() = default;
+  ~AndroidNativeVsync() = default;
 
   void PostCallback() {
-    printf_stderr("jamiedbg AndroidNativeVsync::PostCallback()");
-    if (mChoreographer) {
-      const auto* api = AndroidChoreographerApi::Get();
-      // FIXME: if we enable and disable multiple times in a single interval then we will post multiple callbacks,
-      // and therefore AddRef multiple times, but we only release once in the callback.
-      AddRef();
-      api->AChoreographer_postFrameCallback64(
-          mChoreographer, [](int64_t frameTimeNanos, void* data) {
-            AndroidNativeVsync* self = (AndroidNativeVsync*)data;
-            self->NotifyVsync(frameTimeNanos);
-            self->Release();
-          }, this);
+    auto lock = RecursiveMutexAutoLock(mMutex);
+    printf_stderr(
+        "jamiedbg AndroidNativeVsync::PostCallback() mChoreographer: %p\n",
+        mChoreographer);
+    RefPtr<nsThread> uiThread = GetAndroidUiThread();
+    if (!mChoreographer && !uiThread->IsOnCurrentThread()) {
+      printf_stderr("jamiedbg mChoreographer is null and not on UI thread");
+      uiThread->Dispatch(
+          NewRunnableMethod<>("AndroidNativeVsync::PostCallback", this,
+                              &AndroidNativeVsync::PostCallback),
+          nsIThread::DISPATCH_NORMAL);
+      return;
     }
+
+    const auto* api = AndroidChoreographerApi::Get();
+
+    if (!mChoreographer) {
+      printf_stderr("jamiedbg Acquiring choreographer on UI thread");
+      MOZ_ASSERT(uiThread->IsOnCurrentThread());
+      mChoreographer = api->AChoreographer_getInstance();
+    }
+
+    MOZ_ASSERT(mChoreographer);
+
+    // FIXME: if we enable and disable multiple times in a single interval then
+    // we will post multiple callbacks, and therefore AddRef multiple times, but
+    // we only release once in the callback.
+    if (mPendingCallback) {
+      return;
+    }
+    AddRef();
+    printf_stderr("jamiedbg posting callback");
+    api->AChoreographer_postFrameCallback64(
+        mChoreographer,
+        [](int64_t frameTimeNanos, void* data) {
+          printf_stderr("jamiedbg frame callback");
+          AndroidNativeVsync* self = (AndroidNativeVsync*)data;
+          self->NotifyVsync(frameTimeNanos);
+          self->Release();
+        },
+        this);
+    printf_stderr("jamiedbg finished posting callback");
   }
 
-  DataMutex<AndroidVsync*> mAndroidVsync;
-  AChoreographer* mChoreographer = nullptr;
-  bool mObservingVsync = false;
+  RecursiveMutex mMutex;
+  AndroidVsync* mAndroidVsync MOZ_GUARDED_BY(mMutex);
+  AChoreographer* mChoreographer MOZ_GUARDED_BY(mMutex) = nullptr;
+  bool mObservingVsync MOZ_GUARDED_BY(mMutex) = false;
+  bool mPendingCallback MOZ_GUARDED_BY(mMutex) = false;
 };
 
-AndroidVsync::AndroidVsync()
-    : mImpl("AndroidVsync.mImpl") {
+AndroidVsync::AndroidVsync() : mImpl("AndroidVsync.mImpl") {
+  // FIXME: would like to put this in gfxPlatform, but the vsync singleton gets
+  // initialized before then
+  AndroidChoreographerApi::Init();
   AndroidVsyncSupport::Init();
 
   auto impl = mImpl.Lock();
