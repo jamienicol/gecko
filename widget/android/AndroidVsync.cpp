@@ -7,6 +7,7 @@
 #include "AndroidVsync.h"
 
 #include "AndroidBridge.h"
+#include "AndroidChoreographer.h"
 #include "nsTArray.h"
 
 /**
@@ -66,13 +67,81 @@ class AndroidVsyncSupport final
   DataMutex<AndroidVsync*> mAndroidVsync;
 };
 
-AndroidVsync::AndroidVsync() : mImpl("AndroidVsync.mImpl") {
+class AndroidNativeVsync {
+ public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AndroidNativeVsync);
+
+  AndroidNativeVsync(AndroidVsync* aAndroidVsync)
+      : mAndroidVsync(std::move(aAndroidVsync),
+                      "AndroidNativeVsync::mAndroidVsync") {
+    const auto* api = AndroidChoreographerApi::Get();
+    mChoreographer = api->AChoreographer_getInstance();
+  }
+
+  // Called by NDK callback
+  void NotifyVsync(int64_t aFrameTimeNanos) {
+    printf_stderr("jamiedbg AndroidNativeVsync::NotifyVsync()");
+    auto androidVsync = mAndroidVsync.Lock();
+    if (*androidVsync && mObservingVsync) {
+      (*androidVsync)->NotifyVsync(aFrameTimeNanos);
+    }
+  }
+
+  // Called by the AndroidVsync destructor
+  void Unlink() {
+    printf_stderr("jamiedbg AndroidNativeVsync::Unlink()");
+    auto androidVsync = mAndroidVsync.Lock();
+    *androidVsync = nullptr;
+  }
+
+  bool ObserveVsync(bool aEnable) {
+    printf_stderr("jamiedbg AndroidNativeVsync::ObserveVsync() enable: %d", aEnable);
+    auto androidVsync = mAndroidVsync.Lock();
+    if (aEnable != mObservingVsync) {
+      mObservingVsync = aEnable;
+      if (*androidVsync && aEnable) {
+        PostCallback();
+      }
+    }
+    return mObservingVsync;
+  }
+
+ private:
+ ~AndroidNativeVsync() = default;
+
+  void PostCallback() {
+    printf_stderr("jamiedbg AndroidNativeVsync::PostCallback()");
+    if (mChoreographer) {
+      const auto* api = AndroidChoreographerApi::Get();
+      // FIXME: if we enable and disable multiple times in a single interval then we will post multiple callbacks,
+      // and therefore AddRef multiple times, but we only release once in the callback.
+      AddRef();
+      api->AChoreographer_postFrameCallback64(
+          mChoreographer, [](int64_t frameTimeNanos, void* data) {
+            AndroidNativeVsync* self = (AndroidNativeVsync*)data;
+            self->NotifyVsync(frameTimeNanos);
+            self->Release();
+          }, this);
+    }
+  }
+
+  DataMutex<AndroidVsync*> mAndroidVsync;
+  AChoreographer* mChoreographer = nullptr;
+  bool mObservingVsync = false;
+};
+
+AndroidVsync::AndroidVsync()
+    : mImpl("AndroidVsync.mImpl") {
   AndroidVsyncSupport::Init();
 
   auto impl = mImpl.Lock();
-  impl->mSupport = new AndroidVsyncSupport(this);
-  impl->mSupportJava = java::AndroidVsync::New();
-  AndroidVsyncSupport::AttachNative(impl->mSupportJava, impl->mSupport);
+  if (true) {  // FIXME: if required NDK functions are supported
+    impl->mNative = new AndroidNativeVsync(this);
+  } else {
+    impl->mSupport = new AndroidVsyncSupport(this);
+    impl->mSupportJava = java::AndroidVsync::New();
+    AndroidVsyncSupport::AttachNative(impl->mSupportJava, impl->mSupport);
+  }
 }
 
 AndroidVsync::~AndroidVsync() {
@@ -80,7 +149,11 @@ AndroidVsync::~AndroidVsync() {
   impl->mInputObservers.Clear();
   impl->mRenderObservers.Clear();
   impl->UpdateObservingVsync();
-  impl->mSupport->Unlink();
+  if (impl->mNative) {
+    impl->mNative->Unlink();
+  } else {
+    impl->mSupport->Unlink();
+  }
 }
 
 void AndroidVsync::RegisterObserver(Observer* aObserver, ObserverType aType) {
@@ -108,7 +181,11 @@ void AndroidVsync::Impl::UpdateObservingVsync() {
   bool shouldObserve =
       !mInputObservers.IsEmpty() || !mRenderObservers.IsEmpty();
   if (shouldObserve != mObservingVsync) {
-    mObservingVsync = mSupportJava->ObserveVsync(shouldObserve);
+    if (mNative) {
+      mObservingVsync = mNative->ObserveVsync(shouldObserve);
+    } else {
+      mObservingVsync = mSupportJava->ObserveVsync(shouldObserve);
+    }
   }
 }
 

@@ -16,6 +16,7 @@ namespace mozilla {
 namespace widget {
 
 class AndroidVsyncSupport;
+class AndroidNativeVsync;
 
 /**
  * A thread-safe way to listen to vsync notifications on Android. All methods
@@ -52,10 +53,11 @@ class AndroidVsync final : public SupportsThreadSafeWeakPtr<AndroidVsync> {
 
  private:
   friend class AndroidVsyncSupport;
+  friend class AndroidNativeVsync;
 
   AndroidVsync();
 
-  // Called by Java, via AndroidVsyncSupport
+  // Called by Java via AndroidVsyncSupport, or NDK via AndroidNativeVsync
   void NotifyVsync(int64_t aFrameTimeNanos);
 
   struct Impl {
@@ -63,6 +65,7 @@ class AndroidVsync final : public SupportsThreadSafeWeakPtr<AndroidVsync> {
 
     nsTArray<Observer*> mInputObservers;
     nsTArray<Observer*> mRenderObservers;
+    RefPtr<AndroidNativeVsync> mNative;
     RefPtr<AndroidVsyncSupport> mSupport;
     java::AndroidVsync::GlobalRef mSupportJava;
     bool mObservingVsync = false;
