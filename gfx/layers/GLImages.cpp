@@ -130,6 +130,24 @@ Maybe<SurfaceDescriptor> SurfaceTextureImage::GetDesc() {
       mForceBT709ColorSpace, false /* NOT continuous */, mTransformOverride);
   return Some(sd);
 }
+
+ImageReaderImage::ImageReaderImage(AndroidSurfaceTextureHandle aHandle,
+                                   const gfx::IntSize& aSize,
+                                   gl::OriginPos aOriginPos, bool aHasAlpha)
+    : GLImage(ImageFormat::ANDROID_IMAGE_READER),
+      mHandle(aHandle),
+      mSize(aSize),
+      mOriginPos(aOriginPos),
+      mHasAlpha(aHasAlpha) {
+  MOZ_ASSERT(mHandle);
+}
+
+Maybe<SurfaceDescriptor> ImageReaderImage::GetDesc() {
+  SurfaceDescriptor sd = SurfaceDescriptorAndroidImageReader(
+      mHandle, mSize,
+      mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8);
+  return Some(sd);
+}
 #endif
 
 }  // namespace mozilla::layers

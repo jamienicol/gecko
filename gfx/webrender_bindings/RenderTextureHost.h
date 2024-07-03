@@ -32,6 +32,7 @@ namespace wr {
 class RenderEGLImageTextureHost;
 class RenderAndroidHardwareBufferTextureHost;
 class RenderAndroidSurfaceTextureHost;
+class RenderAndroidImageReaderTextureHost;
 class RenderCompositor;
 class RenderDXGITextureHost;
 class RenderDXGIYCbCrTextureHost;
@@ -137,6 +138,11 @@ class RenderTextureHost {
   }
 
   virtual RenderAndroidSurfaceTextureHost* AsRenderAndroidSurfaceTextureHost() {
+    return nullptr;
+  }
+
+  virtual RenderAndroidImageReaderTextureHost*
+  AsRenderAndroidImageReaderTextureHost() {
     return nullptr;
   }
 

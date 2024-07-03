@@ -42,6 +42,7 @@
 #include "mozilla/java/GeckoResultWrappers.h"
 #include "mozilla/java/GeckoThreadNatives.h"
 #include "mozilla/java/XPCOMEventTargetNatives.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/widget/ScreenManager.h"
 #include "prenv.h"
 #include "prtime.h"
@@ -406,6 +407,7 @@ nsAppShell::nsAppShell()
 
       if (XRE_IsGPUProcess()) {
         mozilla::gl::AndroidSurfaceTexture::Init();
+        mozilla::layers::AndroidImageReader::Init();
       }
 
       // Set the corresponding state in GeckoThread.
@@ -433,6 +435,7 @@ nsAppShell::nsAppShell()
     mozilla::widget::Base64UtilsSupport::Init();
     nsWindow::InitNatives();
     mozilla::gl::AndroidSurfaceTexture::Init();
+    mozilla::layers::AndroidImageReader::Init();
 
     java::GeckoThread::SetState(java::GeckoThread::State::JNI_READY());
 

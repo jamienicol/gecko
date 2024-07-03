@@ -56,6 +56,7 @@ namespace layers {
 
 class AndroidHardwareBuffer;
 class AndroidHardwareBufferTextureHost;
+class AndroidImageReaderTextureHost;
 class BufferDescriptor;
 class BufferTextureHost;
 class Compositor;
@@ -365,6 +366,7 @@ enum class TextureHostType : int8_t {
   MacIOSurface,
   AndroidSurfaceTexture,
   AndroidHardwareBuffer,
+  AndroidImageReader,
   EGLImage,
   GLTexture,
   Last
@@ -614,6 +616,9 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   virtual SurfaceTextureHost* AsSurfaceTextureHost() { return nullptr; }
   virtual AndroidHardwareBufferTextureHost*
   AsAndroidHardwareBufferTextureHost() {
+    return nullptr;
+  }
+  virtual AndroidImageReaderTextureHost* AsAndroidImageReaderTextureHost() {
     return nullptr;
   }
   virtual RemoteTextureHostWrapper* AsRemoteTextureHostWrapper() {

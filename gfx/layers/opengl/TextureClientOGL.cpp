@@ -325,6 +325,44 @@ AndroidHardwareBufferTextureData::GetAcquireFence() {
   return mAndroidHardwareBuffer->GetAcquireFence();
 }
 
+already_AddRefed<TextureClient>
+AndroidImageReaderTextureData::CreateTextureClient(
+    AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize,
+    gl::OriginPos aOriginPos, bool aHasAlpha, LayersIPCChannel* aAllocator,
+    TextureFlags aFlags) {
+  if (aOriginPos == gl::OriginPos::BottomLeft) {
+    aFlags |= TextureFlags::ORIGIN_BOTTOM_LEFT;
+  }
+
+  return TextureClient::CreateWithData(
+      new AndroidImageReaderTextureData(aHandle, aSize, aHasAlpha), aFlags,
+      aAllocator);
+}
+
+AndroidImageReaderTextureData::AndroidImageReaderTextureData(
+    AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aHasAlpha)
+    : mHandle(aHandle), mSize(aSize), mHasAlpha(aHasAlpha) {
+  MOZ_ASSERT(mHandle);
+}
+
+AndroidImageReaderTextureData::~AndroidImageReaderTextureData() {}
+
+void AndroidImageReaderTextureData::FillInfo(TextureData::Info& aInfo) const {
+  aInfo.size = mSize;
+  aInfo.format = gfx::SurfaceFormat::UNKNOWN;
+  aInfo.hasSynchronization = false;
+  aInfo.supportsMoz2D = false;
+  aInfo.canExposeMappedData = false;
+}
+
+bool AndroidImageReaderTextureData::Serialize(
+    SurfaceDescriptor& aOutDescriptor) {
+  aOutDescriptor = SurfaceDescriptorAndroidImageReader(
+      mHandle, mSize,
+      mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8);
+  return true;
+}
+
 #endif  // MOZ_WIDGET_ANDROID
 
 }  // namespace layers

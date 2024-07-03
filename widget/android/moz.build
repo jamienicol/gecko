@@ -46,6 +46,7 @@ classes_with_WrapForJNI = [
     "GeckoHLSDemuxerWrapper",
     "GeckoHLSResourceWrapper",
     "GeckoHLSSample",
+    "GeckoImageReader",
     "GeckoInputStream",
     "GeckoJavaSampler",
     "GeckoNetworkManager",

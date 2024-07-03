@@ -35,6 +35,14 @@ public final class GeckoSurface implements Parcelable {
     mMyPid = android.os.Process.myPid();
   }
 
+  public GeckoSurface(final Surface surface, final long handle) {
+    mSurface = surface;
+    mHandle = handle;
+    mIsSingleBuffer = false;
+    mIsAvailable = true;
+    mMyPid = android.os.Process.myPid();
+  }
+
   public GeckoSurface(final Parcel p) {
     mSurface = Surface.CREATOR.createFromParcel(p);
     mHandle = p.readLong();

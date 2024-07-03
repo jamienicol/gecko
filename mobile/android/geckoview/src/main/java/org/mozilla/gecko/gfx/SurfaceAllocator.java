@@ -5,6 +5,7 @@
 
 package org.mozilla.gecko.gfx;
 
+import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -134,6 +135,75 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
       }
     } catch (final RemoteException e) {
       Log.w(LOGTAG, "Failed to sync texture", e);
+    }
+  }
+
+  @WrapForJNI
+  public static synchronized GeckoSurface acquireImageReader(
+      final int width, final int height, final int format, final int maxImages, final long usage) {
+    try {
+      // We require SDK Level 26 (Android 8.0) for AImage_getHardwareBuffer() without which we
+      // cannot render the Images acquired from the ImageReader, and ANativeWindow_toSurface()
+      // without which we cannot obtain a Java Surface from the ImageReader to return from this
+      // function.
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        return null;
+      }
+
+      ensureConnection();
+
+      if (sAllocator == null) {
+        Log.w(LOGTAG, "Failed to acquire ImageReader: not connected");
+        return null;
+      }
+
+      final GeckoSurface surface =
+          sAllocator.acquireImageReader(width, height, format, maxImages, usage);
+      if (surface == null) {
+        Log.w(LOGTAG, "Failed to acquire ImageReader: RemoteSurfaceAllocator returned null");
+        return null;
+      }
+      sSurfaces.put(surface.getHandle(), surface);
+
+      // FIXME: handle sync?
+      // if (!surface.inProcess()) {
+      //   final SyncConfig config = surface.initSyncSurface(width, height);
+      //   if (config != null) {
+      //     sAllocator.configureSync(config);
+      //   }
+      // }
+      return surface;
+    } catch (final RemoteException e) {
+      Log.w(LOGTAG, "Failed to acquire ImageReader", e);
+      return null;
+    }
+  }
+
+  @WrapForJNI
+  public static synchronized void disposeImageReader(final GeckoSurface surface) {
+    // If the surface has already been released (probably due to losing connection to the remote
+    // allocator) then there is nothing to do here.
+    if (surface.isReleased()) {
+      return;
+    }
+
+    sSurfaces.remove(surface.getHandle());
+
+    // Release our Surface
+    surface.release();
+
+    if (sAllocator == null) {
+      return;
+    }
+
+    // Release the ImageReader on the other side. If we have lost connection then do nothing, as
+    // there is nothing on the other side to release.
+    try {
+      if (sAllocator != null) {
+        sAllocator.releaseImageReader(surface.getHandle());
+      }
+    } catch (final RemoteException e) {
+      Log.w(LOGTAG, "Failed to release ImageReader", e);
     }
   }
 }

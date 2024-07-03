@@ -74,4 +74,19 @@ public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
       gst.takeSnapshot();
     }
   }
+
+  @Override
+  public GeckoSurface acquireImageReader(
+      final int width, final int height, final int format, final int maxImages, final long usage) {
+    final long handle = ((long) mAllocatorId << 32) | sNextHandle.getAndIncrement();
+
+    final GeckoImageReader imageReader =
+        GeckoImageReader.create(handle, width, height, format, maxImages, usage);
+    return new GeckoSurface(imageReader.getSurface(), handle);
+  }
+
+  @Override
+  public void releaseImageReader(final long handle) {
+    GeckoImageReader.release(handle);
+  }
 }

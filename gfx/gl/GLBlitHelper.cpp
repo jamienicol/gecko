@@ -937,6 +937,17 @@ bool GLBlitHelper::BlitImageToFramebuffer(layers::Image* const srcImage,
       return false;
 #endif
     }
+    case ImageFormat::ANDROID_IMAGE_READER: {
+#ifdef MOZ_WIDGET_ANDROID
+      // FIXME: implement
+      // auto* image = srcImage->AsImageReaderImage();
+      // MOZ_ASSERT(image);
+      return false;
+#else
+      MOZ_ASSERT(false);
+      return false;
+#endif
+    }
     case ImageFormat::MAC_IOSURFACE:
 #ifdef XP_MACOSX
       return BlitImage(srcImage->AsMacIOSurfaceImage(), destSize, destOrigin);

@@ -96,6 +96,12 @@ namespace layers {
   Matrix4x4? transformOverride;
 };
 
+[Comparable] struct SurfaceDescriptorAndroidImageReader {
+  uint64_t handle;
+  IntSize size;
+  SurfaceFormat format;
+};
+
 [Comparable] struct SurfaceDescriptorAndroidHardwareBuffer {
   uint64_t bufferId;
   IntSize size;
@@ -204,6 +210,7 @@ namespace layers {
   SurfaceDescriptorDXGIYCbCr;
   SurfaceDescriptorDMABuf;
   SurfaceTextureDescriptor;
+  SurfaceDescriptorAndroidImageReader;
   SurfaceDescriptorAndroidHardwareBuffer;
   EGLImageDescriptor;
   SurfaceDescriptorMacIOSurface;

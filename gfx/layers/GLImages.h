@@ -25,6 +25,12 @@ namespace layers {
 
 class GLImage : public Image {
  public:
+  class SetCurrentCallback {
+   public:
+    virtual void operator()(void) = 0;
+    virtual ~SetCurrentCallback() {}
+  };
+
   explicit GLImage(ImageFormat aFormat) : Image(nullptr, aFormat) {}
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
@@ -35,22 +41,30 @@ class GLImage : public Image {
 
   GLImage* AsGLImage() override { return this; }
 
+  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
+    mSetCurrentCallback = std::move(aCallback);
+  }
+
+  void OnSetCurrent() {
+    if (mSetCurrentCallback) {
+      (*mSetCurrentCallback)();
+      mSetCurrentCallback.reset();
+    }
+  }
+
  protected:
   nsresult ReadIntoBuffer(uint8_t* aData, int32_t aStride,
                           const gfx::IntSize& aSize,
                           gfx::SurfaceFormat aFormat);
+
+ private:
+  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
 };
 
 #ifdef MOZ_WIDGET_ANDROID
 
 class SurfaceTextureImage final : public GLImage {
  public:
-  class SetCurrentCallback {
-   public:
-    virtual void operator()(void) = 0;
-    virtual ~SetCurrentCallback() {}
-  };
-
   SurfaceTextureImage(AndroidSurfaceTextureHandle aHandle,
                       const gfx::IntSize& aSize, bool aContinuous,
                       gl::OriginPos aOriginPos, bool aHasAlpha,
@@ -87,17 +101,6 @@ class SurfaceTextureImage final : public GLImage {
 
   Maybe<SurfaceDescriptor> GetDesc() override;
 
-  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
-    mSetCurrentCallback = std::move(aCallback);
-  }
-
-  void OnSetCurrent() {
-    if (mSetCurrentCallback) {
-      (*mSetCurrentCallback)();
-      mSetCurrentCallback.reset();
-    }
-  }
-
  private:
   AndroidSurfaceTextureHandle mHandle;
   gfx::IntSize mSize;
@@ -106,7 +109,41 @@ class SurfaceTextureImage final : public GLImage {
   const bool mHasAlpha;
   const bool mForceBT709ColorSpace;
   const Maybe<gfx::Matrix4x4> mTransformOverride;
-  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
+};
+
+class ImageReaderImage final : public GLImage {
+ public:
+  // FIXME: use ImageReaderHandle?
+  ImageReaderImage(AndroidSurfaceTextureHandle aHandle,
+                   const gfx::IntSize& aSize, gl::OriginPos aOriginPos,
+                   bool aHasAlpha);
+
+  gfx::IntSize GetSize() const override { return mSize; }
+  AndroidSurfaceTextureHandle GetHandle() const { return mHandle; }
+  gl::OriginPos GetOriginPos() const { return mOriginPos; }
+  bool GetHasAlpha() const { return mHasAlpha; }
+
+  already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override {
+    // FIXME: implement
+    return nullptr;
+  }
+
+  nsresult BuildSurfaceDescriptorBuffer(
+      SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
+      const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override {
+    // FIXME: implement
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
+  ImageReaderImage* AsImageReaderImage() override { return this; }
+
+  Maybe<SurfaceDescriptor> GetDesc() override;
+
+ private:
+  const AndroidSurfaceTextureHandle mHandle;
+  const gfx::IntSize mSize;
+  const gl::OriginPos mOriginPos;
+  const bool mHasAlpha;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

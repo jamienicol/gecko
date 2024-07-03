@@ -12,4 +12,6 @@ interface ISurfaceAllocator {
     void releaseSurface(in long handle);
     void configureSync(in SyncConfig config);
     void sync(in long handle);
+    GeckoSurface acquireImageReader(in int width, in int height, in int format, in int maxImages, in long usage);
+    void releaseImageReader(in long handle);
 }
