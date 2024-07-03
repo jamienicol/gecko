@@ -5,6 +5,7 @@
 
 package org.mozilla.gecko.gfx;
 
+import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -66,8 +67,9 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
     }
   }
 
+  // Acquires a Surface attached to a SurfaceTexture consumer
   @WrapForJNI
-  public static synchronized GeckoSurface acquireSurface(
+  public static synchronized GeckoSurface acquireSurfaceTexture(
       final int width, final int height, final boolean singleBufferMode) {
     try {
       ensureConnection();
@@ -77,7 +79,7 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
         return null;
       }
 
-      final GeckoSurface surface = sAllocator.acquireSurface(width, height, singleBufferMode);
+      final GeckoSurface surface = sAllocator.acquireSurfaceTexture(width, height, singleBufferMode);
       if (surface == null) {
         Log.w(LOGTAG, "Failed to acquire GeckoSurface: RemoteSurfaceAllocator returned null");
         return null;
@@ -93,6 +95,41 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
       return surface;
     } catch (final RemoteException e) {
       Log.w(LOGTAG, "Failed to acquire GeckoSurface", e);
+      return null;
+    }
+  }
+
+  // Acquires a Surface attached to an ImageReader consumer
+  @WrapForJNI
+  public static synchronized GeckoSurface acquireImageReader(
+          final int width, final int height, final int format, final int maxImages, final long usage) {
+    try {
+      // We require SDK Level 26 (Android 8.0) for AImage_getHardwareBuffer() without which we
+      // cannot render the Images acquired from the ImageReader, and ANativeWindow_toSurface()
+      // without which we cannot obtain a Java Surface from the ImageReader to return from this
+      // function.
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        return null;
+      }
+
+      ensureConnection();
+
+      if (sAllocator == null) {
+        Log.w(LOGTAG, "Failed to acquire ImageReader: not connected");
+        return null;
+      }
+
+      final GeckoSurface surface =
+              sAllocator.acquireImageReader(width, height, format, maxImages, usage);
+      if (surface == null) {
+        Log.w(LOGTAG, "Failed to acquire ImageReader: RemoteSurfaceAllocator returned null");
+        return null;
+      }
+      sSurfaces.put(surface.getHandle(), surface);
+
+      return surface;
+    } catch (final RemoteException e) {
+      Log.w(LOGTAG, "Failed to acquire ImageReader", e);
       return null;
     }
   }
@@ -117,11 +154,13 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
     // Release the SurfaceTexture on the other side. If we have lost connection then do nothing, as
     // there is nothing on the other side to release.
     try {
-      if (sAllocator != null) {
-        sAllocator.releaseSurface(surface.getHandle());
+      if (surface.getConsumerType() == GeckoSurface.ConsumerType.SURFACE_TEXTURE) {
+        sAllocator.releaseSurfaceTexture(surface.getHandle());
+      } else if (surface.getConsumerType() == GeckoSurface.ConsumerType.IMAGE_READER) {
+        sAllocator.releaseImageReader(surface.getHandle());
       }
     } catch (final RemoteException e) {
-      Log.w(LOGTAG, "Failed to release surface texture", e);
+      Log.w(LOGTAG, "Failed to release surface", e);
     }
   }
 

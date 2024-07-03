@@ -7,16 +7,34 @@ package org.mozilla.gecko.gfx;
 
 import static org.mozilla.geckoview.BuildConfig.DEBUG_BUILD;
 
+import android.media.ImageReader;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.view.Surface;
+
+import androidx.annotation.IntDef;
+
 import org.mozilla.gecko.annotation.WrapForJNI;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 public final class GeckoSurface implements Parcelable {
   private static final String LOGTAG = "GeckoSurface";
 
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({ConsumerType.SURFACE_TEXTURE, ConsumerType.IMAGE_READER})
+  /* package */ @interface ConsumerType {
+    @WrapForJNI
+    static final int SURFACE_TEXTURE = 0;
+    @WrapForJNI
+    static final int IMAGE_READER = 1;
+  };
+
+
   private Surface mSurface;
   private long mHandle;
+  private final @ConsumerType int mConsumerType;
   private boolean mIsSingleBuffer;
   private volatile boolean mIsAvailable;
   private boolean mOwned = true;
@@ -30,7 +48,17 @@ public final class GeckoSurface implements Parcelable {
   public GeckoSurface(final GeckoSurfaceTexture gst) {
     mSurface = new Surface(gst);
     mHandle = gst.getHandle();
+    mConsumerType = ConsumerType.SURFACE_TEXTURE;
     mIsSingleBuffer = gst.isSingleBuffer();
+    mIsAvailable = true;
+    mMyPid = android.os.Process.myPid();
+  }
+
+  public GeckoSurface(final GeckoImageReader imageReader) {
+    mSurface = imageReader.getSurface();
+    mHandle = imageReader.getHandle();
+    mConsumerType = ConsumerType.IMAGE_READER;
+    mIsSingleBuffer = false;
     mIsAvailable = true;
     mMyPid = android.os.Process.myPid();
   }
@@ -38,6 +66,7 @@ public final class GeckoSurface implements Parcelable {
   public GeckoSurface(final Parcel p) {
     mSurface = Surface.CREATOR.createFromParcel(p);
     mHandle = p.readLong();
+    mConsumerType = p.readInt();
     mIsSingleBuffer = p.readByte() == 1;
     mIsAvailable = p.readByte() == 1;
     mMyPid = p.readInt();
@@ -75,6 +104,7 @@ public final class GeckoSurface implements Parcelable {
     mOwned = false;
 
     out.writeLong(mHandle);
+    out.writeInt(mConsumerType);
     out.writeByte((byte) (mIsSingleBuffer ? 1 : 0));
     out.writeByte((byte) (mIsAvailable ? 1 : 0));
     out.writeInt(mMyPid);
@@ -103,6 +133,11 @@ public final class GeckoSurface implements Parcelable {
   @WrapForJNI
   public long getHandle() {
     return mHandle;
+  }
+
+  @WrapForJNI
+  /* package */ @ConsumerType int getConsumerType() {
+    return mConsumerType;
   }
 
   @WrapForJNI

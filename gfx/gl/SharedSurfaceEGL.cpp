@@ -139,14 +139,14 @@ UniquePtr<SharedSurface_SurfaceTexture> SharedSurface_SurfaceTexture::Create(
       desc.gl->Renderer() != GLRenderer::AndroidEmulator;
 
   if (useSingleBuffer) {
-    surfaceObj =
-        java::SurfaceAllocator::AcquireSurface(size.width, size.height, true);
+    surfaceObj = java::SurfaceAllocator::AcquireSurfaceTexture(
+        size.width, size.height, true);
   }
 
   if (!surfaceObj) {
     // Try multi-buffer mode
-    surfaceObj =
-        java::SurfaceAllocator::AcquireSurface(size.width, size.height, false);
+    surfaceObj = java::SurfaceAllocator::AcquireSurfaceTexture(
+        size.width, size.height, false);
   }
 
   if (!surfaceObj) {

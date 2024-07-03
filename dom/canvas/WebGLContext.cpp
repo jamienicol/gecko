@@ -642,6 +642,11 @@ RefPtr<WebGLContext> WebGLContext::Create(HostWebGLContext* host,
     }
     if (kIsAndroid) {
       types[layers::SurfaceDescriptor::TSurfaceTextureDescriptor] = true;
+      // We only have access to the ImageReader in the compositor process
+      if (webgl->mHost && webgl->mHost->mOwnerData.outOfProcess) {
+        types[layers::SurfaceDescriptor::TSurfaceDescriptorAndroidImageReader] =
+            true;
+      }
     }
     if (kIsLinux) {
       types[layers::SurfaceDescriptor::TSurfaceDescriptorDMABuf] = true;

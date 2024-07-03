@@ -27,7 +27,9 @@
 #include "mozilla/java/SampleBufferWrappers.h"
 #include "mozilla/java/SampleWrappers.h"
 #include "mozilla/java/SurfaceAllocatorWrappers.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "nsPromiseFlatString.h"
 #include "nsThreadUtils.h"
 #include "prlog.h"
@@ -190,9 +192,19 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     }
     mInputBufferInfo = bufferInfo;
 
-    mSurface =
-        java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
-            mConfig.mImage.width, mConfig.mImage.height, false));
+    if (StaticPrefs::media_android_image_reader_enabled()) {
+      mSurface = java::GeckoSurface::LocalRef(
+          java::SurfaceAllocator::AcquireImageReader(
+              mConfig.mImage.width, mConfig.mImage.height,
+              AIMAGE_FORMAT_PRIVATE, 6,
+              AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+                  AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY));
+    }
+    if (!mSurface) {
+      mSurface = java::GeckoSurface::LocalRef(
+          java::SurfaceAllocator::AcquireSurfaceTexture(
+              mConfig.mImage.width, mConfig.mImage.height, false));
+    }
     if (!mSurface) {
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
@@ -370,7 +382,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
       return;
     }
 
-    UniquePtr<layers::SurfaceTextureImage::SetCurrentCallback> releaseSample(
+    UniquePtr<layers::GLImage::SetCurrentCallback> releaseSample(
         new CompositeListener(mJavaDecoder, aSample));
 
     // If our output surface has been released (due to the GPU process crashing)
@@ -423,13 +435,25 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
       bool forceBT709ColorSpace =
           isSmpte432Buggy &&
           (mColorSpace == Some(10) || mColorSpace == Some(65800));
+      // FIXME: is the BT709 workaround required with ImageReader? (presumably..
+      // chrome had the bug with SurfaceControl disabled but presumably still
+      // using ImageReader)
 
-      RefPtr<layers::Image> img = new layers::SurfaceTextureImage(
-          mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,
-          gl::OriginPos::BottomLeft, mConfig.HasAlpha(), forceBT709ColorSpace,
-          mTransformOverride);
-      img->AsSurfaceTextureImage()->RegisterSetCurrentCallback(
-          std::move(releaseSample));
+      RefPtr<layers::Image> img;
+      if (mSurface->GetConsumerType() ==
+          mozilla::java::GeckoSurface::ConsumerType::SURFACE_TEXTURE) {
+        img = new layers::SurfaceTextureImage(
+            mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,
+            gl::OriginPos::BottomLeft, mConfig.HasAlpha(), forceBT709ColorSpace,
+            mTransformOverride);
+      } else if (mSurface->GetConsumerType() ==
+                 mozilla::java::GeckoSurface::ConsumerType::IMAGE_READER) {
+        img = new layers::ImageReaderImage(
+            mSurfaceHandle, presentationTimeUs * 1000, inputInfo.mImageSize,
+            gl::OriginPos::TopLeft, mConfig.HasAlpha());
+      }
+
+      img->AsGLImage()->RegisterSetCurrentCallback(std::move(releaseSample));
 
       RefPtr<VideoData> v = VideoData::CreateFromImage(
           inputInfo.mDisplaySize, offset,
@@ -567,7 +591,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
 
   const VideoInfo mConfig;
   java::GeckoSurface::GlobalRef mSurface;
-  AndroidSurfaceTextureHandle mSurfaceHandle{};
+  AndroidSurfaceHandle mSurfaceHandle{};
   // Used to override the SurfaceTexture transform on some devices where the
   // decoder provides a buggy value.
   Maybe<gfx::Matrix4x4> mTransformOverride;

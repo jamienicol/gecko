@@ -210,6 +210,7 @@ already_AddRefed<TextureHost> TextureHost::Create(
 
     case SurfaceDescriptor::TEGLImageDescriptor:
     case SurfaceDescriptor::TSurfaceTextureDescriptor:
+    case SurfaceDescriptor::TSurfaceDescriptorAndroidImageReader:
     case SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer:
     case SurfaceDescriptor::TSurfaceDescriptorSharedGLTexture:
     case SurfaceDescriptor::TSurfaceDescriptorDMABuf:

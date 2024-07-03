@@ -125,6 +125,13 @@ already_AddRefed<TextureClient> ImageClient::CreateTextureClientForImage(
         typedImage->GetForceBT709ColorSpace(),
         typedImage->GetTransformOverride(),
         aKnowsCompositor->GetTextureForwarder(), TextureFlags::DEFAULT);
+  } else if (aImage->GetFormat() == ImageFormat::ANDROID_IMAGE_READER) {
+    ImageReaderImage* typedImage = aImage->AsImageReaderImage();
+    texture = AndroidImageReaderTextureData::CreateTextureClient(
+        typedImage->GetHandle(), typedImage->GetTimestamp(),
+        typedImage->GetSize(), typedImage->GetOriginPos(),
+        typedImage->GetHasAlpha(), aKnowsCompositor->GetTextureForwarder(),
+        TextureFlags::DEFAULT);
 #endif
   } else {
     RefPtr<gfx::SourceSurface> surface = aImage->GetAsSourceSurface();

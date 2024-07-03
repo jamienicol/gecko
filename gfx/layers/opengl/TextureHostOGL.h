@@ -34,6 +34,7 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "AndroidSurfaceTexture.h"
+#  include "AndroidImage.h"
 #  include "mozilla/java/GeckoSurfaceTextureWrappers.h"
 #endif
 
@@ -559,6 +560,73 @@ class AndroidHardwareBufferTextureHost : public TextureHost {
 
  protected:
   RefPtr<AndroidHardwareBuffer> mAndroidHardwareBuffer;
+};
+
+class AndroidImageReaderTextureHost : public TextureHost {
+ public:
+  AndroidImageReaderTextureHost(TextureFlags aFlags,
+                                RefPtr<AndroidImageReader> aImageReader,
+                                int64_t aTimestamp, gfx::IntSize aSize,
+                                gfx::SurfaceFormat aFormat);
+
+  virtual ~AndroidImageReaderTextureHost();
+
+  void DeallocateDeviceData() override;
+
+  gfx::SurfaceFormat GetFormat() const override;
+
+  already_AddRefed<gfx::DataSourceSurface> GetAsSurface(
+      gfx::DataSourceSurface* aSurface) override {
+    return nullptr;  // XXX - implement this (for MOZ_DUMP_PAINTING)
+  }
+
+  gl::GLContext* gl() const;
+
+  gfx::IntSize GetSize() const override { return mSize; }
+
+  const char* Name() override { return "AndroidImageReaderTextureHost"; }
+
+  AndroidImageReaderTextureHost* AsAndroidImageReaderTextureHost() override {
+    return this;
+  }
+
+  // FIXME: what do we do about this?
+  // This ensures PrepareForUse/NotifyForUse/NotifyNotUsed are called for the
+  // RenderTexture on the RenderThread. (And in the case of NotifyForUse, called
+  // at all). Perhaps we instead want to acquire the images on the compositor
+  // thread in the non-rendertexture (ie this class)
+  bool IsWrappingSurfaceTextureHost() override { return true; }
+
+  void CreateRenderTexture(
+      const wr::ExternalImageId& aExternalImageId) override;
+
+  uint32_t NumSubTextures() override;
+
+  void PushResourceUpdates(wr::TransactionBuilder& aResources,
+                           ResourceUpdateOp aOp,
+                           const Range<wr::ImageKey>& aImageKeys,
+                           const wr::ExternalImageId& aExtID) override;
+
+  void PushDisplayItems(wr::DisplayListBuilder& aBuilder,
+                        const wr::LayoutRect& aBounds,
+                        const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+                        const Range<wr::ImageKey>& aImageKeys,
+                        PushDisplayItemFlagSet aFlags) override;
+
+  bool SupportsExternalCompositing(WebRenderBackend aBackend) override;
+
+  // gecko does not need deferred deletion with WebRender
+  // GPU/hardware task end could be checked by android fence.
+  // SurfaceTexture uses android fence internally,
+  bool NeedsDeferredDeletion() const override { return false; }
+
+ protected:
+  RefPtr<AndroidImageReader> mImageReader;
+  const int64_t mTimestamp;
+  const gfx::IntSize mSize;
+  const gfx::SurfaceFormat mFormat;
+  RefPtr<CompositorOGL> mCompositor;
+  // RefPtr<SurfaceTextureSource> mTextureSource;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

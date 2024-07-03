@@ -8,8 +8,10 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 import org.mozilla.gecko.gfx.SyncConfig;
 
 interface ISurfaceAllocator {
-    GeckoSurface acquireSurface(in int width, in int height, in boolean singleBufferMode);
-    void releaseSurface(in long handle);
+    GeckoSurface acquireSurfaceTexture(in int width, in int height, in boolean singleBufferMode);
+    void releaseSurfaceTexture(in long handle);
+    GeckoSurface acquireImageReader(in int width, in int height, in int format, in int maxImages, in long usage);
+    void releaseImageReader(in long handle);
     void configureSync(in SyncConfig config);
     void sync(in long handle);
 }

@@ -21,7 +21,7 @@ import org.mozilla.gecko.mozglue.JNIObject;
   private static final LongSparseArray<GeckoSurfaceTexture> sSurfaceTextures =
       new LongSparseArray<GeckoSurfaceTexture>();
 
-  private static LongSparseArray<LinkedList<GeckoSurfaceTexture>> sUnusedTextures =
+  private static final LongSparseArray<LinkedList<GeckoSurfaceTexture>> sUnusedTextures =
       new LongSparseArray<LinkedList<GeckoSurfaceTexture>>();
 
   private long mHandle;

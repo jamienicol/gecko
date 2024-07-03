@@ -40,7 +40,7 @@ class AndroidHardwareBuffer;
 class AndroidSurfaceTextureData : public TextureData {
  public:
   static already_AddRefed<TextureClient> CreateTextureClient(
-      AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aContinuous,
+      AndroidSurfaceHandle aHandle, gfx::IntSize aSize, bool aContinuous,
       gl::OriginPos aOriginPos, bool aHasAlpha, bool aForceBT709ColorSpace,
       Maybe<gfx::Matrix4x4> aTransformOverride, LayersIPCChannel* aAllocator,
       TextureFlags aFlags);
@@ -60,12 +60,12 @@ class AndroidSurfaceTextureData : public TextureData {
   void Deallocate(LayersIPCChannel*) override {}
 
  protected:
-  AndroidSurfaceTextureData(AndroidSurfaceTextureHandle aHandle,
+  AndroidSurfaceTextureData(AndroidSurfaceHandle aHandle,
                             gfx::IntSize aSize, bool aContinuous,
                             bool aHasAlpha, bool aForceBT709ColorSpace,
                             Maybe<gfx::Matrix4x4> aTransformOverride);
 
-  const AndroidSurfaceTextureHandle mHandle;
+  const AndroidSurfaceHandle mHandle;
   const gfx::IntSize mSize;
   const bool mContinuous;
   const bool mHasAlpha;
@@ -159,6 +159,38 @@ class AndroidHardwareBufferTextureData : public TextureData {
 
   // Keeps track of whether the underlying NativeWindow is actually locked.
   bool mIsLocked;
+};
+
+class AndroidImageReaderTextureData : public TextureData {
+ public:
+  static already_AddRefed<TextureClient> CreateTextureClient(
+      AndroidSurfaceHandle aHandle, int64_t aTimestamp,
+      gfx::IntSize aSize, gl::OriginPos aOriginPos, bool aHasAlpha,
+      LayersIPCChannel* aAllocator, TextureFlags aFlags);
+
+  virtual ~AndroidImageReaderTextureData();
+
+  void FillInfo(TextureData::Info& aInfo) const override;
+
+  bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+
+  // Useless functions.
+  bool Lock(OpenMode) override { return true; }
+
+  void Unlock() override {}
+
+  // Our data is always owned externally.
+  void Deallocate(LayersIPCChannel*) override {}
+
+ protected:
+  AndroidImageReaderTextureData(AndroidSurfaceHandle aHandle,
+                                int64_t aTimestamp, gfx::IntSize aSize,
+                                bool aHasAlpha);
+
+  const AndroidSurfaceHandle mHandle;
+  const int64_t mTimestamp;
+  const gfx::IntSize mSize;
+  const bool mHasAlpha;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

@@ -28,8 +28,10 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/layers/AndroidImage.h"
 #  include "mozilla/webrender/RenderAndroidHardwareBufferTextureHost.h"
 #  include "mozilla/webrender/RenderAndroidSurfaceTextureHost.h"
+#  include "mozilla/webrender/RenderAndroidImageReaderTextureHost.h"
 #endif
 
 #ifdef MOZ_WIDGET_GTK
@@ -70,6 +72,16 @@ already_AddRefed<TextureHost> CreateTextureHostOGL(
       result = new SurfaceTextureHost(
           aFlags, surfaceTexture, desc.size(), desc.format(), desc.continuous(),
           desc.forceBT709ColorSpace(), desc.transformOverride());
+      break;
+    }
+    case SurfaceDescriptor::TSurfaceDescriptorAndroidImageReader: {
+      const SurfaceDescriptorAndroidImageReader& desc =
+          aDesc.get_SurfaceDescriptorAndroidImageReader();
+      RefPtr<AndroidImageReader> imageReader =
+          AndroidImageReader::Lookup(desc.handle());
+
+      result = new AndroidImageReaderTextureHost(
+          aFlags, imageReader, desc.timestamp(), desc.size(), desc.format());
       break;
     }
     case SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer: {
@@ -912,6 +924,118 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
 }
 
 bool AndroidHardwareBufferTextureHost::SupportsExternalCompositing(
+    WebRenderBackend aBackend) {
+  return aBackend == WebRenderBackend::SOFTWARE;
+}
+
+///////////////////////////////////////////
+
+AndroidImageReaderTextureHost::AndroidImageReaderTextureHost(
+    TextureFlags aFlags, RefPtr<AndroidImageReader> aImageReader,
+    int64_t aTimestamp, gfx::IntSize aSize, gfx::SurfaceFormat aFormat)
+    : TextureHost(TextureHostType::AndroidSurfaceTexture, aFlags),
+      mImageReader(std::move(aImageReader)),
+      mTimestamp(aTimestamp),
+      mSize(aSize),
+      mFormat(aFormat) {
+}
+
+AndroidImageReaderTextureHost::~AndroidImageReaderTextureHost() {}
+
+gl::GLContext* AndroidImageReaderTextureHost::gl() const { return nullptr; }
+
+gfx::SurfaceFormat AndroidImageReaderTextureHost::GetFormat() const {
+  return mFormat;
+}
+
+void AndroidImageReaderTextureHost::DeallocateDeviceData() {
+  mImageReader = nullptr;
+}
+
+void AndroidImageReaderTextureHost::CreateRenderTexture(
+    const wr::ExternalImageId& aExternalImageId) {
+  MOZ_ASSERT(mExternalImageId.isSome());
+
+  RefPtr<wr::RenderTextureHost> texture =
+      new wr::RenderAndroidImageReaderTextureHost(mImageReader, mTimestamp,
+                                                  mSize, mFormat);
+  wr::RenderThread::Get()->RegisterExternalImage(aExternalImageId,
+                                                 texture.forget());
+}
+
+uint32_t AndroidImageReaderTextureHost::NumSubTextures() {
+  return mImageReader ? 1 : 0;
+}
+
+void AndroidImageReaderTextureHost::PushResourceUpdates(
+    wr::TransactionBuilder& aResources, ResourceUpdateOp aOp,
+    const Range<wr::ImageKey>& aImageKeys, const wr::ExternalImageId& aExtID) {
+  auto method = aOp == TextureHost::ADD_IMAGE
+                    ? &wr::TransactionBuilder::AddExternalImage
+                    : &wr::TransactionBuilder::UpdateExternalImage;
+
+  // Prefer TextureExternal unless the backend requires TextureRect.
+  TextureHost::NativeTexturePolicy policy =
+      TextureHost::BackendNativeTexturePolicy(aResources.GetBackendType(),
+                                              GetSize());
+  auto imageType = wr::ExternalImageType::TextureHandle(
+      wr::ImageBufferKind::TextureExternal);
+  if (policy == TextureHost::NativeTexturePolicy::REQUIRE) {
+    imageType =
+        wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::TextureRect);
+  } else if (false /*mForceBT709ColorSpace*/) {
+    imageType = wr::ExternalImageType::TextureHandle(
+        wr::ImageBufferKind::TextureExternalBT709);
+  }
+
+  switch (GetFormat()) {
+    case gfx::SurfaceFormat::R8G8B8X8:
+    case gfx::SurfaceFormat::R8G8B8A8: {
+      MOZ_ASSERT(aImageKeys.length() == 1);
+
+      // XXX Add RGBA handling. Temporary hack to avoid crash
+      // With BGRA format setting, rendering works without problem.
+      auto format = GetFormat() == gfx::SurfaceFormat::R8G8B8A8
+                        ? gfx::SurfaceFormat::B8G8R8A8
+                        : gfx::SurfaceFormat::B8G8R8X8;
+      wr::ImageDescriptor descriptor(GetSize(), format);
+      (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0);
+      break;
+    }
+    default: {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+    }
+  }
+}
+
+void AndroidImageReaderTextureHost::PushDisplayItems(
+    wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
+    const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+    const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
+  bool preferCompositorSurface =
+      aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE);
+  bool supportsExternalCompositing =
+      SupportsExternalCompositing(aBuilder.GetBackendType());
+
+  switch (GetFormat()) {
+    case gfx::SurfaceFormat::R8G8B8X8:
+    case gfx::SurfaceFormat::R8G8B8A8:
+    case gfx::SurfaceFormat::B8G8R8A8:
+    case gfx::SurfaceFormat::B8G8R8X8: {
+      MOZ_ASSERT(aImageKeys.length() == 1);
+      aBuilder.PushImage(aBounds, aClip, true, false, aFilter, aImageKeys[0],
+                         !(mFlags & TextureFlags::NON_PREMULTIPLIED),
+                         wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
+                         preferCompositorSurface, supportsExternalCompositing);
+      break;
+    }
+    default: {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+    }
+  }
+}
+
+bool AndroidImageReaderTextureHost::SupportsExternalCompositing(
     WebRenderBackend aBackend) {
   return aBackend == WebRenderBackend::SOFTWARE;
 }

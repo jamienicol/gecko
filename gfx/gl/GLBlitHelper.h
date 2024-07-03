@@ -43,6 +43,7 @@ class MacIOSurface;
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/java/GeckoSurfaceTextureWrappers.h"
+#  include "mozilla/layers/AndroidImage.h"
 #endif
 
 #ifdef MOZ_WIDGET_GTK
@@ -235,6 +236,8 @@ class GLBlitHelper final {
 #ifdef MOZ_WIDGET_ANDROID
   bool Blit(const java::GeckoSurfaceTexture::Ref& surfaceTexture,
             const gfx::IntSize& destSize, const OriginPos destOrigin) const;
+  bool Blit(RefPtr<layers::AndroidImage>& image, const gfx::IntSize& destSize,
+            const OriginPos destOrigin) const;
 #endif
 #ifdef XP_MACOSX
   bool BlitImage(layers::MacIOSurfaceImage* srcImage,

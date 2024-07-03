@@ -9,7 +9,7 @@
 
 #include "mozilla/gfx/Matrix.h"
 
-typedef uint64_t AndroidSurfaceTextureHandle;
+typedef uint64_t AndroidSurfaceHandle;
 
 #ifdef MOZ_WIDGET_ANDROID
 

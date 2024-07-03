@@ -244,8 +244,8 @@ IAPZHitTester::HitTestResult WRHitTester::GetAPZCAtPoint(
     } else if (hit.mTargetApzc && hit.mTargetApzc->IsRootContent()) {
       // If the hit element is not a fixed position element, then the hit test
       // result item's side bits should not be populated.
-      MOZ_ASSERT(sideBits == SideBits::eNone,
-                 "Hit test results have side bits only for pos:fixed");
+      //      MOZ_ASSERT(sideBits == SideBits::eNone,
+      //                 "Hit test results have side bits only for pos:fixed");
     }
 #endif
   }

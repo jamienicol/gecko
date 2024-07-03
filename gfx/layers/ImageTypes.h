@@ -55,6 +55,11 @@ enum class ImageFormat {
   SURFACE_TEXTURE,
 
   /**
+   * An Android ImageReader ID.
+   */
+  ANDROID_IMAGE_READER,
+
+  /**
    * The D3D9_RGB32_TEXTURE format creates a D3D9SurfaceImage, and wraps a
    * IDirect3DTexture9 in RGB32 layout.
    */

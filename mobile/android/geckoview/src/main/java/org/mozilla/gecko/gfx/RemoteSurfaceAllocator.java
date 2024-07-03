@@ -35,7 +35,7 @@ public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
   }
 
   @Override
-  public GeckoSurface acquireSurface(
+  public GeckoSurface acquireSurfaceTexture(
       final int width, final int height, final boolean singleBufferMode) {
     final long handle = ((long) mAllocatorId << 32) | sNextHandle.getAndIncrement();
     final GeckoSurfaceTexture gst = GeckoSurfaceTexture.acquire(singleBufferMode, handle);
@@ -52,11 +52,26 @@ public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
   }
 
   @Override
-  public void releaseSurface(final long handle) {
+  public GeckoSurface acquireImageReader(
+          final int width, final int height, final int format, final int maxImages, final long usage) {
+    final long handle = ((long) mAllocatorId << 32) | sNextHandle.getAndIncrement();
+
+    final GeckoImageReader imageReader =
+            GeckoImageReader.create(handle, width, height, format, maxImages, usage);
+    return new GeckoSurface(imageReader);
+  }
+
+  @Override
+  public void releaseSurfaceTexture(final long handle) {
     final GeckoSurfaceTexture gst = GeckoSurfaceTexture.lookup(handle);
     if (gst != null) {
       gst.decrementUse();
     }
+  }
+
+  @Override
+  public void releaseImageReader(final long handle) {
+    GeckoImageReader.release(handle);
   }
 
   @Override

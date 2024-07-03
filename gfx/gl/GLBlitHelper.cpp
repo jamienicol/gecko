@@ -902,6 +902,21 @@ bool GLBlitHelper::BlitSdToFramebuffer(const layers::SurfaceDescriptor& asd,
       auto surfaceTexture = java::GeckoSurfaceTexture::Lookup(sd.handle());
       return Blit(surfaceTexture, destSize, destOrigin);
     }
+    case layers::SurfaceDescriptor::TSurfaceDescriptorAndroidImageReader: {
+      const auto& sd = asd.get_SurfaceDescriptorAndroidImageReader();
+
+      auto imageReader = layers::AndroidImageReader::Lookup(sd.handle());
+      if (!imageReader) {
+        return false;
+      }
+
+      // FIXME: use timestamp and acquireLatestImage if necessary
+      auto image = imageReader->GetCurrentImage();
+      if (!image) {
+        image = imageReader->AcquireLatestImage();
+      }
+      return Blit(image, destSize, destOrigin);
+    }
 #endif
 #ifdef MOZ_WIDGET_GTK
     case layers::SurfaceDescriptor::TSurfaceDescriptorDMABuf: {
@@ -932,6 +947,17 @@ bool GLBlitHelper::BlitImageToFramebuffer(layers::Image* const srcImage,
       auto surfaceTexture =
           java::GeckoSurfaceTexture::Lookup(image->GetHandle());
       return Blit(surfaceTexture, destSize, destOrigin);
+#else
+      MOZ_ASSERT(false);
+      return false;
+#endif
+    }
+    case ImageFormat::ANDROID_IMAGE_READER: {
+#ifdef MOZ_WIDGET_ANDROID
+      // FIXME: implement
+      // auto* image = srcImage->AsImageReaderImage();
+      // MOZ_ASSERT(image);
+      return false;
 #else
       MOZ_ASSERT(false);
       return false;
@@ -1024,6 +1050,63 @@ bool GLBlitHelper::Blit(const java::GeckoSurfaceTexture::Ref& surfaceTexture,
   if (surfaceTexture->IsSingleBuffer()) {
     surfaceTexture->ReleaseTexImage();
   }
+
+  return true;
+}
+
+bool GLBlitHelper::Blit(RefPtr<layers::AndroidImage>& image,
+                        const gfx::IntSize& destSize,
+                        const OriginPos destOrigin) const {
+  if (!image) {
+    return false;
+  }
+
+  AHardwareBuffer* hardwareBuffer = image->GetHardwareBuffer();
+  if (!hardwareBuffer) {
+    return false;
+  }
+
+  // FIXME: Use AndroidHardwareBuffer, and make funcs to create EGLImage and
+  // texture? And share with RenderAndroidImageReaderTextureHost
+  const auto& gle = gl::GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
+
+  const EGLint attrs[] = {
+      LOCAL_EGL_IMAGE_PRESERVED,
+      LOCAL_EGL_FALSE,
+      LOCAL_EGL_NONE,
+  };
+
+  EGLClientBuffer clientBuffer =
+      egl->mLib->fGetNativeClientBufferANDROID(hardwareBuffer);
+  if (clientBuffer == nullptr) {
+    return false;
+  }
+  EGLImage eglImage = egl->fCreateImage(
+      EGL_NO_CONTEXT, LOCAL_EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attrs);
+  if (eglImage == EGL_NO_IMAGE) {
+    return false;
+  }
+
+  mGL->MakeCurrent();
+
+  GLuint tex;
+  mGL->fGenTextures(1, &tex);
+  const ScopedBindTextureUnit boundTU(mGL, LOCAL_GL_TEXTURE0);
+  const ScopedBindTexture savedTex(mGL, tex, LOCAL_GL_TEXTURE_EXTERNAL);
+  mGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, eglImage);
+
+  const auto transform3 = Mat3::I();
+  const auto srcOrigin = OriginPos::BottomLeft;
+  const bool yFlip = (srcOrigin != destOrigin);
+  const auto& prog = GetDrawBlitProg(
+      {kFragHeader_TexExt, {kFragSample_OnePlane, kFragConvert_None}});
+  const DrawBlitProg::BaseArgs baseArgs = {transform3, yFlip, destSize,
+                                           Nothing()};
+  prog.Draw(baseArgs, nullptr);
+
+  mGL->fDeleteTextures(1, &tex);
+  egl->fDestroyImage(eglImage);
 
   return true;
 }

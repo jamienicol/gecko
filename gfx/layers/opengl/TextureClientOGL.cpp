@@ -37,7 +37,7 @@ class CompositableForwarder;
 #ifdef MOZ_WIDGET_ANDROID
 
 already_AddRefed<TextureClient> AndroidSurfaceTextureData::CreateTextureClient(
-    AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aContinuous,
+    AndroidSurfaceHandle aHandle, gfx::IntSize aSize, bool aContinuous,
     gl::OriginPos aOriginPos, bool aHasAlpha, bool aForceBT709ColorSpace,
     Maybe<gfx::Matrix4x4> aTransformOverride, LayersIPCChannel* aAllocator,
     TextureFlags aFlags) {
@@ -52,7 +52,7 @@ already_AddRefed<TextureClient> AndroidSurfaceTextureData::CreateTextureClient(
 }
 
 AndroidSurfaceTextureData::AndroidSurfaceTextureData(
-    AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aContinuous,
+    AndroidSurfaceHandle aHandle, gfx::IntSize aSize, bool aContinuous,
     bool aHasAlpha, bool aForceBT709ColorSpace,
     Maybe<gfx::Matrix4x4> aTransformOverride)
     : mHandle(aHandle),
@@ -99,8 +99,8 @@ AndroidNativeWindowTextureData* AndroidNativeWindowTextureData::Create(
     return nullptr;
   }
 
-  auto surface =
-      java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
+  auto surface = java::GeckoSurface::LocalRef(
+      java::SurfaceAllocator::AcquireSurfaceTexture(
           aSize.width, aSize.height, true /* single-buffer mode */));
   if (surface) {
     return new AndroidNativeWindowTextureData(surface, aSize, aFormat);
@@ -323,6 +323,48 @@ AndroidHardwareBufferTextureData::GetAcquireFence() {
   }
 
   return mAndroidHardwareBuffer->GetAcquireFence();
+}
+
+already_AddRefed<TextureClient>
+AndroidImageReaderTextureData::CreateTextureClient(
+    AndroidSurfaceHandle aHandle, int64_t aTimestamp, gfx::IntSize aSize,
+    gl::OriginPos aOriginPos, bool aHasAlpha, LayersIPCChannel* aAllocator,
+    TextureFlags aFlags) {
+  if (aOriginPos == gl::OriginPos::BottomLeft) {
+    aFlags |= TextureFlags::ORIGIN_BOTTOM_LEFT;
+  }
+
+  return TextureClient::CreateWithData(
+      new AndroidImageReaderTextureData(aHandle, aTimestamp, aSize, aHasAlpha),
+      aFlags, aAllocator);
+}
+
+AndroidImageReaderTextureData::AndroidImageReaderTextureData(
+    AndroidSurfaceHandle aHandle, int64_t aTimestamp, gfx::IntSize aSize,
+    bool aHasAlpha)
+    : mHandle(aHandle),
+      mTimestamp(aTimestamp),
+      mSize(aSize),
+      mHasAlpha(aHasAlpha) {
+  MOZ_ASSERT(mHandle);
+}
+
+AndroidImageReaderTextureData::~AndroidImageReaderTextureData() {}
+
+void AndroidImageReaderTextureData::FillInfo(TextureData::Info& aInfo) const {
+  aInfo.size = mSize;
+  aInfo.format = gfx::SurfaceFormat::UNKNOWN;
+  aInfo.hasSynchronization = false;
+  aInfo.supportsMoz2D = false;
+  aInfo.canExposeMappedData = false;
+}
+
+bool AndroidImageReaderTextureData::Serialize(
+    SurfaceDescriptor& aOutDescriptor) {
+  aOutDescriptor = SurfaceDescriptorAndroidImageReader(
+      mHandle, mTimestamp, mSize,
+      mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8);
+  return true;
 }
 
 #endif  // MOZ_WIDGET_ANDROID

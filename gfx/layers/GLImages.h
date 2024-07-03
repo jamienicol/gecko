@@ -25,6 +25,12 @@ namespace layers {
 
 class GLImage : public Image {
  public:
+  class SetCurrentCallback {
+   public:
+    virtual void operator()(void) = 0;
+    virtual ~SetCurrentCallback() {}
+  };
+
   explicit GLImage(ImageFormat aFormat) : Image(nullptr, aFormat) {}
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
@@ -34,58 +40,6 @@ class GLImage : public Image {
       const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override;
 
   GLImage* AsGLImage() override { return this; }
-
- protected:
-  nsresult ReadIntoBuffer(uint8_t* aData, int32_t aStride,
-                          const gfx::IntSize& aSize,
-                          gfx::SurfaceFormat aFormat);
-};
-
-#ifdef MOZ_WIDGET_ANDROID
-
-class SurfaceTextureImage final : public GLImage {
- public:
-  class SetCurrentCallback {
-   public:
-    virtual void operator()(void) = 0;
-    virtual ~SetCurrentCallback() {}
-  };
-
-  SurfaceTextureImage(AndroidSurfaceTextureHandle aHandle,
-                      const gfx::IntSize& aSize, bool aContinuous,
-                      gl::OriginPos aOriginPos, bool aHasAlpha,
-                      bool aForceBT709ColorSpace,
-                      Maybe<gfx::Matrix4x4> aTransformOverride);
-
-  gfx::IntSize GetSize() const override { return mSize; }
-  AndroidSurfaceTextureHandle GetHandle() const { return mHandle; }
-  bool GetContinuous() const { return mContinuous; }
-  gl::OriginPos GetOriginPos() const { return mOriginPos; }
-  bool GetHasAlpha() const { return mHasAlpha; }
-  bool GetForceBT709ColorSpace() const { return mForceBT709ColorSpace; }
-  const Maybe<gfx::Matrix4x4>& GetTransformOverride() const {
-    return mTransformOverride;
-  }
-
-  already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override {
-    // We can implement this, but currently don't want to because it will cause
-    // the SurfaceTexture to be permanently bound to the snapshot readback
-    // context.
-    return nullptr;
-  }
-
-  nsresult BuildSurfaceDescriptorBuffer(
-      SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
-      const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override {
-    // We can implement this, but currently don't want to because it will cause
-    // the SurfaceTexture to be permanently bound to the snapshot readback
-    // context.
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
-
-  SurfaceTextureImage* AsSurfaceTextureImage() override { return this; }
-
-  Maybe<SurfaceDescriptor> GetDesc() override;
 
   void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
     mSetCurrentCallback = std::move(aCallback);
@@ -98,15 +52,96 @@ class SurfaceTextureImage final : public GLImage {
     }
   }
 
+ protected:
+  nsresult ReadIntoBuffer(uint8_t* aData, int32_t aStride,
+                          const gfx::IntSize& aSize,
+                          gfx::SurfaceFormat aFormat);
+
  private:
-  AndroidSurfaceTextureHandle mHandle;
+  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
+};
+
+#ifdef MOZ_WIDGET_ANDROID
+
+class SurfaceTextureImage final : public GLImage {
+ public:
+  SurfaceTextureImage(AndroidSurfaceHandle aHandle, const gfx::IntSize& aSize,
+                      bool aContinuous, gl::OriginPos aOriginPos,
+                      bool aHasAlpha, bool aForceBT709ColorSpace,
+                      Maybe<gfx::Matrix4x4> aTransformOverride);
+
+  gfx::IntSize GetSize() const override { return mSize; }
+  AndroidSurfaceHandle GetHandle() const { return mHandle; }
+  bool GetContinuous() const { return mContinuous; }
+  gl::OriginPos GetOriginPos() const { return mOriginPos; }
+  bool GetHasAlpha() const { return mHasAlpha; }
+  bool GetForceBT709ColorSpace() const { return mForceBT709ColorSpace; }
+  const Maybe<gfx::Matrix4x4>& GetTransformOverride() const {
+    return mTransformOverride;
+  }
+
+  already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override {
+    // FIXME: We should implement this, but it will require fetching the data
+    // from the GPU process where the ImageReader actualy lives.
+    return nullptr;
+  }
+
+  nsresult BuildSurfaceDescriptorBuffer(
+      SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
+      const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override {
+    // FIXME: We should implement this, but it will require fetching the data
+    // from the GPU process where the ImageReader actualy lives.
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
+  SurfaceTextureImage* AsSurfaceTextureImage() override { return this; }
+
+  Maybe<SurfaceDescriptor> GetDesc() override;
+
+ private:
+  AndroidSurfaceHandle mHandle;
   gfx::IntSize mSize;
   bool mContinuous;
   gl::OriginPos mOriginPos;
   const bool mHasAlpha;
   const bool mForceBT709ColorSpace;
   const Maybe<gfx::Matrix4x4> mTransformOverride;
-  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
+};
+
+class ImageReaderImage final : public GLImage {
+ public:
+  ImageReaderImage(AndroidSurfaceHandle aHandle, const int64_t aTimestamp,
+                   const gfx::IntSize& aSize, gl::OriginPos aOriginPos,
+                   bool aHasAlpha);
+
+  gfx::IntSize GetSize() const override { return mSize; }
+  AndroidSurfaceHandle GetHandle() const { return mHandle; }
+  int64_t GetTimestamp() const { return mTimestamp; }
+  gl::OriginPos GetOriginPos() const { return mOriginPos; }
+  bool GetHasAlpha() const { return mHasAlpha; }
+
+  already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override {
+    // FIXME: implement
+    return nullptr;
+  }
+
+  nsresult BuildSurfaceDescriptorBuffer(
+      SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
+      const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override {
+    // FIXME: implement
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
+  ImageReaderImage* AsImageReaderImage() override { return this; }
+
+  Maybe<SurfaceDescriptor> GetDesc() override;
+
+ private:
+  const AndroidSurfaceHandle mHandle;
+  const int64_t mTimestamp;
+  const gfx::IntSize mSize;
+  const gl::OriginPos mOriginPos;
+  const bool mHasAlpha;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

@@ -109,9 +109,9 @@ nsresult GLImage::BuildSurfaceDescriptorBuffer(
 
 #ifdef MOZ_WIDGET_ANDROID
 SurfaceTextureImage::SurfaceTextureImage(
-    AndroidSurfaceTextureHandle aHandle, const gfx::IntSize& aSize,
-    bool aContinuous, gl::OriginPos aOriginPos, bool aHasAlpha,
-    bool aForceBT709ColorSpace, Maybe<gfx::Matrix4x4> aTransformOverride)
+    AndroidSurfaceHandle aHandle, const gfx::IntSize& aSize, bool aContinuous,
+    gl::OriginPos aOriginPos, bool aHasAlpha, bool aForceBT709ColorSpace,
+    Maybe<gfx::Matrix4x4> aTransformOverride)
     : GLImage(ImageFormat::SURFACE_TEXTURE),
       mHandle(aHandle),
       mSize(aSize),
@@ -128,6 +128,26 @@ Maybe<SurfaceDescriptor> SurfaceTextureImage::GetDesc() {
       mHandle, mSize,
       mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8,
       mForceBT709ColorSpace, false /* NOT continuous */, mTransformOverride);
+  return Some(sd);
+}
+
+ImageReaderImage::ImageReaderImage(AndroidSurfaceHandle aHandle,
+                                   int64_t aTimestamp,
+                                   const gfx::IntSize& aSize,
+                                   gl::OriginPos aOriginPos, bool aHasAlpha)
+    : GLImage(ImageFormat::ANDROID_IMAGE_READER),
+      mHandle(aHandle),
+      mTimestamp(aTimestamp),
+      mSize(aSize),
+      mOriginPos(aOriginPos),
+      mHasAlpha(aHasAlpha) {
+  MOZ_ASSERT(mHandle);
+}
+
+Maybe<SurfaceDescriptor> ImageReaderImage::GetDesc() {
+  SurfaceDescriptor sd = SurfaceDescriptorAndroidImageReader(
+      mHandle, mTimestamp, mSize,
+      mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8);
   return Some(sd);
 }
 #endif

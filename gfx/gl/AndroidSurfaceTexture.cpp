@@ -185,7 +185,7 @@ class GLBlitterSupport final
 
  private:
   const UniquePtr<AndroidSharedBlitGL> mGl;
-  const AndroidSurfaceTextureHandle mSourceTextureHandle;
+  const AndroidSurfaceHandle mSourceTextureHandle;
   const gfx::IntSize mSize;
 };
 
