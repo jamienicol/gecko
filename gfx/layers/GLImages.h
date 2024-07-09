@@ -115,11 +115,12 @@ class ImageReaderImage final : public GLImage {
  public:
   // FIXME: use ImageReaderHandle?
   ImageReaderImage(AndroidSurfaceTextureHandle aHandle,
-                   const gfx::IntSize& aSize, gl::OriginPos aOriginPos,
-                   bool aHasAlpha);
+                   const int64_t aTimestamp, const gfx::IntSize& aSize,
+                   gl::OriginPos aOriginPos, bool aHasAlpha);
 
   gfx::IntSize GetSize() const override { return mSize; }
   AndroidSurfaceTextureHandle GetHandle() const { return mHandle; }
+  int64_t GetTimestamp() const { return mTimestamp; }
   gl::OriginPos GetOriginPos() const { return mOriginPos; }
   bool GetHasAlpha() const { return mHasAlpha; }
 
@@ -141,6 +142,7 @@ class ImageReaderImage final : public GLImage {
 
  private:
   const AndroidSurfaceTextureHandle mHandle;
+  const int64_t mTimestamp;
   const gfx::IntSize mSize;
   const gl::OriginPos mOriginPos;
   const bool mHasAlpha;

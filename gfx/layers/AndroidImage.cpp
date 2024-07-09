@@ -221,10 +221,14 @@ jobject AndroidImageApi::ANativeWindow_toSurface(JNIEnv* env,
 }
 
 AndroidImageReader::AndroidImageReader(AImageReader* aImageReader)
-    : mImageReader(aImageReader) {
+    : mImageReader(aImageReader), mMonitor("AndroidImageReader") {
   const auto* api = AndroidImageApi::Get();
   mListener.context = this;
-  mListener.onImageAvailable = &AndroidImageReader::ImageAvailableCallback;
+  mListener.onImageAvailable = [](void* context, AImageReader* reader) {
+    AndroidImageReader* self = (AndroidImageReader*)context;
+    MOZ_ASSERT(self->mImageReader == reader);
+    self->OnImageAvailable();
+  };
   media_status_t res =
       api->AImageReader_setImageListener(mImageReader, &mListener);
   if (res != AMEDIA_OK) {
@@ -278,14 +282,41 @@ RefPtr<AndroidImageReader> AndroidImageReader::Lookup(uint64_t aHandle) {
   return AndroidImageReader::GetNative(imageReader);
 }
 
-/* static */ void AndroidImageReader::ImageAvailableCallback(
-    void* context, AImageReader* reader) {
-  AndroidImageReader* self = (AndroidImageReader*)context;
-  MOZ_ASSERT(self->mImageReader == reader);
-  self->OnImageAvailable();
+RefPtr<AndroidImage> AndroidImageReader::AcquireNextImage() {
+  MonitorAutoLock lock(mMonitor);
+
+  while (mPendingImages == 0) {
+    if (lock.Wait(TimeDuration::FromMilliseconds(1000)) == CVStatus::Timeout) {
+      printf_stderr("jamiedbg Timeout waiting for image available callback\n");
+      return mCurrentImage;
+    }
+  }
+
+  const auto* api = layers::AndroidImageApi::Get();
+  AImage* image;
+  media_status_t res = api->AImageReader_acquireNextImage(mImageReader, &image);
+  if (res != AMEDIA_OK) {
+    printf_stderr("jamiedbg AImageReader_acquireNextImage failed: %d\n", res);
+    return nullptr;
+  }
+  mPendingImages--;
+
+  mCurrentImage = new AndroidImage(image);
+  return mCurrentImage;
 }
 
-void AndroidImageReader::OnImageAvailable() {}
+RefPtr<AndroidImage> AndroidImageReader::GetCurrentImage() {
+  MonitorAutoLock lock(mMonitor);
+  return mCurrentImage;
+}
+
+void AndroidImageReader::OnImageAvailable() {
+  MonitorAutoLock lock(mMonitor);
+
+  if (++mPendingImages == 1) {
+    lock.NotifyAll();
+  }
+}
 
 AndroidImage::AndroidImage(AImage* aImage) : mImage(aImage) {}
 
@@ -305,6 +336,16 @@ AHardwareBuffer* AndroidImage::GetHardwareBuffer() const {
   }
 
   return buffer;
+}
+
+int64_t AndroidImage::GetTimestamp() const {
+  const auto* api = layers::AndroidImageApi::Get();
+
+  int64_t timestamp;
+  media_status_t res = api->AImage_getTimestamp(mImage, &timestamp);
+  MOZ_RELEASE_ASSERT(res == AMEDIA_OK);
+
+  return timestamp;
 }
 
 }  // namespace mozilla::layers

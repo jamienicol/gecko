@@ -452,9 +452,9 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
 
       RefPtr<layers::Image> img;
       if (mUsingImageReader) {
-        img = new layers::ImageReaderImage(mSurfaceHandle, inputInfo.mImageSize,
-                                           gl::OriginPos::TopLeft,
-                                           mConfig.HasAlpha());
+        img = new layers::ImageReaderImage(
+            mSurfaceHandle, presentationTimeUs * 1000, inputInfo.mImageSize,
+            gl::OriginPos::TopLeft, mConfig.HasAlpha());
       } else {
         img = new layers::SurfaceTextureImage(
             mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,

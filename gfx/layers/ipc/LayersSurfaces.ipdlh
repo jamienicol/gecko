@@ -98,6 +98,7 @@ namespace layers {
 
 [Comparable] struct SurfaceDescriptorAndroidImageReader {
   uint64_t handle;
+  int64_t timestamp;
   IntSize size;
   SurfaceFormat format;
 };

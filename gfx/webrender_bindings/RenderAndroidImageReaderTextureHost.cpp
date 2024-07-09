@@ -15,9 +15,12 @@ namespace mozilla {
 namespace wr {
 
 RenderAndroidImageReaderTextureHost::RenderAndroidImageReaderTextureHost(
-    RefPtr<layers::AndroidImageReader> aImageReader, gfx::IntSize aSize,
-    gfx::SurfaceFormat aFormat)
-    : mImageReader(std::move(aImageReader)), mSize(aSize), mFormat(aFormat) {
+    RefPtr<layers::AndroidImageReader> aImageReader, int64_t aTimestamp,
+    gfx::IntSize aSize, gfx::SurfaceFormat aFormat)
+    : mImageReader(std::move(aImageReader)),
+      mTimestamp(aTimestamp),
+      mSize(aSize),
+      mFormat(aFormat) {
   MOZ_COUNT_CTOR_INHERITED(RenderAndroidImageReaderTextureHost,
                            RenderTextureHost);
 }
@@ -36,19 +39,20 @@ RefPtr<layers::AndroidImage> RenderAndroidImageReaderTextureHost::GetImage() {
     return mCurrentImage;
   }
 
-  const auto* api = layers::AndroidImageApi::Get();
-  AImage* image;
-  // FIXME: use async version and then return the fence or poll() it?
-  // FIXME: chrome uses either acquireNextImage or acquireLatestImage in certain
-  // cases. why?
-  media_status_t res =
-      api->AImageReader_acquireNextImage(mImageReader->mImageReader, &image);
-  if (res != AMEDIA_OK) {
-    printf_stderr("jamiedbg AImageReader_acquireNextImage failed: %d\n", res);
-    return nullptr;
+  mCurrentImage = mImageReader->GetCurrentImage();
+  if (!mCurrentImage) {
+    mCurrentImage = mImageReader->AcquireNextImage();
+  }
+  // FIXME: Using < doesn't allow seeking backwards in a video!!
+  // it will keep displaying the furthest forward acquired image,
+  // until playback catches up with where you seeked from then it will resume.
+  // We cannot use != instead, as we won't always have an exact match and will
+  // therefore call acquireNextImage too many times, which will freeze whilst
+  // waiting for one to become available
+  while (mCurrentImage && mCurrentImage->GetTimestamp() < mTimestamp) {
+    mCurrentImage = mImageReader->AcquireNextImage();
   }
 
-  mCurrentImage = new layers::AndroidImage(image);
   return mCurrentImage;
 }
 
@@ -62,7 +66,6 @@ AHardwareBuffer* RenderAndroidImageReaderTextureHost::GetHardwareBuffer() {
   }
 
   mHardwareBuffer = mCurrentImage->GetHardwareBuffer();
-
   // FIXME: return some sort of fence as well? or is that handled by
   // AcquireImage()?
   return mHardwareBuffer;

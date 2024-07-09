@@ -132,10 +132,12 @@ Maybe<SurfaceDescriptor> SurfaceTextureImage::GetDesc() {
 }
 
 ImageReaderImage::ImageReaderImage(AndroidSurfaceTextureHandle aHandle,
+                                   int64_t aTimestamp,
                                    const gfx::IntSize& aSize,
                                    gl::OriginPos aOriginPos, bool aHasAlpha)
     : GLImage(ImageFormat::ANDROID_IMAGE_READER),
       mHandle(aHandle),
+      mTimestamp(aTimestamp),
       mSize(aSize),
       mOriginPos(aOriginPos),
       mHasAlpha(aHasAlpha) {
@@ -144,7 +146,7 @@ ImageReaderImage::ImageReaderImage(AndroidSurfaceTextureHandle aHandle,
 
 Maybe<SurfaceDescriptor> ImageReaderImage::GetDesc() {
   SurfaceDescriptor sd = SurfaceDescriptorAndroidImageReader(
-      mHandle, mSize,
+      mHandle, mTimestamp, mSize,
       mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8);
   return Some(sd);
 }

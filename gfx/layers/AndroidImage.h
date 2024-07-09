@@ -13,9 +13,9 @@
 #include <media/NdkImageReader.h>
 #include <media/NdkMediaError.h>
 
+#include "mozilla/Monitor.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/StaticPtr.h"
-#include "mozilla/UniquePtr.h"
 
 namespace mozilla::layers {
 
@@ -167,6 +167,8 @@ class AndroidImageApi {
   static StaticAutoPtr<AndroidImageApi> sInstance;
 };
 
+class AndroidImage;
+
 class AndroidImageReader
     : public java::GeckoImageReader::Natives<AndroidImageReader> {
  public:
@@ -186,16 +188,21 @@ class AndroidImageReader
 
   static RefPtr<AndroidImageReader> Lookup(uint64_t aHandle);
 
-  static void ImageAvailableCallback(void* context, AImageReader* reader);
-  void OnImageAvailable();
-
-  AImageReader* const mImageReader;
+  RefPtr<AndroidImage> AcquireNextImage();
+  RefPtr<AndroidImage> GetCurrentImage();
 
  private:
   explicit AndroidImageReader(AImageReader* aImageReader);
   ~AndroidImageReader();
 
+  void OnImageAvailable();
+
+  AImageReader* const mImageReader;
   AImageReader_ImageListener mListener;
+
+  Monitor mMonitor MOZ_UNANNOTATED;
+  unsigned int mPendingImages = 0;
+  RefPtr<AndroidImage> mCurrentImage;
 };
 
 class AndroidImage {
@@ -205,6 +212,7 @@ class AndroidImage {
   explicit AndroidImage(AImage* aImage);
 
   AHardwareBuffer* GetHardwareBuffer() const;
+  int64_t GetTimestamp() const;
 
  private:
   ~AndroidImage();

@@ -164,9 +164,9 @@ class AndroidHardwareBufferTextureData : public TextureData {
 class AndroidImageReaderTextureData : public TextureData {
  public:
   static already_AddRefed<TextureClient> CreateTextureClient(
-      AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize,
-      gl::OriginPos aOriginPos, bool aHasAlpha, LayersIPCChannel* aAllocator,
-      TextureFlags aFlags);
+      AndroidSurfaceTextureHandle aHandle, int64_t aTimestamp,
+      gfx::IntSize aSize, gl::OriginPos aOriginPos, bool aHasAlpha,
+      LayersIPCChannel* aAllocator, TextureFlags aFlags);
 
   virtual ~AndroidImageReaderTextureData();
 
@@ -184,9 +184,11 @@ class AndroidImageReaderTextureData : public TextureData {
 
  protected:
   AndroidImageReaderTextureData(AndroidSurfaceTextureHandle aHandle,
-                                gfx::IntSize aSize, bool aHasAlpha);
+                                int64_t aTimestamp, gfx::IntSize aSize,
+                                bool aHasAlpha);
 
   const AndroidSurfaceTextureHandle mHandle;
+  const int64_t mTimestamp;
   const gfx::IntSize mSize;
   const bool mHasAlpha;
 };

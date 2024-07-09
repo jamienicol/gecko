@@ -22,8 +22,8 @@ namespace wr {
 class RenderAndroidImageReaderTextureHost final : public RenderTextureHostSWGL {
  public:
   explicit RenderAndroidImageReaderTextureHost(
-      RefPtr<layers::AndroidImageReader> aImageReader, gfx::IntSize aSize,
-      gfx::SurfaceFormat aFormat);
+      RefPtr<layers::AndroidImageReader> aImageReader, int64_t aTimestamp,
+      gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
 
   wr::WrExternalImage Lock(uint8_t aChannelIndex, gl::GLContext* aGL) override;
   void Unlock() override;
@@ -63,6 +63,7 @@ class RenderAndroidImageReaderTextureHost final : public RenderTextureHostSWGL {
   already_AddRefed<gfx::DataSourceSurface> ReadTexImage();
 
   const RefPtr<layers::AndroidImageReader> mImageReader;
+  const int64_t mTimestamp;
   const gfx::IntSize mSize;
   const gfx::SurfaceFormat mFormat;
 

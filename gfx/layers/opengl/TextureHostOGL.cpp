@@ -80,8 +80,8 @@ already_AddRefed<TextureHost> CreateTextureHostOGL(
       RefPtr<AndroidImageReader> imageReader =
           AndroidImageReader::Lookup(desc.handle());
 
-      result = new AndroidImageReaderTextureHost(aFlags, imageReader,
-                                                 desc.size(), desc.format());
+      result = new AndroidImageReaderTextureHost(
+          aFlags, imageReader, desc.timestamp(), desc.size(), desc.format());
       break;
     }
     case SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer: {
@@ -932,9 +932,10 @@ bool AndroidHardwareBufferTextureHost::SupportsExternalCompositing(
 
 AndroidImageReaderTextureHost::AndroidImageReaderTextureHost(
     TextureFlags aFlags, RefPtr<AndroidImageReader> aImageReader,
-    gfx::IntSize aSize, gfx::SurfaceFormat aFormat)
+    int64_t aTimestamp, gfx::IntSize aSize, gfx::SurfaceFormat aFormat)
     : TextureHost(TextureHostType::AndroidSurfaceTexture, aFlags),
       mImageReader(std::move(aImageReader)),
+      mTimestamp(aTimestamp),
       mSize(aSize),
       mFormat(aFormat) {
   // FIXME: do we do anything if mImageReader is null?
@@ -961,7 +962,8 @@ void AndroidImageReaderTextureHost::CreateRenderTexture(
   MOZ_ASSERT(mExternalImageId.isSome());
 
   RefPtr<wr::RenderTextureHost> texture =
-      new wr::RenderAndroidImageReaderTextureHost(mImageReader, mSize, mFormat);
+      new wr::RenderAndroidImageReaderTextureHost(mImageReader, mTimestamp,
+                                                  mSize, mFormat);
   wr::RenderThread::Get()->RegisterExternalImage(aExternalImageId,
                                                  texture.forget());
 }

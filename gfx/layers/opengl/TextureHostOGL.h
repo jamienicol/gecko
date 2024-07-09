@@ -566,7 +566,8 @@ class AndroidImageReaderTextureHost : public TextureHost {
  public:
   AndroidImageReaderTextureHost(TextureFlags aFlags,
                                 RefPtr<AndroidImageReader> aImageReader,
-                                gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
+                                int64_t aTimestamp, gfx::IntSize aSize,
+                                gfx::SurfaceFormat aFormat);
 
   virtual ~AndroidImageReaderTextureHost();
 
@@ -621,6 +622,7 @@ class AndroidImageReaderTextureHost : public TextureHost {
 
  protected:
   RefPtr<AndroidImageReader> mImageReader;
+  const int64_t mTimestamp;
   const gfx::IntSize mSize;
   const gfx::SurfaceFormat mFormat;
   RefPtr<CompositorOGL> mCompositor;
