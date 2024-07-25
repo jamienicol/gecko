@@ -91,6 +91,7 @@
 #ifdef ANDROID
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
 #  include "mozilla/layers/AndroidImage.h"
+#  include "mozilla/layers/AndroidSurfaceControl.h"
 #  include "skia/include/ports/SkTypeface_cairo.h"
 #endif
 #include "ChildProfilerController.h"
@@ -404,6 +405,7 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
 
   layers::AndroidHardwareBufferApi::Init();
   layers::AndroidImageApi::Init();
+  layers::AndroidSurfaceControlApi::Init();
   if (gfxVars::UseAHardwareBufferSharedSurfaceWebglOop()) {
     layers::AndroidHardwareBufferManager::Init();
   }

@@ -1434,7 +1434,7 @@ RenderThread::GetProgramsForCompositorOGL() {
 }
 
 RefPtr<layers::SurfacePool> RenderThread::SharedSurfacePool() {
-#if defined(XP_DARWIN) || defined(MOZ_WAYLAND)
+#if defined(XP_DARWIN) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   if (!mSurfacePool) {
     size_t poolSizeLimit =
         StaticPrefs::gfx_webrender_compositor_surface_pool_size_AtStartup();

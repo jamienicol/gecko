@@ -7,6 +7,7 @@
 #include "AndroidSurfaceControl.h"
 
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/jni/Utils.h"
 #include <dlfcn.h>
 
 namespace mozilla::layers {
@@ -33,50 +34,58 @@ void AndroidSurfaceControlApi::Init() {
   }
 
 bool AndroidSurfaceControlApi::Load() {
-  void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+  void* const handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
   MOZ_ASSERT(handle);
   if (!handle) {
     gfxCriticalNote << "Failed to load libandroid.so";
     return false;
   }
 
-  // FIXME: only load each fn on supported SDK levels
-  LOAD_FN(handle, ASurfaceControl_createFromWindow);
-  LOAD_FN(handle, ASurfaceControl_create);
-  LOAD_FN(handle, ASurfaceControl_acquire);
-  LOAD_FN(handle, ASurfaceControl_release);
-  LOAD_FN(handle, ASurfaceTransaction_create);
-  LOAD_FN(handle, ASurfaceTransaction_delete);
-  LOAD_FN(handle, ASurfaceTransaction_apply);
-  LOAD_FN(handle, ASurfaceTransactionStats_getLatchTime);
-  LOAD_FN(handle, ASurfaceTransactionStats_getPresentFenceFd);
-  LOAD_FN(handle, ASurfaceTransactionStats_getASurfaceControls);
-  LOAD_FN(handle, ASurfaceTransactionStats_releaseASurfaceControls);
-  LOAD_FN(handle, ASurfaceTransactionStats_getAcquireTime);
-  LOAD_FN(handle, ASurfaceTransactionStats_getPreviousReleaseFenceFd);
-  LOAD_FN(handle, ASurfaceTransaction_setOnComplete);
-  LOAD_FN(handle, ASurfaceTransaction_setOnCommit);
-  LOAD_FN(handle, ASurfaceTransaction_reparent);
-  LOAD_FN(handle, ASurfaceTransaction_setVisibility);
-  LOAD_FN(handle, ASurfaceTransaction_setZOrder);
-  LOAD_FN(handle, ASurfaceTransaction_setBuffer);
-  LOAD_FN(handle, ASurfaceTransaction_setColor);
-  LOAD_FN(handle, ASurfaceTransaction_setGeometry);
-  LOAD_FN(handle, ASurfaceTransaction_setCrop);
-  LOAD_FN(handle, ASurfaceTransaction_setPosition);
-  LOAD_FN(handle, ASurfaceTransaction_setBufferTransform);
-  LOAD_FN(handle, ASurfaceTransaction_setScale);
-  LOAD_FN(handle, ASurfaceTransaction_setBufferTransparency);
-  LOAD_FN(handle, ASurfaceTransaction_setDamageRegion);
-  LOAD_FN(handle, ASurfaceTransaction_setDesiredPresentTime);
-  LOAD_FN(handle, ASurfaceTransaction_setBufferAlpha);
-  LOAD_FN(handle, ASurfaceTransaction_setBufferDataSpace);
-  LOAD_FN(handle, ASurfaceTransaction_setHdrMetadata_smpte2086);
-  LOAD_FN(handle, ASurfaceTransaction_setHdrMetadata_cta861_3);
-  LOAD_FN(handle, ASurfaceTransaction_setFrameRate);
-  LOAD_FN(handle, ASurfaceTransaction_setFrameRateWithChangeStrategy);
-  LOAD_FN(handle, ASurfaceTransaction_setEnableBackPressure);
-  LOAD_FN(handle, ASurfaceTransaction_setFrameTimeline);
+  const int sdkLevel = jni::GetAPIVersion();
+  if (sdkLevel >= 29) {
+    LOAD_FN(handle, ASurfaceControl_createFromWindow);
+    LOAD_FN(handle, ASurfaceControl_create);
+    LOAD_FN(handle, ASurfaceControl_release);
+    LOAD_FN(handle, ASurfaceTransaction_create);
+    LOAD_FN(handle, ASurfaceTransaction_delete);
+    LOAD_FN(handle, ASurfaceTransaction_apply);
+    LOAD_FN(handle, ASurfaceTransactionStats_getLatchTime);
+    LOAD_FN(handle, ASurfaceTransactionStats_getPresentFenceFd);
+    LOAD_FN(handle, ASurfaceTransactionStats_getASurfaceControls);
+    LOAD_FN(handle, ASurfaceTransactionStats_releaseASurfaceControls);
+    LOAD_FN(handle, ASurfaceTransactionStats_getAcquireTime);
+    LOAD_FN(handle, ASurfaceTransactionStats_getPreviousReleaseFenceFd);
+    LOAD_FN(handle, ASurfaceTransaction_setOnComplete);
+    LOAD_FN(handle, ASurfaceTransaction_reparent);
+    LOAD_FN(handle, ASurfaceTransaction_setVisibility);
+    LOAD_FN(handle, ASurfaceTransaction_setZOrder);
+    LOAD_FN(handle, ASurfaceTransaction_setBuffer);
+    LOAD_FN(handle, ASurfaceTransaction_setColor);
+    LOAD_FN(handle, ASurfaceTransaction_setGeometry);
+    LOAD_FN(handle, ASurfaceTransaction_setBufferTransparency);
+    LOAD_FN(handle, ASurfaceTransaction_setDamageRegion);
+    LOAD_FN(handle, ASurfaceTransaction_setDesiredPresentTime);
+    LOAD_FN(handle, ASurfaceTransaction_setBufferAlpha);
+    LOAD_FN(handle, ASurfaceTransaction_setBufferDataSpace);
+    LOAD_FN(handle, ASurfaceTransaction_setHdrMetadata_smpte2086);
+    LOAD_FN(handle, ASurfaceTransaction_setHdrMetadata_cta861_3);
+  }
+  if (sdkLevel >= 30) {
+    LOAD_FN(handle, ASurfaceTransaction_setFrameRate);
+  }
+  if (sdkLevel >= 31) {
+    LOAD_FN(handle, ASurfaceControl_acquire);
+    LOAD_FN(handle, ASurfaceTransaction_setOnCommit);
+    LOAD_FN(handle, ASurfaceTransaction_setCrop);
+    LOAD_FN(handle, ASurfaceTransaction_setPosition);
+    LOAD_FN(handle, ASurfaceTransaction_setBufferTransform);
+    LOAD_FN(handle, ASurfaceTransaction_setScale);
+    LOAD_FN(handle, ASurfaceTransaction_setFrameRateWithChangeStrategy);
+    LOAD_FN(handle, ASurfaceTransaction_setEnableBackPressure);
+  }
+  if (sdkLevel >= 31) {
+    LOAD_FN(handle, ASurfaceTransaction_setFrameTimeline);
+  }
 
   return true;
 }

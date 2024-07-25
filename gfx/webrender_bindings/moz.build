@@ -66,11 +66,13 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         "RenderAndroidHardwareBufferTextureHost.h",
         "RenderAndroidImageReaderTextureHost.h",
         "RenderAndroidSurfaceTextureHost.h",
+        "RenderCompositorNative.h",
     ]
     UNIFIED_SOURCES += [
         "RenderAndroidHardwareBufferTextureHost.cpp",
         "RenderAndroidImageReaderTextureHost.cpp",
         "RenderAndroidSurfaceTextureHost.cpp",
+        "RenderCompositorNative.cpp",
     ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
