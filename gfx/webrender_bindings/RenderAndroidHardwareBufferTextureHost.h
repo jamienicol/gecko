@@ -48,6 +48,10 @@ class RenderAndroidHardwareBufferTextureHost final
   RefPtr<layers::TextureSource> CreateTextureSource(
       layers::TextureSourceProvider* aProvider) override;
 
+  RefPtr<layers::AndroidHardwareBuffer> GetAndroidHardwareBuffer() {
+    return mAndroidHardwareBuffer;
+  }
+
   gfx::IntSize GetSize() const;
 
  private:

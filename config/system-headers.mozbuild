@@ -1079,6 +1079,7 @@ if CONFIG["OS_TARGET"] == "Android":
         "android/looper.h",
         "android/native_window.h",
         "android/native_window_jni.h",
+        "android/surface_control.h",
         "audio_effects/effect_aec.h",
         "audio_effects/effect_ns.h",
         "AudioParameter.h",

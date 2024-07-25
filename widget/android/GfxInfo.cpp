@@ -667,6 +667,19 @@ nsresult GfxInfo::GetFeatureStatusImpl(
     return NS_OK;
   }
 
+  if (aFeature == FEATURE_WEBRENDER_COMPOSITOR) {
+    // Currently 31 as we use ASurfaceTransaction_setOnCommit().
+    // If we can find an alternative for frame pacing then we can reduce this
+    // to 29.
+    if (mSDKVersion < 31) {
+      *aStatus = nsIGfxInfo::FEATURE_BLOCKED_OS_VERSION;
+      aFailureId = "FEATURE_FAILURE_UNSUPPORTED_SDK_LEVEL";
+    } else {
+      *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+    }
+    return NS_OK;
+  }
+
   if (aFeature == FEATURE_WEBGPU) {
     // Ensure WebGPU is disabled by default on Android until it is better
     // tested.
