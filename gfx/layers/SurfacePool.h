@@ -31,7 +31,7 @@ class SurfacePool {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SurfacePool);
 
-#if defined(XP_DARWIN) || defined(MOZ_WAYLAND)
+#if defined(XP_DARWIN) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   static RefPtr<SurfacePool> Create(size_t aPoolSizeLimit);
 #endif
 
@@ -45,6 +45,7 @@ class SurfacePool {
 
 class SurfacePoolHandleCA;
 class SurfacePoolHandleWayland;
+class SurfacePoolHandleAndroid;
 
 // A handle to the process-wide surface pool. Users should create one handle per
 // OS window, and call OnBeginFrame() and OnEndFrame() on the handle at
@@ -59,6 +60,10 @@ class SurfacePoolHandle {
   virtual SurfacePoolHandleWayland* AsSurfacePoolHandleWayland() {
     return nullptr;
   }
+  virtual SurfacePoolHandleAndroid* AsSurfacePoolHandleAndroid() {
+    return nullptr;
+  }
+
 
   virtual RefPtr<SurfacePool> Pool() = 0;
 

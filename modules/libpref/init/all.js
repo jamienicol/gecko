@@ -4206,3 +4206,4 @@ pref("privacy.query_stripping.strip_on_share.enableTestMode", false);
 pref("privacy.query_stripping.strip_on_share.canDisable", true);
 
 pref("media.android-image-reader.enabled", true);
+// pref("gfx.webrender.compositor", true);

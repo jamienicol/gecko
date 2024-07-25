@@ -927,7 +927,7 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
 
 bool AndroidHardwareBufferTextureHost::SupportsExternalCompositing(
     WebRenderBackend aBackend) {
-  return aBackend == WebRenderBackend::SOFTWARE;
+  return true;
 }
 
 #endif  // MOZ_WIDGET_ANDROID

@@ -192,6 +192,14 @@ class CompositorWidget {
   virtual bool InitCompositor(layers::Compositor* aCompositor) { return true; }
 
   /**
+   * A hook that is ran whenever composition is paused.
+   *
+   * This is called from CompositorBridgeParent::PauseComposition,
+   * immediately following webrender being paused.
+   */
+  virtual void OnPauseComposition() {}
+
+  /**
    * A hook that is ran whenever composition is resumed.
    *
    * This is called from CompositorBridgeParent::ResumeComposition,

@@ -31,8 +31,10 @@ namespace layers {
 class NativeLayer;
 class NativeLayerCA;
 class NativeLayerWayland;
+class NativeLayerAndroid;
 class NativeLayerRootCA;
 class NativeLayerRootWayland;
+class NativeLayerRootAndroid;
 class NativeLayerRootSnapshotter;
 class SurfacePoolHandle;
 
@@ -48,6 +50,7 @@ class NativeLayerRoot {
 
   virtual NativeLayerRootCA* AsNativeLayerRootCA() { return nullptr; }
   virtual NativeLayerRootWayland* AsNativeLayerRootWayland() { return nullptr; }
+  virtual NativeLayerRootAndroid* AsNativeLayerRootAndroid() { return nullptr; }
 
   virtual already_AddRefed<NativeLayer> CreateLayer(
       const gfx::IntSize& aSize, bool aIsOpaque,
@@ -131,6 +134,7 @@ class NativeLayer {
 
   virtual NativeLayerCA* AsNativeLayerCA() { return nullptr; }
   virtual NativeLayerWayland* AsNativeLayerWayland() { return nullptr; }
+  virtual NativeLayerAndroid* AsNativeLayerAndroid() { return nullptr; }
 
   // The size and opaqueness of a layer are supplied during layer creation and
   // never change.

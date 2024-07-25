@@ -20,6 +20,10 @@
 #include "mozilla/widget/CompositorWidget.h"
 #include "RenderCompositorRecordedFrame.h"
 
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/layers/NativeLayerAndroid.h"
+#endif
+
 namespace mozilla::wr {
 
 extern LazyLogModule gRenderThreadLog;
@@ -27,11 +31,10 @@ extern LazyLogModule gRenderThreadLog;
 
 RenderCompositorNative::RenderCompositorNative(
     const RefPtr<widget::CompositorWidget>& aWidget, gl::GLContext* aGL)
-    : RenderCompositor(aWidget),
-      mNativeLayerRoot(GetWidget()->GetNativeLayerRoot()) {
+    : RenderCompositor(aWidget) {
   LOG("RenderCompositorNative::RenderCompositorNative()");
 
-#if defined(XP_DARWIN) || defined(MOZ_WAYLAND)
+#if defined(XP_DARWIN) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   auto pool = RenderThread::Get()->SharedSurfacePool();
   if (pool) {
     mSurfacePoolHandle = pool->GetHandleForGL(aGL);
@@ -45,7 +48,9 @@ RenderCompositorNative::~RenderCompositorNative() {
 
   Pause();
   mProfilerScreenshotGrabber.Destroy();
-  mNativeLayerRoot->SetLayers({});
+  if (mNativeLayerRoot) {
+    mNativeLayerRoot->SetLayers({});
+  }
   mNativeLayerForEntireWindow = nullptr;
   mNativeLayerRootSnapshotter = nullptr;
   mNativeLayerRoot = nullptr;
@@ -96,9 +101,14 @@ RenderedFrameId RenderCompositorNative::EndFrame(
   return frameId;
 }
 
-void RenderCompositorNative::Pause() {}
+void RenderCompositorNative::Pause() { mNativeLayerRoot = nullptr; }
 
-bool RenderCompositorNative::Resume() { return true; }
+bool RenderCompositorNative::Resume() {
+  mNativeLayerRoot = mWidget->GetNativeLayerRoot();
+  return true;
+}
+
+bool RenderCompositorNative::IsPaused() { return mNativeLayerRoot == nullptr; }
 
 inline layers::WebRenderCompositor RenderCompositorNative::CompositorType()
     const {
@@ -135,7 +145,8 @@ bool RenderCompositorNative::MaybeReadback(
     return false;
   }
 
-  MOZ_RELEASE_ASSERT(aReadbackFormat == wr::ImageFormat::BGRA8);
+  // FIXME: this crashes in fenix
+  // MOZ_RELEASE_ASSERT(aReadbackFormat == wr::ImageFormat::BGRA8);
   if (!mNativeLayerRootSnapshotter) {
     mNativeLayerRootSnapshotter = mNativeLayerRoot->CreateSnapshotter();
 
@@ -506,7 +517,23 @@ void RenderCompositorNativeOGL::DoSwap() {
   }
 }
 
-void RenderCompositorNativeOGL::DoFlush() { mGL->fFlush(); }
+void RenderCompositorNativeOGL::DoFlush() {
+  mGL->fFlush();
+#ifdef MOZ_WIDGET_ANDROID
+  const auto& gle = gl::GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
+
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+  if (sync) {
+    int fence = egl->fDupNativeFenceFDANDROID(sync);
+    if (fence >= 0) {
+      mNativeLayerRoot->AsNativeLayerRootAndroid()->SetLayersRenderedFence(
+          fence);
+    }
+    egl->fDestroySync(sync);
+  }
+#endif
+}
 
 void RenderCompositorNativeOGL::InsertFrameDoneSync() {
 #ifdef XP_DARWIN

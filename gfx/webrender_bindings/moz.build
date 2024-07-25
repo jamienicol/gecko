@@ -65,10 +65,12 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     EXPORTS.mozilla.webrender += [
         "RenderAndroidHardwareBufferTextureHost.h",
         "RenderAndroidSurfaceTextureHost.h",
+        "RenderCompositorNative.h",
     ]
     UNIFIED_SOURCES += [
         "RenderAndroidHardwareBufferTextureHost.cpp",
         "RenderAndroidSurfaceTextureHost.cpp",
+        "RenderCompositorNative.cpp",
     ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
