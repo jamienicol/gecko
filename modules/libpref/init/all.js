@@ -4125,3 +4125,4 @@ pref("captchadetection.loglevel", "Warn");
 pref("captchadetection.actor.enabled", true);
 
 pref("media.android-image-reader.enabled", true);
+// pref("gfx.webrender.compositor", true);

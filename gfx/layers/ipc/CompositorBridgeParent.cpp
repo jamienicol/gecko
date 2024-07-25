@@ -531,6 +531,7 @@ void CompositorBridgeParent::PauseComposition() {
                              mWrBridge->GetCurrentEpoch(), VsyncId(), now, now,
                              now);
     }
+    mWidget->OnPauseComposition();
   }
 }
 

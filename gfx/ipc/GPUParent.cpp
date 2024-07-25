@@ -90,6 +90,7 @@
 #endif
 #ifdef ANDROID
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/layers/AndroidSurfaceControl.h"
 #  include "mozilla/jni/Utils.h"
 #  include "skia/include/ports/SkTypeface_cairo.h"
 #endif
@@ -406,6 +407,7 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
     layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
   }
+  layers::AndroidSurfaceControlApi::Init();
 #endif
 
   // Make sure to do this *after* we update gfxVars above.
