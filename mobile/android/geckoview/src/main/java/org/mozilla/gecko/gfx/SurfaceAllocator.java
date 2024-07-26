@@ -5,6 +5,7 @@
 
 package org.mozilla.gecko.gfx;
 
+import android.hardware.HardwareBuffer;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -174,5 +175,10 @@ import org.mozilla.gecko.process.GeckoServiceChildProcess;
     } catch (final RemoteException e) {
       Log.w(LOGTAG, "Failed to sync texture", e);
     }
+  }
+
+  @WrapForJNI
+  HardwareBuffer getHardwareBufferFromImageReader(final long handle, final long timestamp) {
+
   }
 }

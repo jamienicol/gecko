@@ -5,6 +5,8 @@
 
 package org.mozilla.gecko.gfx;
 
+import android.hardware.HardwareBuffer;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
@@ -88,5 +90,16 @@ public final class RemoteSurfaceAllocator extends ISurfaceAllocator.Stub {
     if (gst != null) {
       gst.takeSnapshot();
     }
+  }
+
+  @Override
+  HardwareBuffer getHardwareBufferFromImageReader(long handle, long timestamp) {
+    GeckoImageReader imageReader = GeckoImageReader.lookup(handle);
+    if (imageReader == null) {
+      return null;
+    }
+
+    // FIXME: do I need to close local HardwareBuffer instance?
+    return imageReader.getHardwareBuffer(timestamp)
   }
 }

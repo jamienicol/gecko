@@ -305,7 +305,7 @@ pref("layout.spellcheckDefault", 0);
 pref("media.eme.require-app-approval", true);
 
 // Enable autoplay permission prompts (bug 1577596)
-pref("media.geckoview.autoplay.request", true);
+pref("media.geckoview.autoplay.request", false);
 
 // Disable future downloads of OpenH264 on Android (bug 1548679)
 pref("media.gmp-gmpopenh264.autoupdate", false);

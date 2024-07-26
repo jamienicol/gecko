@@ -4,6 +4,7 @@
 
 package org.mozilla.gecko.gfx;
 
+import android.hardware.HardwareBuffer;
 import org.mozilla.gecko.gfx.GeckoSurface;
 import org.mozilla.gecko.gfx.SyncConfig;
 
@@ -14,4 +15,5 @@ interface ISurfaceAllocator {
     void releaseImageReader(in long handle);
     void configureSync(in SyncConfig config);
     void sync(in long handle);
+    HardwareBuffer getHardwareBufferFromImageReader(in long handle, in long timestamp);
 }

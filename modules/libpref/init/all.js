@@ -4208,3 +4208,7 @@ pref("extensions.webcompat.useScriptingAPI", true);
 pref("privacy.fingerprintingProtection.WebCompatService.logLevel", "Error");
 // To test strip on share site specific parameters by enabling a different list to be used
 pref("privacy.query_stripping.strip_on_share.enableTestMode", false);
+
+pref("media.android-image-reader.enabled", true);
+pref("gfx.webrender.software", false);
+pref("webgl.out-of-process", true);
