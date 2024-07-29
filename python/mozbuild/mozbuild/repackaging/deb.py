@@ -290,6 +290,7 @@ def _get_build_variables(
         f"{description_suffix}",
         "DEB_PKG_INSTALL_PATH": deb_pkg_install_path,
         "DEB_PKG_NAME": deb_pkg_name,
+        "DEB_DISPLAY_NAME": application_ini_data["display_name"],
         "DEB_PKG_VERSION": application_ini_data["deb_pkg_version"],
         "DEB_CHANGELOG_DATE": format_datetime(application_ini_data["timestamp"]),
         "DEB_ARCH_NAME": _DEB_ARCH[arch],
@@ -334,6 +335,21 @@ def _render_deb_templates(
 
 
 def _inject_deb_distribution_folder(source_dir, app_name):
+    distribution_ini_path = mozpath.join(source_dir, "debian", "distribution.ini")
+
+    # Check to see if a distribution.ini file is already supplied in the debian templates directory
+    # If not, continue to download default Firefox distribution.ini from GitHub
+    if os.path.exists(distribution_ini_path):
+        os.makedirs(
+            mozpath.join(source_dir, app_name.lower(), "distribution"), exist_ok=True
+        )
+        shutil.move(
+            distribution_ini_path,
+            mozpath.join(source_dir, app_name.lower(), "distribution"),
+        )
+
+        return
+
     with tempfile.TemporaryDirectory() as git_clone_dir:
         subprocess.check_call(
             [
@@ -364,6 +380,21 @@ def _inject_deb_desktop_entry_file(
     fluent_localization,
     fluent_resource_loader,
 ):
+    desktop_entry_template_path = mozpath.join(
+        source_dir, "debian", f"{release_product}.desktop"
+    )
+    desktop_entry_file_filename = f"{build_variables['DEB_PKG_NAME']}.desktop"
+
+    # Check to see if a .desktop file is already supplied in the debian templates directory
+    # If not, continue to generate default Firefox .desktop file
+    if os.path.exists(desktop_entry_template_path):
+        shutil.move(
+            desktop_entry_template_path,
+            mozpath.join(source_dir, "debian", desktop_entry_file_filename),
+        )
+
+        return
+
     desktop_entry_file_text = _generate_browser_desktop_entry_file_text(
         log,
         build_variables,
@@ -372,7 +403,6 @@ def _inject_deb_desktop_entry_file(
         fluent_localization,
         fluent_resource_loader,
     )
-    desktop_entry_file_filename = f"{build_variables['DEB_PKG_NAME']}.desktop"
     os.makedirs(mozpath.join(source_dir, "debian"), exist_ok=True)
     with open(
         mozpath.join(source_dir, "debian", desktop_entry_file_filename), "w"
@@ -500,7 +530,8 @@ def _get_en_US_brand_fluent_filename(
         return branding_fluent_filename_template.format(brand="aurora")
     elif release_type.startswith("esr"):
         return branding_fluent_filename_template.format(brand="official")
-    el                   branding_fluent_filename_template.format(brand="unofficial")
+    else:
+        return branding_fluent_filename_template.format(brand="unofficial")
 
 
 def _load_linux_l10n_changesets(l10n_changesets_filename):
@@ -529,5 +560,240 @@ def _generate_browser_desktop_entry(build_variables, localizations):
         "image/gif",
         "image/jpeg",
         "image/png",
-        "image/svg",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+        "image/svg+xml",
+        "image/webp",
+        "text/html",
+        "text/xml",
+        "video/ogg",
+        "video/webm",
+        "x-scheme-handler/chrome",
+        "x-scheme-handler/http",
+        "x-scheme-handler/https",
+        "x-scheme-handler/mailto",
+    ]
+
+    categories = [
+        "GNOME",
+        "GTK",
+        "Network",
+        "WebBrowser",
+    ]
+
+    actions = [
+        {
+            "name": "new-window",
+            "message": "desktop-action-new-window-name",
+            "command": f"{build_variables['DEB_PKG_NAME']} --new-window %u",
+        },
+        {
+            "name": "new-private-window",
+            "message": "desktop-action-new-private-window-name",
+            "command": f"{build_variables['DEB_PKG_NAME']} --private-window %u",
+        },
+        {
+            "name": "open-profile-manager",
+            "message": "desktop-action-open-profile-manager",
+            "command": f"{build_variables['DEB_PKG_NAME']} --ProfileManager",
+        },
+    ]
+
+    desktop_entry = _desktop_entry_section(
+        "Desktop Entry",
+        [
+            {
+                "key": "Version",
+                "value": "1.0",
+            },
+            {
+                "key": "Type",
+                "value": "Application",
+            },
+            {
+                "key": "Exec",
+                "value": f"{build_variables['DEB_PKG_NAME']} %u",
+            },
+            {
+                "key": "Terminal",
+                "value": "false",
+            },
+            {
+                "key": "X-MultipleArgs",
+                "value": "false",
+            },
+            {
+                "key": "Icon",
+                "value": build_variables["DEB_PKG_NAME"],
+            },
+            {
+                "key": "StartupWMClass",
+                "value": "firefox-aurora"
+                if build_variables["DEB_PKG_NAME"] == "firefox-devedition"
+                else build_variables["DEB_PKG_NAME"],
+            },
+            {
+                "key": "Categories",
+                "value": _desktop_entry_list(categories),
+            },
+            {
+                "key": "MimeType",
+                "value": _desktop_entry_list(mime_types),
+            },
+            {
+                "key": "StartupNotify",
+                "value": "true",
+            },
+            {
+                "key": "Actions",
+                "value": _desktop_entry_list([action["name"] for action in actions]),
+            },
+            {"key": "Name", "value": "desktop-entry-name", "l10n": True},
+            {"key": "Comment", "value": "desktop-entry-comment", "l10n": True},
+            {"key": "GenericName", "value": "desktop-entry-generic-name", "l10n": True},
+            {"key": "Keywords", "value": "desktop-entry-keywords", "l10n": True},
+            {
+                "key": "X-GNOME-FullName",
+                "value": "desktop-entry-x-gnome-full-name",
+                "l10n": True,
+            },
+        ],
+        localizations,
+    )
+
+    for action in actions:
+        desktop_entry.extend(
+            _desktop_entry_section(
+                f"Desktop Action {action['name']}",
+                [
+                    {
+                        "key": "Name",
+                        "value": action["message"],
+                        "l10n": True,
+                    },
+                    {
+                        "key": "Exec",
+                        "value": action["command"],
+                    },
+                ],
+                localizations,
+            )
+        )
+
+    return desktop_entry
+
+
+def _desktop_entry_list(iterable):
+    delimiter = ";"
+    return f"{delimiter.join(iterable)}{delimiter}"
+
+
+def _desktop_entry_attribute(key, value, locale=None, localizations=None):
+    if not locale and not localizations:
+        return f"{key}={value}"
+    if locale and locale == "en-US":
+        return f"{key}={localizations[locale].format_value(value)}"
+    else:
+        return f"{key}[{locale.replace('-', '_')}]={localizations[locale].format_value(value)}"
+
+
+def _desktop_entry_section(header, attributes, localizations):
+    desktop_entry_section = [f"[{header}]"]
+    l10n_attributes = [attribute for attribute in attributes if attribute.get("l10n")]
+    non_l10n_attributes = [
+        attribute for attribute in attributes if not attribute.get("l10n")
+    ]
+    for attribute in non_l10n_attributes:
+        desktop_entry_section.append(
+            _desktop_entry_attribute(attribute["key"], attribute["value"])
+        )
+    for attribute in l10n_attributes:
+        for locale in localizations:
+            desktop_entry_section.append(
+                _desktop_entry_attribute(
+                    attribute["key"], attribute["value"], locale, localizations
+                )
+            )
+    desktop_entry_section.append("")
+    return desktop_entry_section
+
+
+def _generate_deb_archive(
+    source_dir, target_dir, output_file_path, build_variables, arch
+):
+    command = _get_command(arch)
+    subprocess.check_call(command, cwd=source_dir)
+    deb_arch = _DEB_ARCH[arch]
+    deb_file_name = f"{build_variables['DEB_PKG_NAME']}_{build_variables['DEB_PKG_VERSION']}_{deb_arch}.deb"
+    deb_file_path = mozpath.join(target_dir, deb_file_name)
+
+    if not os.path.exists(deb_file_path):
+        raise NoDebPackageFound(deb_file_path)
+
+    subprocess.check_call(["dpkg-deb", "--info", deb_file_path])
+    shutil.move(deb_file_path, output_file_path)
+
+
+def _get_command(arch):
+    deb_arch = _DEB_ARCH[arch]
+    command = [
+        "dpkg-buildpackage",
+        # TODO: Use long options once we stop supporting Debian Jesse. They're more
+        # explicit.
+        #
+        # Long options were added in dpkg 1.18.8 which is part of Debian Stretch.
+        #
+        # https://git.dpkg.org/cgit/dpkg/dpkg.git/commit/?h=1.18.x&id=293bd243a19149165fc4fd8830b16a51d471a5e9
+        # https://packages.debian.org/stretch/dpkg-dev
+        "-us",  # --unsigned-source
+        "-uc",  # --unsigned-changes
+        "-b",  # --build=binary
+    ]
+
+    if deb_arch != "all":
+        command.append(f"--host-arch={deb_arch}")
+
+    if _is_chroot_available(arch):
+        flattened_command = " ".join(command)
+        command = [
+            "chroot",
+            _get_chroot_path(arch),
+            "bash",
+            "-c",
+            f"cd /tmp/*/source; {flattened_command}",
+        ]
+
+    return command
+
+
+def _create_temporary_directory(arch):
+    if _is_chroot_available(arch):
+        return tempfile.mkdtemp(dir=f"{_get_chroot_path(arch)}/tmp")
+    else:
+        return tempfile.mkdtemp()
+
+
+def _is_chroot_available(arch):
+    return os.path.isdir(_get_chroot_path(arch))
+
+
+def _get_chroot_path(arch):
+    # At the moment the Firefox build baseline for i386 and amd64 is jessie and the baseline for arm64 is buster.
+    # These baselines are defined in taskcluster/scripts/misc/build-sysroot.sh
+    # The debian-repackage image defined in taskcluster/docker/debian-repackage/Dockerfile
+    # bootstraps /srv/jessie-i386, /srv/jessie-amd64, and /srv/buster-amd64 roots.
+    # We use these roots to run the repackage step and generate shared
+    # library dependencies that match the Firefox build baseline.
+    deb_sysroot_dist = _DEB_SYSROOT_DIST[arch]
+    deb_sysroot_arch = _DEB_SYSROOT_ARCH[arch]
+    return f"/srv/{deb_sysroot_dist}-{deb_sysroot_arch}"
+
+
+_MANIFEST_FILE_NAME = "manifest.json"
+
+
+def _extract_langpack_metadata(input_xpi_file):
+    with tempfile.TemporaryDirectory() as d:
+        with zipfile.ZipFile(input_xpi_file) as zip:
+            zip.extract(_MANIFEST_FILE_NAME, path=d)
+
+        with open(mozpath.join(d, _MANIFEST_FILE_NAME)) as f:
+            return json.load(f)
