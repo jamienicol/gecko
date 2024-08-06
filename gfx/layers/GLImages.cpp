@@ -13,7 +13,12 @@
 #include "GLReadTexImageHelper.h"
 #include "GLLibraryEGL.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/LayersSurfaces.h"
+#include "mozilla/layers/TextureClientOGL.h"
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/layers/AndroidImage.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::gl;
@@ -129,6 +134,71 @@ Maybe<SurfaceDescriptor> SurfaceTextureImage::GetDesc() {
       mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8,
       mForceBT709ColorSpace, false /* NOT continuous */, mTransformOverride);
   return Some(sd);
+}
+
+AndroidImageImage::AndroidImageImage(RefPtr<AndroidImageReader> aImageReader,
+                                     int64_t aTimestampNs,
+                                     const gfx::IntSize& aSize)
+    : GLImage(ImageFormat::ANDROID_IMAGE),
+      mImageReader(aImageReader),
+      mTimestamp(aTimestampNs),
+      mSize(aSize),
+      mMutex("AndroidImageImage") {}
+
+RefPtr<AndroidImage> AndroidImageImage::GetImage() const {
+  MutexAutoLock lock(mMutex);
+  return mImage;
+}
+
+Maybe<SurfaceDescriptor> AndroidImageImage::GetDesc() {
+  return GetDescFromTexClient(
+      GetTextureClient(ImageBridgeChild::GetSingleton().get()));
+}
+
+TextureClient* AndroidImageImage::GetTextureClient(
+    KnowsCompositor* aKnowsCompositor) {
+  MOZ_ASSERT(aKnowsCompositor == ImageBridgeChild::GetSingleton(),
+             "Must only use AndroidImageImage on ImageBridge");
+
+  MutexAutoLock lock(mMutex);
+
+  if (!mImage) {
+    gfxCriticalError()
+        << "AndroidImageImage cannot create TextureClient as Image "
+           "has not been acquired";
+    return nullptr;
+  }
+
+  if (!mTextureClient) {
+    mTextureClient = TextureClient::CreateWithData(
+        AndroidImageTextureData::Create(mImageReader, mImage),
+        TextureFlags::DEFAULT, ImageBridgeChild::GetSingleton().get());
+  }
+  return mTextureClient;
+}
+
+void AndroidImageImage::OnSetCurrent() {
+  // Call the callback, which will release MediaCodec sample to be rendered to
+  // the ImageReader
+  bool rendered = false;
+  if (mSetCurrentCallback) {
+    rendered = (*mSetCurrentCallback)();
+    mSetCurrentCallback.reset();
+  }
+
+  // Then attempt to acquire the image, but only if it was actually rendered to
+  // the Surface. This might not have occured if, for example, the MediaCodec
+  // was flushed.
+  if (rendered) {
+    MutexAutoLock lock(mMutex);
+    if (!mImage) {
+      mImage = mImageReader->AcquireLatestImage();
+      if (mImage->GetTimestamp() != mTimestamp) {
+        gfxCriticalError() << "AcquireLatestImage expected timestamp "
+                           << mTimestamp << ", got " << mImage->GetTimestamp();
+      }
+    }
+  }
 }
 #endif
 

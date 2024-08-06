@@ -27,7 +27,9 @@
 #include "mozilla/java/SampleBufferWrappers.h"
 #include "mozilla/java/SampleWrappers.h"
 #include "mozilla/java/SurfaceAllocatorWrappers.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "nsPromiseFlatString.h"
 #include "nsThreadUtils.h"
 #include "prlog.h"
@@ -54,12 +56,19 @@ class RenderOrReleaseOutput {
   virtual ~RenderOrReleaseOutput() { ReleaseOutput(false); }
 
  protected:
-  void ReleaseOutput(bool aToRender) {
+  // Releases the output buffer to the codec, rendering it to the Surface if
+  // requested. Returns true if successful. Note that if this returns false, the
+  // buffer will not have been rendered and a new frame will not be sent to the
+  // output Surface. This may occur, for example, if the codec was flushed and
+  // the output buffer being released is no longer valid.
+  bool ReleaseOutput(bool aToRender) {
     if (mCodec && mSample) {
-      mCodec->ReleaseOutput(mSample, aToRender);
+      const bool ok = mCodec->ReleaseOutput(mSample, aToRender);
       mCodec = nullptr;
       mSample = nullptr;
+      return ok;
     }
+    return false;
   }
 
  private:
@@ -92,15 +101,19 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
  public:
   // Render the output to the surface when the frame is sent
   // to compositor, or release it if not presented.
-  class CompositeListener
-      : private RenderOrReleaseOutput,
-        public layers::SurfaceTextureImage::SetCurrentCallback {
+  class CompositeListener : private RenderOrReleaseOutput,
+                            public layers::GLImage::SetCurrentCallback {
    public:
     CompositeListener(java::CodecProxy::Param aCodec,
                       java::Sample::Param aSample)
         : RenderOrReleaseOutput(aCodec, aSample) {}
 
-    void operator()(void) override { ReleaseOutput(true); }
+    // Releases the output buffer to the codec, rendering it to the Surface.
+    // Returns true if successful. Note that if this returns false, the buffer
+    // will not have been rendered and a new frame will not be sent to the
+    // output Surface. This may occur, for example, if the codec was flushed and
+    // the output buffer being released is no longer valid.
+    bool operator()(void) override { return ReleaseOutput(true); }
   };
 
   class InputInfo {
@@ -186,8 +199,8 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
         mTrackingId(std::move(aTrackingId)) {}
 
   ~RemoteVideoDecoder() {
-    if (mSurface) {
-      java::SurfaceAllocator::DisposeSurface(mSurface);
+    if (mGeckoSurface) {
+      java::SurfaceAllocator::DisposeSurface(mGeckoSurface);
     }
   }
 
@@ -200,15 +213,28 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     }
     mInputBufferInfo = bufferInfo;
 
-    mSurface =
-        java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
-            mConfig.mImage.width, mConfig.mImage.height, false));
-    if (!mSurface) {
-      return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                                          __func__);
+    if (StaticPrefs::media_android_image_reader_enabled()) {
+      gfx::SurfaceFormat surfaceFormat = mConfig.HasAlpha()
+                                             ? gfx::SurfaceFormat::R8G8B8A8
+                                             : gfx::SurfaceFormat::R8G8B8X8;
+      mImageReader = layers::AndroidImageReader::Create(
+          surfaceFormat, mConfig.mImage.width, mConfig.mImage.height,
+          AIMAGE_FORMAT_PRIVATE, 3,
+          AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+              AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY);
     }
 
-    mSurfaceHandle = mSurface->GetHandle();
+    // If using ImageReader failed for whatever reason, fall back to using a
+    // GeckoSurface(Texture).
+    if (!mImageReader) {
+      mGeckoSurface =
+          java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
+              mConfig.mImage.width, mConfig.mImage.height, false));
+      if (!mGeckoSurface) {
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+    }
 
     // Register native methods.
     JavaCallbacksSupport::Init();
@@ -221,9 +247,15 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     JavaCallbacksSupport::AttachNative(
         mJavaCallbacks, mozilla::MakeUnique<CallbacksSupport>(this));
 
+    java::sdk::Surface::LocalRef surface;
+    if (mImageReader) {
+      surface = mImageReader->GetSurface();
+    } else {
+      surface = mGeckoSurface->GetSurface();
+    }
     mJavaDecoder = java::CodecProxy::Create(
         false,  // false indicates to create a decoder and true denotes encoder
-        mFormat, mSurface->GetSurface(), mJavaCallbacks, mDrmStubId);
+        mFormat, surface, mJavaCallbacks, mDrmStubId);
     if (mJavaDecoder == nullptr) {
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
@@ -369,7 +401,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
       return;
     }
 
-    UniquePtr<layers::SurfaceTextureImage::SetCurrentCallback> releaseSample(
+    UniquePtr<layers::GLImage::SetCurrentCallback> releaseSample(
         new CompositeListener(mJavaDecoder, aSample));
 
     // If our output surface has been released (due to the GPU process crashing)
@@ -440,12 +472,18 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
         forceBT709ColorSpace = true;
       }
 
-      RefPtr<layers::Image> img = new layers::SurfaceTextureImage(
-          mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,
-          gl::OriginPos::BottomLeft, mConfig.HasAlpha(), forceBT709ColorSpace,
-          /* aTransformOverride */ Nothing());
-      img->AsSurfaceTextureImage()->RegisterSetCurrentCallback(
-          std::move(releaseSample));
+      RefPtr<layers::Image> img;
+      if (mImageReader) {
+        img = new layers::AndroidImageImage(
+            mImageReader, presentationTimeUs * 1000, inputInfo.mImageSize);
+      } else {
+        img = new layers::SurfaceTextureImage(
+            mGeckoSurface->GetHandle(), inputInfo.mImageSize,
+            false /* NOT continuous */, gl::OriginPos::BottomLeft,
+            mConfig.HasAlpha(), forceBT709ColorSpace,
+            /* aTransformOverride */ Nothing());
+      }
+      img->AsGLImage()->RegisterSetCurrentCallback(std::move(releaseSample));
 
       RefPtr<VideoData> v = VideoData::CreateFromImage(
           inputInfo.mDisplaySize, offset,
@@ -578,12 +616,21 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
   }
 
   bool NeedsNewDecoder() const override {
-    return !mSurface || mSurface->IsReleased();
+    if (mImageReader) {
+      // When using ImageReader, we never need a new decoder as the ImageReader
+      // lives in the same process.
+      return false;
+    }
+    // When using GeckoSurface, we may need a new decoder if the process
+    // containing the GeckoSurfaceTexture has crashed.
+    return !mGeckoSurface || mGeckoSurface->IsReleased();
   }
 
   const VideoInfo mConfig;
-  java::GeckoSurface::GlobalRef mSurface;
-  AndroidSurfaceTextureHandle mSurfaceHandle{};
+  // The ImageReader decoded frames are rendered to, if using ImageReader.
+  RefPtr<layers::AndroidImageReader> mImageReader;
+  // The GeckoSurface decoded frames are rendered to, if not using ImageReader.
+  java::GeckoSurface::GlobalRef mGeckoSurface;
   // Only accessed on reader's task queue.
   bool mIsCodecSupportAdaptivePlayback = false;
   // Can be accessed on any thread, but only written on during init.
@@ -1187,9 +1234,9 @@ void RemoteDataDecoder::Error(const MediaResult& aError) {
     return;
   }
 
-  // If we know we need a new decoder (eg because RemoteVideoDecoder's mSurface
-  // has been released due to a GPU process crash) then override the error to
-  // request a new decoder.
+  // If we know we need a new decoder (eg because RemoteVideoDecoder's
+  // mGeckoSurface has been released due to a GPU process crash) then override
+  // the error to request a new decoder.
   const MediaResult& error =
       NeedsNewDecoder()
           ? MediaResult(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER, __func__)

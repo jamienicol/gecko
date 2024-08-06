@@ -108,6 +108,7 @@ namespace layers {
   uint64_t bufferId;
   IntSize size;
   SurfaceFormat format;
+  IntRect? cropRect;
 };
 
 [Comparable] struct EGLImageDescriptor {

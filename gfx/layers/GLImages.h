@@ -8,11 +8,10 @@
 #define GFX_GLIMAGES_H
 
 #include "GLContextTypes.h"
-#include "GLTypes.h"
 #include "ImageContainer.h"      // for Image
 #include "ImageTypes.h"          // for ImageFormat::SHARED_GLTEXTURE
-#include "nsCOMPtr.h"            // for already_AddRefed
 #include "mozilla/Maybe.h"       // for Maybe
+#include "mozilla/Mutex.h"       // for Mutex
 #include "mozilla/gfx/Matrix.h"  // for Matrix4x4
 #include "mozilla/gfx/Point.h"   // for IntSize
 
@@ -25,6 +24,12 @@ namespace layers {
 
 class GLImage : public Image {
  public:
+  class SetCurrentCallback {
+   public:
+    virtual bool operator()(void) = 0;
+    virtual ~SetCurrentCallback() {}
+  };
+
   explicit GLImage(ImageFormat aFormat) : Image(nullptr, aFormat) {}
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
@@ -35,22 +40,24 @@ class GLImage : public Image {
 
   GLImage* AsGLImage() override { return this; }
 
+  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
+    mSetCurrentCallback = std::move(aCallback);
+  }
+
+  virtual void OnSetCurrent() {}
+
  protected:
   nsresult ReadIntoBuffer(uint8_t* aData, int32_t aStride,
                           const gfx::IntSize& aSize,
                           gfx::SurfaceFormat aFormat);
+
+  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
 };
 
 #ifdef MOZ_WIDGET_ANDROID
 
 class SurfaceTextureImage final : public GLImage {
  public:
-  class SetCurrentCallback {
-   public:
-    virtual void operator()(void) = 0;
-    virtual ~SetCurrentCallback() {}
-  };
-
   SurfaceTextureImage(AndroidSurfaceTextureHandle aHandle,
                       const gfx::IntSize& aSize, bool aContinuous,
                       gl::OriginPos aOriginPos, bool aHasAlpha,
@@ -87,11 +94,7 @@ class SurfaceTextureImage final : public GLImage {
 
   Maybe<SurfaceDescriptor> GetDesc() override;
 
-  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
-    mSetCurrentCallback = std::move(aCallback);
-  }
-
-  void OnSetCurrent() {
+  void OnSetCurrent() override {
     if (mSetCurrentCallback) {
       (*mSetCurrentCallback)();
       mSetCurrentCallback.reset();
@@ -106,7 +109,36 @@ class SurfaceTextureImage final : public GLImage {
   const bool mHasAlpha;
   const bool mForceBT709ColorSpace;
   const Maybe<gfx::Matrix4x4> mTransformOverride;
-  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
+};
+
+class AndroidImageReader;
+class AndroidImage;
+
+class AndroidImageImage final : public GLImage {
+ public:
+  AndroidImageImage(RefPtr<AndroidImageReader> aImageReader,
+                    int64_t aTimestampNs, const gfx::IntSize& aSize);
+
+  RefPtr<AndroidImage> GetImage() const;
+  gfx::IntSize GetSize() const override { return mSize; }
+
+  AndroidImageImage* AsAndroidImageImage() override { return this; }
+
+  Maybe<SurfaceDescriptor> GetDesc() override;
+  TextureClient* GetTextureClient(KnowsCompositor* aKnowsCompositor) override;
+
+  void OnSetCurrent() override;
+
+ private:
+  // These are declared in this order so the Image is destructed before the
+  // ImageReader.
+  const RefPtr<AndroidImageReader> mImageReader;
+  RefPtr<AndroidImage> mImage MOZ_GUARDED_BY(mMutex);
+  RefPtr<TextureClient> mTextureClient MOZ_GUARDED_BY(mMutex);
+
+  const int64_t mTimestamp;
+  const gfx::IntSize mSize;
+  mutable Mutex mMutex;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

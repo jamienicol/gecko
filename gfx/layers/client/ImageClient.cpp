@@ -125,6 +125,10 @@ already_AddRefed<TextureClient> ImageClient::CreateTextureClientForImage(
         typedImage->GetForceBT709ColorSpace(),
         typedImage->GetTransformOverride(),
         aKnowsCompositor->GetTextureForwarder(), TextureFlags::DEFAULT);
+  } else if (aImage->GetFormat() == ImageFormat::ANDROID_IMAGE) {
+    // Fallback path is not supported, as requires snapshot GL context, which
+    // must be used on main thread.
+    return nullptr;
 #endif
   } else {
     RefPtr<gfx::SourceSurface> surface = aImage->GetAsSourceSurface();

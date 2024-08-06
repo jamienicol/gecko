@@ -87,7 +87,6 @@ bool RenderAndroidHardwareBufferTextureHost::EnsureLockable() {
         LOCAL_EGL_IMAGE_PRESERVED,
         LOCAL_EGL_TRUE,
         LOCAL_EGL_NONE,
-        LOCAL_EGL_NONE,
     };
 
     EGLClientBuffer clientBuffer = egl->mLib->fGetNativeClientBufferANDROID(
@@ -98,15 +97,14 @@ bool RenderAndroidHardwareBufferTextureHost::EnsureLockable() {
   MOZ_ASSERT(mEGLImage);
 
   mGL->fGenTextures(1, &mTextureHandle);
-  mGL->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, mTextureHandle);
+  ActivateBindAndTexParameteri(mGL, LOCAL_GL_TEXTURE0,
+                               LOCAL_GL_TEXTURE_EXTERNAL, mTextureHandle);
   mGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_T,
                       LOCAL_GL_CLAMP_TO_EDGE);
   mGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_S,
                       LOCAL_GL_CLAMP_TO_EDGE);
   mGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, mEGLImage);
 
-  ActivateBindAndTexParameteri(mGL, LOCAL_GL_TEXTURE0,
-                               LOCAL_GL_TEXTURE_EXTERNAL_OES, mTextureHandle);
   return true;
 }
 
@@ -131,10 +129,11 @@ wr::WrExternalImage RenderAndroidHardwareBufferTextureHost::Lock(
     return InvalidToWrExternalImage();
   }
 
-  const gfx::IntSize size = GetSize();
-  return NativeTextureToWrExternalImage(mTextureHandle, 0.0, 0.0,
-                                        static_cast<float>(size.width),
-                                        static_cast<float>(size.height));
+  const gfx::IntRect rect =
+      mAndroidHardwareBuffer->mCropRect.valueOr(gfx::IntRect({}, GetSize()));
+  return NativeTextureToWrExternalImage(
+      mTextureHandle, static_cast<float>(rect.x), static_cast<float>(rect.y),
+      static_cast<float>(rect.width), static_cast<float>(rect.height));
 }
 
 void RenderAndroidHardwareBufferTextureHost::Unlock() {}
@@ -149,6 +148,9 @@ void RenderAndroidHardwareBufferTextureHost::DeleteTextureHandle() {
     return;
   }
   MOZ_ASSERT(mGL);
+  if (!mGL || !mGL->MakeCurrent()) {
+    return;
+  }
   mGL->fDeleteTextures(1, &mTextureHandle);
   mTextureHandle = 0;
 }

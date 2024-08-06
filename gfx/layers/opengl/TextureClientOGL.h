@@ -160,6 +160,35 @@ class AndroidHardwareBufferTextureData : public TextureData {
   bool mIsLocked;
 };
 
+class AndroidImageTextureData : public TextureData {
+ public:
+  static AndroidImageTextureData* Create(
+      const RefPtr<AndroidImageReader>& aImageReader,
+      const RefPtr<AndroidImage>& aImage);
+
+  void FillInfo(TextureData::Info& aInfo) const override;
+  bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+
+  bool Lock(OpenMode) override { return false; }
+  void Unlock() override {}
+
+  void Deallocate(LayersIPCChannel*) override {};
+
+  TextureFlags GetTextureFlags() const override;
+
+  UniqueFileHandle GetAcquireFence() override;
+  void SetReleaseFence(UniqueFileHandle&& aReleaseFence) override;
+
+ private:
+  AndroidImageTextureData(const RefPtr<AndroidImageReader>& aImageReader,
+                          const RefPtr<AndroidImage>& aImage);
+
+  // These are declared in this order so that the Image is destructed before
+  // the ImageReader.
+  const RefPtr<AndroidImageReader> mImageReader;
+  const RefPtr<AndroidImage> mImage;
+};
+
 #endif  // MOZ_WIDGET_ANDROID
 
 }  // namespace layers

@@ -173,7 +173,22 @@ already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
   AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &bufferInfo);
 
   RefPtr<AndroidHardwareBuffer> buffer = new AndroidHardwareBuffer(
-      nativeBuffer, aSize, bufferInfo.stride, aFormat, GetNextId());
+      nativeBuffer, aSize, bufferInfo.stride, aFormat, Nothing(), GetNextId());
+  AndroidHardwareBufferManager::Get()->Register(buffer);
+  return buffer.forget();
+}
+
+/* static */ already_AddRefed<AndroidHardwareBuffer>
+AndroidHardwareBuffer::FromNativeBuffer(AHardwareBuffer* nativeBuffer,
+                                        gfx::SurfaceFormat aFormat,
+                                        Maybe<gfx::IntRect> aCropRect) {
+  AHardwareBuffer_Desc desc = {};
+  AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &desc);
+
+  AndroidHardwareBufferApi::Get()->Acquire(nativeBuffer);
+  RefPtr<AndroidHardwareBuffer> buffer = new AndroidHardwareBuffer(
+      nativeBuffer, gfx::IntSize(desc.width, desc.height), desc.stride, aFormat,
+      aCropRect, GetNextId());
   AndroidHardwareBufferManager::Get()->Register(buffer);
   return buffer.forget();
 }
@@ -210,21 +225,21 @@ AndroidHardwareBuffer::FromSurfaceDescriptor(
   AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &desc);
 
   buffer = new AndroidHardwareBuffer(nativeBuffer, aDesc.size(), desc.stride,
-                                     aDesc.format(), aDesc.bufferId());
+                                     aDesc.format(), aDesc.cropRect(),
+                                     aDesc.bufferId());
 
   // Register the buffer so that subsequent calls can find it.
   AndroidHardwareBufferManager::Get()->Register(buffer);
   return buffer.forget();
 }
 
-AndroidHardwareBuffer::AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer,
-                                             gfx::IntSize aSize,
-                                             uint32_t aStride,
-                                             gfx::SurfaceFormat aFormat,
-                                             uint64_t aId)
+AndroidHardwareBuffer::AndroidHardwareBuffer(
+    AHardwareBuffer* aNativeBuffer, gfx::IntSize aSize, uint32_t aStride,
+    gfx::SurfaceFormat aFormat, Maybe<gfx::IntRect> aCropRect, uint64_t aId)
     : mSize(aSize),
       mStride(aStride),
       mFormat(aFormat),
+      mCropRect(aCropRect),
       mId(aId),
       mNativeBuffer(aNativeBuffer),
       mIsRegistered(false) {
@@ -235,7 +250,15 @@ AndroidHardwareBuffer::AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer,
   MOZ_ASSERT(mSize.width == (int32_t)bufferInfo.width);
   MOZ_ASSERT(mSize.height == (int32_t)bufferInfo.height);
   MOZ_ASSERT(mStride == bufferInfo.stride);
-  MOZ_ASSERT(ToAHardwareBuffer_Format(mFormat) == bufferInfo.format);
+  // We can only assert the SurfaceFormat matches the HARDWAREBUFFER_FORMAT for
+  // known hardware buffer formats. Hardware buffers obtained from an external
+  // source, eg an AImage, will have an unknown format but we will pretend they
+  // are R8G8B8A8 or similar.
+  if (bufferInfo.format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM ||
+      bufferInfo.format == AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM ||
+      bufferInfo.format == AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM) {
+    MOZ_ASSERT(ToAHardwareBuffer_Format(mFormat) == bufferInfo.format);
+  }
 #endif
 }
 
@@ -286,7 +309,8 @@ AndroidHardwareBuffer::Serialize() {
   }
 
   return Some(SurfaceDescriptorAndroidHardwareBuffer(
-      ipc::FileDescriptor(std::move(readerFd)), mId, mSize, mFormat));
+      ipc::FileDescriptor(std::move(readerFd)), mId, mSize, mFormat,
+      mCropRect));
 }
 
 void AndroidHardwareBuffer::SetReleaseFence(UniqueFileHandle&& aFenceFd) {

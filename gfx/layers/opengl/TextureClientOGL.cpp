@@ -16,11 +16,11 @@
 #  include <jni.h>
 #  include <android/native_window.h>
 #  include <android/native_window_jni.h>
-#  include <sys/socket.h>
 #  include "mozilla/ipc/FileDescriptor.h"
 #  include "mozilla/java/GeckoSurfaceWrappers.h"
 #  include "mozilla/java/SurfaceAllocatorWrappers.h"
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/layers/AndroidImage.h"
 #  include "mozilla/UniquePtrExtensions.h"
 #endif
 
@@ -327,6 +327,59 @@ void AndroidHardwareBufferTextureData::SetReleaseFence(
     UniqueFileHandle&& aReleaseFence) {
   if (mAndroidHardwareBuffer) {
     mAndroidHardwareBuffer->SetReleaseFence(std::move(aReleaseFence));
+  }
+}
+
+/* static */ AndroidImageTextureData* AndroidImageTextureData::Create(
+    const RefPtr<AndroidImageReader>& aImageReader,
+    const RefPtr<AndroidImage>& aImage) {
+  if (!aImageReader || !aImage) {
+    return nullptr;
+  }
+  return new AndroidImageTextureData(aImageReader, aImage);
+}
+
+AndroidImageTextureData::AndroidImageTextureData(
+    const RefPtr<AndroidImageReader>& aImageReader,
+    const RefPtr<AndroidImage>& aImage)
+    : mImageReader(aImageReader), mImage(aImage) {}
+
+void AndroidImageTextureData::FillInfo(TextureData::Info& aInfo) const {
+  aInfo.size = mImage->GetHardwareBuffer()->mSize;
+  aInfo.format = mImage->GetHardwareBuffer()->mFormat;
+  aInfo.hasSynchronization = false;
+  aInfo.supportsMoz2D = false;
+  aInfo.canExposeMappedData = false;
+  aInfo.canConcurrentlyReadLock = false;
+}
+
+bool AndroidImageTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
+  Maybe<SurfaceDescriptor> desc = mImage->GetHardwareBuffer()->Serialize();
+  if (desc) {
+    aOutDescriptor = *desc;
+    return true;
+  }
+  return false;
+}
+
+TextureFlags AndroidImageTextureData::GetTextureFlags() const {
+  // We must ensure we keep the image alive until the host has finished using
+  // the hardware buffer
+  return TextureFlags::WAIT_HOST_USAGE_END;
+}
+
+UniqueFileHandle AndroidImageTextureData::GetAcquireFence() {
+  if (!mImage->GetHardwareBuffer()) {
+    return UniqueFileHandle();
+  }
+
+  return mImage->GetHardwareBuffer()->GetAcquireFence();
+}
+
+void AndroidImageTextureData::SetReleaseFence(
+    UniqueFileHandle&& aReleaseFence) {
+  if (mImage->GetHardwareBuffer()) {
+    mImage->GetHardwareBuffer()->SetReleaseFence(std::move(aReleaseFence));
   }
 }
 

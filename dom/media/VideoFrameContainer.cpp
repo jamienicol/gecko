@@ -64,7 +64,7 @@ static void NotifySetCurrent(Image* aImage) {
     return;
   }
 
-  SurfaceTextureImage* image = aImage->AsSurfaceTextureImage();
+  GLImage* const image = aImage->AsGLImage();
   if (image == nullptr) {
     return;
   }
