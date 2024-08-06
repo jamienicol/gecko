@@ -17,6 +17,7 @@ import android.view.Surface;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -244,7 +245,7 @@ import java.util.Queue;
   private class OutputProcessor {
     private final boolean mRenderToSurface;
     private boolean mHasOutputCapacitySet;
-    private Queue<Output> mSentOutputs = new LinkedList<>();
+    private final LinkedList<Output> mSentOutputs = new LinkedList<>();
     private boolean mStopped;
 
     private OutputProcessor(final boolean renderToSurface) {
@@ -312,8 +313,32 @@ import java.util.Queue;
       return sample;
     }
 
+    // Determines whether two Sample objects are equal, for the purposes of finding the
+    // corresponding Output in mSentOutputs. We cannot use reference equality as the Sample used for
+    // lookup has been deserialized from a Parcel, meaning it is a separate instance.
+    private static boolean areSamplesEqual(final Sample lhs, final Sample rhs) {
+      return lhs.session == rhs.session
+          && lhs.info.flags == rhs.info.flags
+          && lhs.info.offset == rhs.info.offset
+          && lhs.info.presentationTimeUs == rhs.info.presentationTimeUs
+          && lhs.info.size == rhs.info.size;
+    }
+
     private synchronized void onRelease(final Sample sample, final boolean render) {
-      final Output output = mSentOutputs.poll();
+      // Find the corresponding Output for the Sample we are releasing. This is usually at the front
+      // of the list, but samples can be released out-of-order when we release a sample immediately
+      // without rendering it.
+      final Iterator<Output> iter = mSentOutputs.iterator();
+      Output output = null;
+      while (iter.hasNext()) {
+        final Output current = iter.next();
+        if (areSamplesEqual(current.sample, sample)) {
+          iter.remove();
+          output = current;
+          break;
+        }
+      }
+
       if (output != null) {
         mCodec.releaseOutputBuffer(output.index, render);
         mSamplePool.recycleOutput(output.sample);

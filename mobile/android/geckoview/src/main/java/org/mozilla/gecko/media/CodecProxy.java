@@ -350,6 +350,7 @@ public final class CodecProxy {
   }
 
   private void resetBuffers() {
+    mSurfaceOutputs.clear();
     for (int i = 0; i < mInputBuffers.size(); ++i) {
       mInputBuffers.valueAt(i).dispose();
     }
@@ -426,7 +427,7 @@ public final class CodecProxy {
     if (mOutputSurface != null) {
       if (!mSurfaceOutputs.remove(sample)) {
         if (mRemote != null) Log.w(LOGTAG, "already released: " + sample);
-        return true;
+        return false;
       }
 
       if (DEBUG && !render) {
@@ -437,7 +438,7 @@ public final class CodecProxy {
     if (mRemote == null) {
       Log.w(LOGTAG, "codec already ended");
       sample.dispose();
-      return true;
+      return false;
     }
 
     try {
