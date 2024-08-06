@@ -13,11 +13,14 @@
 #include "ImageTypes.h"          // for ImageFormat::SHARED_GLTEXTURE
 #include "nsCOMPtr.h"            // for already_AddRefed
 #include "mozilla/Maybe.h"       // for Maybe
+#include "mozilla/Mutex.h"       // for Mutex
 #include "mozilla/gfx/Matrix.h"  // for Matrix4x4
 #include "mozilla/gfx/Point.h"   // for IntSize
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "AndroidSurfaceTexture.h"
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/layers/AndroidImage.h"
 #endif
 
 namespace mozilla {
@@ -25,6 +28,12 @@ namespace layers {
 
 class GLImage : public Image {
  public:
+  class SetCurrentCallback {
+   public:
+    virtual bool operator()(void) = 0;
+    virtual ~SetCurrentCallback() {}
+  };
+
   explicit GLImage(ImageFormat aFormat) : Image(nullptr, aFormat) {}
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
@@ -35,22 +44,24 @@ class GLImage : public Image {
 
   GLImage* AsGLImage() override { return this; }
 
+  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
+    mSetCurrentCallback = std::move(aCallback);
+  }
+
+  virtual void OnSetCurrent() {}
+
  protected:
   nsresult ReadIntoBuffer(uint8_t* aData, int32_t aStride,
                           const gfx::IntSize& aSize,
                           gfx::SurfaceFormat aFormat);
+
+  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
 };
 
 #ifdef MOZ_WIDGET_ANDROID
 
 class SurfaceTextureImage final : public GLImage {
  public:
-  class SetCurrentCallback {
-   public:
-    virtual void operator()(void) = 0;
-    virtual ~SetCurrentCallback() {}
-  };
-
   SurfaceTextureImage(AndroidSurfaceTextureHandle aHandle,
                       const gfx::IntSize& aSize, bool aContinuous,
                       gl::OriginPos aOriginPos, bool aHasAlpha,
@@ -87,11 +98,7 @@ class SurfaceTextureImage final : public GLImage {
 
   Maybe<SurfaceDescriptor> GetDesc() override;
 
-  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
-    mSetCurrentCallback = std::move(aCallback);
-  }
-
-  void OnSetCurrent() {
+  void OnSetCurrent() override {
     if (mSetCurrentCallback) {
       (*mSetCurrentCallback)();
       mSetCurrentCallback.reset();
@@ -106,7 +113,42 @@ class SurfaceTextureImage final : public GLImage {
   const bool mHasAlpha;
   const bool mForceBT709ColorSpace;
   const Maybe<gfx::Matrix4x4> mTransformOverride;
-  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
+};
+
+class AndroidImageImage final : public GLImage {
+ public:
+  AndroidImageImage(RefPtr<AndroidImageReader> aImageReader,
+                    int64_t aTimestampNs, const gfx::IntSize& aSize,
+                    bool aHasAlpha);
+
+  RefPtr<AndroidImage> GetImage() const { return mImage; }
+  RefPtr<AndroidHardwareBuffer> GetHardwareBuffer() const {
+    return mHardwareBuffer;
+  }
+
+  gfx::IntSize GetSize() const override { return mSize; }
+
+  AndroidImageImage* AsAndroidImageImage() override { return this; }
+
+  Maybe<SurfaceDescriptor> GetDesc() override;
+  TextureClient* GetTextureClient(KnowsCompositor* aKnowsCompositor) override;
+
+  void OnSetCurrent() override;
+
+ private:
+  // These are declared in this order so the hardwareBuffer is destructed before
+  // the Image is destructed before the ImageReader.
+  const RefPtr<AndroidImageReader> mImageReader;
+  RefPtr<AndroidImage> mImage;
+  RefPtr<AndroidHardwareBuffer> mHardwareBuffer;
+  RefPtr<TextureClient> mTextureClient;
+
+  const int64_t mTimestamp;
+  const gfx::IntSize mSize;
+  // FIXME: remove this as we get the format from the hardware buffer
+  // we should supply it to the ImageReader and plumb it from there to the image then hardwarebuffer
+  MOZ_MAYBE_UNUSED const bool mHasAlpha;
+  Mutex mMutex MOZ_UNANNOTATED;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

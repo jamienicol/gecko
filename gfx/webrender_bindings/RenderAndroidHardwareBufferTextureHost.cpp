@@ -88,7 +88,6 @@ bool RenderAndroidHardwareBufferTextureHost::EnsureLockable() {
         LOCAL_EGL_IMAGE_PRESERVED,
         LOCAL_EGL_TRUE,
         LOCAL_EGL_NONE,
-        LOCAL_EGL_NONE,
     };
 
     EGLClientBuffer clientBuffer = egl->mLib->fGetNativeClientBufferANDROID(
@@ -99,15 +98,14 @@ bool RenderAndroidHardwareBufferTextureHost::EnsureLockable() {
   MOZ_ASSERT(mEGLImage);
 
   mGL->fGenTextures(1, &mTextureHandle);
-  mGL->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, mTextureHandle);
+  ActivateBindAndTexParameteri(mGL, LOCAL_GL_TEXTURE0,
+                               LOCAL_GL_TEXTURE_EXTERNAL, mTextureHandle);
   mGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_T,
                       LOCAL_GL_CLAMP_TO_EDGE);
   mGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_S,
                       LOCAL_GL_CLAMP_TO_EDGE);
   mGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, mEGLImage);
 
-  ActivateBindAndTexParameteri(mGL, LOCAL_GL_TEXTURE0,
-                               LOCAL_GL_TEXTURE_EXTERNAL_OES, mTextureHandle);
   return true;
 }
 
@@ -150,6 +148,9 @@ void RenderAndroidHardwareBufferTextureHost::DeleteTextureHandle() {
     return;
   }
   MOZ_ASSERT(mGL);
+  if (!mGL || !mGL->MakeCurrent()) {
+    return;
+  }
   mGL->fDeleteTextures(1, &mTextureHandle);
   mTextureHandle = 0;
 }

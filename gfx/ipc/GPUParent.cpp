@@ -406,7 +406,6 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
     layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
   }
-
 #endif
 
   // Make sure to do this *after* we update gfxVars above.
