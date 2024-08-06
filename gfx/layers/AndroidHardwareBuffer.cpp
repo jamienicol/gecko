@@ -178,6 +178,20 @@ already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
   return buffer.forget();
 }
 
+/* static */ already_AddRefed<AndroidHardwareBuffer>
+AndroidHardwareBuffer::FromNativeBuffer(AHardwareBuffer* nativeBuffer,
+                                        gfx::SurfaceFormat aFormat) {
+  AHardwareBuffer_Desc desc = {};
+  AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &desc);
+
+  AndroidHardwareBufferApi::Get()->Acquire(nativeBuffer);
+  RefPtr<AndroidHardwareBuffer> buffer = new AndroidHardwareBuffer(
+      nativeBuffer, gfx::IntSize(desc.width, desc.height), desc.stride, aFormat,
+      GetNextId());
+  AndroidHardwareBufferManager::Get()->Register(buffer);
+  return buffer.forget();
+}
+
 /* static */
 already_AddRefed<AndroidHardwareBuffer>
 AndroidHardwareBuffer::FromSurfaceDescriptor(
@@ -235,7 +249,15 @@ AndroidHardwareBuffer::AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer,
   MOZ_ASSERT(mSize.width == (int32_t)bufferInfo.width);
   MOZ_ASSERT(mSize.height == (int32_t)bufferInfo.height);
   MOZ_ASSERT(mStride == bufferInfo.stride);
-  MOZ_ASSERT(ToAHardwareBuffer_Format(mFormat) == bufferInfo.format);
+  // We can only assert the SurfaceFormat matches the HARDWAREBUFFER_FORMAT for
+  // known hardware buffer formats. Hardware buffers obtained from an external
+  // source, eg an AImage, will have an unknown format but we will pretend they
+  // are R8G8B8A8 or similar.
+  if (bufferInfo.format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM ||
+      bufferInfo.format == AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM ||
+      bufferInfo.format == AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM) {
+    MOZ_ASSERT(ToAHardwareBuffer_Format(mFormat) == bufferInfo.format);
+  }
 #endif
 }
 

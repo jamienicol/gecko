@@ -27,7 +27,10 @@
 #include "mozilla/java/SampleBufferWrappers.h"
 #include "mozilla/java/SampleWrappers.h"
 #include "mozilla/java/SurfaceAllocatorWrappers.h"
+#include "mozilla/jni/Utils.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "nsPromiseFlatString.h"
 #include "nsThreadUtils.h"
 #include "prlog.h"
@@ -54,12 +57,14 @@ class RenderOrReleaseOutput {
   virtual ~RenderOrReleaseOutput() { ReleaseOutput(false); }
 
  protected:
-  void ReleaseOutput(bool aToRender) {
+  bool ReleaseOutput(bool aToRender) {
     if (mCodec && mSample) {
-      mCodec->ReleaseOutput(mSample, aToRender);
+      const bool ok = mCodec->ReleaseOutput(mSample, aToRender);
       mCodec = nullptr;
       mSample = nullptr;
+      return ok;
     }
+    return false;
   }
 
  private:
@@ -82,15 +87,14 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
  public:
   // Render the output to the surface when the frame is sent
   // to compositor, or release it if not presented.
-  class CompositeListener
-      : private RenderOrReleaseOutput,
-        public layers::SurfaceTextureImage::SetCurrentCallback {
+  class CompositeListener : private RenderOrReleaseOutput,
+                            public layers::GLImage::SetCurrentCallback {
    public:
     CompositeListener(java::CodecProxy::Param aCodec,
                       java::Sample::Param aSample)
         : RenderOrReleaseOutput(aCodec, aSample) {}
 
-    void operator()(void) override { ReleaseOutput(true); }
+    bool operator()(void) override { return ReleaseOutput(true); }
   };
 
   class InputInfo {
@@ -190,15 +194,29 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     }
     mInputBufferInfo = bufferInfo;
 
-    mSurface =
-        java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
-            mConfig.mImage.width, mConfig.mImage.height, false));
-    if (!mSurface) {
-      return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                                          __func__);
+    // We require SDK level 26 for AImageReader_newWithUsage() and
+    // ANativeWindow_toSurface(), AImage_getHardwareBuffer(), and all
+    // AHardwareBuffer APIs.
+    if (jni::GetAPIVersion() >= 26 &&
+        StaticPrefs::media_android_image_reader_enabled()) {
+      mImageReader = layers::AndroidImageReader::Create(
+          mConfig.mImage.width, mConfig.mImage.height, AIMAGE_FORMAT_PRIVATE, 6,
+          AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+              AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY);
+      if (mImageReader) {
+        mImageReaderSurface = mImageReader->GetSurface();
+      }
     }
-
-    mSurfaceHandle = mSurface->GetHandle();
+    if (!mImageReaderSurface) {
+      mSurface =
+          java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
+              mConfig.mImage.width, mConfig.mImage.height, false));
+      if (!mSurface) {
+        return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                                            __func__);
+      }
+      mSurfaceHandle = mSurface->GetHandle();
+    }
 
     // Register native methods.
     JavaCallbacksSupport::Init();
@@ -211,9 +229,13 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
     JavaCallbacksSupport::AttachNative(
         mJavaCallbacks, mozilla::MakeUnique<CallbacksSupport>(this));
 
+    java::sdk::Surface::LocalRef surface = mImageReaderSurface;
+    if (!surface) {
+      surface = mSurface->GetSurface();
+    }
     mJavaDecoder = java::CodecProxy::Create(
         false,  // false indicates to create a decoder and true denotes encoder
-        mFormat, mSurface->GetSurface(), mJavaCallbacks, mDrmStubId);
+        mFormat, surface, mJavaCallbacks, mDrmStubId);
     if (mJavaDecoder == nullptr) {
       return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                           __func__);
@@ -359,7 +381,7 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
       return;
     }
 
-    UniquePtr<layers::SurfaceTextureImage::SetCurrentCallback> releaseSample(
+    UniquePtr<layers::GLImage::SetCurrentCallback> releaseSample(
         new CompositeListener(mJavaDecoder, aSample));
 
     // If our output surface has been released (due to the GPU process crashing)
@@ -413,12 +435,18 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
           isSmpte432Buggy &&
           (mColorSpace == Some(10) || mColorSpace == Some(65800));
 
-      RefPtr<layers::Image> img = new layers::SurfaceTextureImage(
-          mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,
-          gl::OriginPos::BottomLeft, mConfig.HasAlpha(), forceBT709ColorSpace,
-          /* aTransformOverride */ Nothing());
-      img->AsSurfaceTextureImage()->RegisterSetCurrentCallback(
-          std::move(releaseSample));
+      RefPtr<layers::Image> img;
+      if (mImageReader) {
+        img = new layers::AndroidImageImage(
+            mImageReader, presentationTimeUs * 1000, inputInfo.mImageSize,
+            mConfig.HasAlpha());
+      } else {
+        RefPtr<layers::Image> img = new layers::SurfaceTextureImage(
+            mSurfaceHandle, inputInfo.mImageSize, false /* NOT continuous */,
+            gl::OriginPos::BottomLeft, mConfig.HasAlpha(), forceBT709ColorSpace,
+            /* aTransformOverride */ Nothing());
+      }
+      img->AsGLImage()->RegisterSetCurrentCallback(std::move(releaseSample));
 
       RefPtr<VideoData> v = VideoData::CreateFromImage(
           inputInfo.mDisplaySize, offset,
@@ -551,12 +579,17 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
   }
 
   bool NeedsNewDecoder() const override {
+    if (mImageReaderSurface) {
+      return false;
+    }
     return !mSurface || mSurface->IsReleased();
   }
 
   const VideoInfo mConfig;
   java::GeckoSurface::GlobalRef mSurface;
   AndroidSurfaceTextureHandle mSurfaceHandle{};
+  RefPtr<layers::AndroidImageReader> mImageReader;
+  java::sdk::Surface::GlobalRef mImageReaderSurface;
   // Only accessed on reader's task queue.
   bool mIsCodecSupportAdaptivePlayback = false;
   // Can be accessed on any thread, but only written on during init.

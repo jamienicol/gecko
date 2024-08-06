@@ -15,6 +15,7 @@
 #include "mozilla/java/GeckoAppShellWrappers.h"
 #include "mozilla/jni/Utils.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
+#include "mozilla/layers/AndroidImage.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
@@ -93,6 +94,7 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
     layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
   }
+  layers::AndroidImageApi::Init();
 
   // Bug 1886573: At this point, we don't yet have primary screen depth.
   // This setting of screen depth to 0 is preserving existing behavior,

@@ -92,6 +92,12 @@ class AndroidHardwareBuffer
   static already_AddRefed<AndroidHardwareBuffer> Create(
       gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
 
+  // Creates an AndroidHardwareBuffer from an existing AHardwareBuffer. This
+  // acquires a reference to the AHardwareBuffer and will release the reference
+  // upon destruction.
+  static already_AddRefed<AndroidHardwareBuffer> FromNativeBuffer(
+      AHardwareBuffer* nativeBuffer, gfx::SurfaceFormat aFormat);
+
   // Deserializes the HardwareBuffer from a SurfaceDescriptor.
   static already_AddRefed<AndroidHardwareBuffer> FromSurfaceDescriptor(
       const SurfaceDescriptorAndroidHardwareBuffer& aDesc);

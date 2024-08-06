@@ -4194,3 +4194,5 @@ pref("privacy.query_stripping.strip_on_share.enableTestMode", false);
   pref("toolkit.backgroundtasks.tests.geckoPrefsInherited", 17);
   pref("toolkit.backgroundtasks.tests.geckoPrefsOverriden", 18);
 #endif
+
+pref("media.android-image-reader.enabled", true);

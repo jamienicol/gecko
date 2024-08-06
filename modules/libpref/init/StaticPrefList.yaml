@@ -10708,6 +10708,13 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+
+  # Whether to use AImageReader to consume decoded frames as opposed to the
+  # default SurfaceTexture
+-   name: media.android-image-reader.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
 #endif  # ANDROID
 
 # Now we will completely disable the ability to perform audio decoding outside
