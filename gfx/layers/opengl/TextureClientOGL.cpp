@@ -16,7 +16,6 @@
 #  include <jni.h>
 #  include <android/native_window.h>
 #  include <android/native_window_jni.h>
-#  include <sys/socket.h>
 #  include "mozilla/ipc/FileDescriptor.h"
 #  include "mozilla/java/GeckoSurfaceWrappers.h"
 #  include "mozilla/java/SurfaceAllocatorWrappers.h"
@@ -249,9 +248,7 @@ void AndroidHardwareBufferTextureData::FillInfo(
 
 bool AndroidHardwareBufferTextureData::Serialize(
     SurfaceDescriptor& aOutDescriptor) {
-  aOutDescriptor = SurfaceDescriptorAndroidHardwareBuffer(
-      mAndroidHardwareBuffer->mId, mSize, mFormat);
-  return true;
+  return mAndroidHardwareBuffer->Serialize(aOutDescriptor);
 }
 
 bool AndroidHardwareBufferTextureData::Lock(OpenMode aMode) {
@@ -323,6 +320,43 @@ AndroidHardwareBufferTextureData::GetAcquireFence() {
   }
 
   return mAndroidHardwareBuffer->GetAcquireFence();
+}
+
+/* static */ AndroidImageTextureData* AndroidImageTextureData::Create(
+    const RefPtr<AndroidImageReader>& aImageReader,
+    const RefPtr<AndroidImage>& aImage,
+    const RefPtr<AndroidHardwareBuffer>& aHardwareBuffer) {
+  if (!aImageReader || !aImage || !aHardwareBuffer) {
+    return nullptr;
+  }
+  return new AndroidImageTextureData(aImageReader, aImage, aHardwareBuffer);
+}
+
+AndroidImageTextureData::AndroidImageTextureData(
+    const RefPtr<AndroidImageReader>& aImageReader,
+    const RefPtr<AndroidImage>& aImage,
+    const RefPtr<AndroidHardwareBuffer>& aHardwareBuffer)
+    : mImageReader(aImageReader),
+      mImage(aImage),
+      mHardwareBuffer(aHardwareBuffer) {}
+
+void AndroidImageTextureData::FillInfo(TextureData::Info& aInfo) const {
+  aInfo.size = mHardwareBuffer->mSize;
+  aInfo.format = mHardwareBuffer->mFormat;
+  aInfo.hasSynchronization = false;
+  aInfo.supportsMoz2D = false;
+  aInfo.canExposeMappedData = false;
+  aInfo.canConcurrentlyReadLock = false;
+}
+
+bool AndroidImageTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
+  return mHardwareBuffer->Serialize(aOutDescriptor);
+}
+
+TextureFlags AndroidImageTextureData::GetTextureFlags() const {
+  // We must ensure we keep the image alive until the host has finished using
+  // the hardware buffer
+  return TextureFlags::WAIT_HOST_USAGE_END;
 }
 
 #endif  // MOZ_WIDGET_ANDROID

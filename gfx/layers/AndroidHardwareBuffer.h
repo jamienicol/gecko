@@ -92,10 +92,25 @@ class AndroidHardwareBuffer
   static already_AddRefed<AndroidHardwareBuffer> Create(
       gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
 
+  // Creates an AndroidHardwareBuffer from an existing AHardwareBuffer. This
+  // acquires a reference to the AHardwareBuffer and will release the reference
+  // upon destruction.
+  static already_AddRefed<AndroidHardwareBuffer> Create(
+      AHardwareBuffer* nativeBuffer, gfx::SurfaceFormat aFormat);
+
+  // This function creates AndroidHardwareBuffer from FileDescriptor.
+  // The fuction is expected to be called on host side. Client side creates
+  // the FileDescriptor and it is delivered to host side via ipc.
+  static already_AddRefed<AndroidHardwareBuffer> FromFileDescriptor(
+      ipc::FileDescriptor&& aFileDescriptor, uint64_t aBufferId,
+      gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
+
   virtual ~AndroidHardwareBuffer();
 
   int Lock(uint64_t aUsage, const ARect* aRect, void** aOutVirtualAddress);
   int Unlock();
+
+  bool Serialize(SurfaceDescriptor& aOutDescriptor);
 
   AHardwareBuffer* GetNativeBuffer() const { return mNativeBuffer; }
 

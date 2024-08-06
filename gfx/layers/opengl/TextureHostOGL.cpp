@@ -776,8 +776,11 @@ void AndroidHardwareBufferTextureSource::DeallocateDeviceData() {
 already_AddRefed<AndroidHardwareBufferTextureHost>
 AndroidHardwareBufferTextureHost::Create(
     TextureFlags aFlags, const SurfaceDescriptorAndroidHardwareBuffer& aDesc) {
+  ipc::FileDescriptor handle =
+      std::move(const_cast<ipc::FileDescriptor&>(aDesc.handle()));
   RefPtr<AndroidHardwareBuffer> buffer =
-      AndroidHardwareBufferManager::Get()->GetBuffer(aDesc.bufferId());
+      AndroidHardwareBuffer::FromFileDescriptor(
+          std::move(handle), aDesc.bufferId(), aDesc.size(), aDesc.format());
   if (!buffer) {
     return nullptr;
   }

@@ -90,6 +90,8 @@
 #endif
 #ifdef ANDROID
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/layers/AndroidImage.h"
+#  include "mozilla/jni/Utils.h"
 #  include "skia/include/ports/SkTypeface_cairo.h"
 #endif
 #include "ChildProfilerController.h"
@@ -401,11 +403,11 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
   // hardcode this value because we do not have a gfxPlatform instance.
   SkInitCairoFT(false);
 
-  if (gfxVars::UseAHardwareBufferSharedSurfaceWebglOop()) {
+  if (jni::GetAPIVersion() >= 26) {
     layers::AndroidHardwareBufferApi::Init();
     layers::AndroidHardwareBufferManager::Init();
   }
-
+  layers::AndroidImageApi::Init();
 #endif
 
   // Make sure to do this *after* we update gfxVars above.
