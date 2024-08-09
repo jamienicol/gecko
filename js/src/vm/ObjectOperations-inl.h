@@ -13,6 +13,7 @@
 
 #include "mozilla/Assertions.h"  // MOZ_ASSERT
 #include "mozilla/Attributes.h"  // MOZ_ALWAYS_INLINE
+#include "mozilla/glue/Debug.h"
 #include "mozilla/Likely.h"      // MOZ_UNLIKELY
 
 #include <stdint.h>  // uint32_t
@@ -241,6 +242,7 @@ MOZ_ALWAYS_INLINE bool MaybeHasInterestingSymbolProperty(
 
   jsid id = PropertyKey::Symbol(symbol);
   do {
+    printf_stderr("jamiedbg MaybeHasInterestingSymbolProperty() obj: %p\n", obj);
     if (obj->maybeHasInterestingSymbolProperty() ||
         MOZ_UNLIKELY(
             ClassMayResolveId(cx->names(), obj->getClass(), id, obj))) {
@@ -260,6 +262,7 @@ MOZ_ALWAYS_INLINE bool MaybeHasInterestingSymbolProperty(
 MOZ_ALWAYS_INLINE bool GetInterestingSymbolProperty(
     JSContext* cx, JS::Handle<JSObject*> obj, JS::Symbol* sym,
     JS::MutableHandle<JS::Value> vp) {
+      printf_stderr("jamiedbg GetInterestingSymbolProperty() obj: %p\n", obj.get());
   JSObject* holder;
   if (!MaybeHasInterestingSymbolProperty(cx, obj, sym, &holder)) {
 #ifdef DEBUG

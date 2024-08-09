@@ -679,6 +679,8 @@ class ElementSpecific {
   static bool valueToNative(JSContext* cx, HandleValue v, T* result) {
     MOZ_ASSERT(!v.isMagic());
 
+    printf_stderr("jamiedbg valueToNative() v bits: %" PRIx64 "\n", v.asBits_);
+
     if (MOZ_LIKELY(canConvertInfallibly(v))) {
       *result = infallibleValueToNative(v);
       return true;

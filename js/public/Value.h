@@ -12,6 +12,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/Casting.h"
 #include "mozilla/FloatingPoint.h"
+#include "mozilla/glue/Debug.h"
 #include "mozilla/Likely.h"
 #include "mozilla/Maybe.h"
 
@@ -530,14 +531,18 @@ static MOZ_ALWAYS_INLINE double CanonicalizeNaN(double d) {
  *   doesn't match.
  */
 class alignas(8) Value {
- private:
+ public:
   uint64_t asBits_;
 
  public:
   constexpr Value() : asBits_(bitsFromTagAndPayload(JSVAL_TAG_UNDEFINED, 0)) {}
 
  private:
-  explicit constexpr Value(uint64_t asBits) : asBits_(asBits) {}
+  explicit constexpr Value(uint64_t asBits) : asBits_(asBits) {
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg Value %" PRIx64 "\n", asBits_);
+    }
+  }
 
   static uint64_t bitsFromDouble(double d) {
 #if defined(JS_NONCANONICAL_HARDWARE_NAN)
@@ -757,12 +762,17 @@ class alignas(8) Value {
                "GC pointer is not aligned. Is this memory corruption?");
 #if defined(JS_NUNBOX32)
     uintptr_t payload = uint32_t(asBits_);
+    printf_stderr("jamiedbg unboxGCPointer() NUNBOX32 payload: %" PRIxPTR "\n", payload);
     return reinterpret_cast<T*>(payload);
 #elif defined(JS_PUNBOX64)
     // Note: the 'Spectre mitigations' comment at the top of this class
     // explains why we use XOR here.
     constexpr uint64_t shiftedTag = uint64_t(Tag) << JSVAL_TAG_SHIFT;
-    return reinterpret_cast<T*>(uintptr_t(asBits_ ^ shiftedTag));
+    T* const ret = reinterpret_cast<T*>(uintptr_t(asBits_ ^ shiftedTag));
+    printf_stderr("jamiedbg unboxGCPointer() JS_PUNBOX64 asBits_: %" PRIx64 
+      ", shiftedTag %" PRIx64 ", ret: %p\n",
+      asBits_, shiftedTag, ret);
+    return ret;
 #endif
   }
 

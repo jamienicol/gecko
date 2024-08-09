@@ -2466,6 +2466,7 @@ bool js::ToPrimitiveSlow(JSContext* cx, JSType preferredType,
   MOZ_ASSERT(preferredType == JSTYPE_UNDEFINED ||
              preferredType == JSTYPE_STRING || preferredType == JSTYPE_NUMBER);
   RootedObject obj(cx, &vp.toObject());
+  printf_stderr("jamiedbg ToPrimitiveSlow() obj: %p\n", obj.get());
 
   // Steps 4-5.
   RootedValue method(cx);
