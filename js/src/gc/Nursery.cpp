@@ -817,15 +817,18 @@ void* js::Nursery::reallocateBuffer(Zone* zone, Cell* cell, void* oldBuffer,
                                     arena_id_t arena) {
   if (!IsInsideNursery(cell)) {
     MOZ_ASSERT(!isInside(oldBuffer));
+    printf_stderr("jamiedbg not inside nursery. pod_realloc\n");
     return zone->pod_realloc<uint8_t>((uint8_t*)oldBuffer, oldBytes, newBytes);
   }
 
   if (!isInside(oldBuffer)) {
     MOZ_ASSERT(toSpace.mallocedBufferBytes >= oldBytes);
+    printf_stderr("jamiedbg not inside old buffer. pod_realloc\n");
     void* newBuffer =
         zone->pod_realloc<uint8_t>((uint8_t*)oldBuffer, oldBytes, newBytes);
     if (newBuffer) {
       if (oldBuffer != newBuffer) {
+        printf_stderr("jamiedbg buffer changed rekeying\n");
         MOZ_ALWAYS_TRUE(
             toSpace.mallocedBuffers.rekeyAs(oldBuffer, newBuffer, newBuffer));
       }
@@ -837,9 +840,11 @@ void* js::Nursery::reallocateBuffer(Zone* zone, Cell* cell, void* oldBuffer,
 
   // The nursery cannot make use of the returned slots data.
   if (newBytes < oldBytes) {
+    printf_stderr("jamiedbg reuse old buffer\n");
     return oldBuffer;
   }
 
+  printf_stderr("jamiedbg allocate new buffer and podcopy\n");
   auto newBuffer = allocateBuffer(zone, cell, newBytes, js::MallocArena);
   if (newBuffer) {
     PodCopy((uint8_t*)newBuffer, (uint8_t*)oldBuffer, oldBytes);

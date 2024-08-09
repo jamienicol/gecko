@@ -967,8 +967,8 @@ bool NativeObject::growElements(JSContext* cx, uint32_t reqCapacity) {
   // subtract off the header and shifted elements size to get the new capacity
   uint32_t newCapacity =
       newAllocated - ObjectElements::VALUES_PER_HEADER - numShifted;
-  printf_stderr("jamiedbg newAllocated: %u\n", newAllocated);
-  printf_stderr("jamiedbg newCapacity: %u\n", newCapacity);
+  // printf_stderr("jamiedbg newAllocated: %u\n", newAllocated);
+  // printf_stderr("jamiedbg newCapacity: %u\n", newCapacity);
   // If the new capacity isn't strictly greater than the old capacity, then this
   // method shouldn't have been called; if the new capacity doesn't satisfy
   // what was requested, then one of the calculations above must have been
@@ -994,7 +994,7 @@ bool NativeObject::growElements(JSContext* cx, uint32_t reqCapacity) {
     // Then, add the header and shifted elements sizes to get the overall size
     // of the existing buffer
     oldAllocated = oldCapacity + ObjectElements::VALUES_PER_HEADER + numShifted;
-    printf_stderr("jamiedbg has dynamic elements. reallocate cell buffer\n");
+    // printf_stderr("jamiedbg has dynamic elements. reallocate cell buffer\n");
     // Finally, try to resize the buffer.
     newHeaderSlots = ReallocateCellBuffer<HeapSlot>(
         cx, this, oldHeaderSlots, oldAllocated, newAllocated, js::MallocArena);
@@ -1003,7 +1003,7 @@ bool NativeObject::growElements(JSContext* cx, uint32_t reqCapacity) {
                      // old size.
     }
   } else {
-    printf_stderr("jamiedbg not dynamic. allocate new cell buffer\n");
+    // printf_stderr("jamiedbg not dynamic. allocate new cell buffer\n");
     // If the object has fixed elements, then we always need to allocate a new
     // buffer, because if we've reached this code, then the requested capacity
     // is greater than the existing inline space available within the object

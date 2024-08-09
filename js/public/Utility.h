@@ -11,6 +11,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Compiler.h"
+#include "mozilla/glue/Debug.h"
 #include "mozilla/TemplateLib.h"
 #include "mozilla/UniquePtr.h"
 
@@ -624,6 +625,7 @@ template <class T>
 static MOZ_ALWAYS_INLINE T* js_pod_arena_realloc(arena_id_t arena, T* prior,
                                                  size_t oldSize,
                                                  size_t newSize) {
+printf_stderr("jamiedbg js_pod_arena_realloc() oldSize: %zu, newSize: %zu\n", oldSize, newSize);
   MOZ_ASSERT(!(oldSize & mozilla::tl::MulOverflowMask<sizeof(T)>::value));
   size_t bytes;
   if (MOZ_UNLIKELY(!js::CalculateAllocSize<T>(newSize, &bytes))) {

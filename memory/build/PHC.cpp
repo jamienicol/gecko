@@ -118,6 +118,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/CheckedInt.h"
+#include "mozilla/glue/Debug.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/StackWalk.h"
 #include "mozilla/ThreadLocal.h"
@@ -1953,6 +1954,7 @@ inline void* MozJemallocPHC::moz_arena_calloc(arena_id_t aArenaId, size_t aNum,
 
 inline void* MozJemallocPHC::moz_arena_realloc(arena_id_t aArenaId,
                                                void* aOldPtr, size_t aNewSize) {
+printf_stderr("jamiedbg MozJemallocPHC::moz_arena_realloc() aNewSize: %zu\n", aNewSize);
   return PageRealloc(Some(aArenaId), aOldPtr, aNewSize);
 }
 

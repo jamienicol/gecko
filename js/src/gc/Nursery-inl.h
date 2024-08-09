@@ -270,6 +270,8 @@ static inline T* ReallocateCellBuffer(JSContext* cx, gc::Cell* cell,
   size_t oldBytes = RoundUp(oldCount * sizeof(T), sizeof(Value));
   size_t newBytes = RoundUp(newCount * sizeof(T), sizeof(Value));
 
+  printf_stderr("jamiedbg ReallocateCellBuffer() oldCount: %u, newCount: %u\n", oldCount, newCount);
+
   T* buffer = static_cast<T*>(cx->nursery().reallocateBuffer(
       cell->zone(), cell, oldBuffer, oldBytes, newBytes, arenaId));
   if (!buffer) {
