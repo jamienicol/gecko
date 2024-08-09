@@ -21,6 +21,7 @@ namespace js {
     JSContext* cx, gc::AllocKind kind, gc::Heap heap,
     Handle<SharedShape*> shape, uint32_t length, uint32_t slotSpan,
     AutoSetNewObjectMetadata& metadata, gc::AllocSite* site) {
+  printf_stderr("jamiedbg ArrayObject.create() length: %u\n", length);
   debugCheckNewObject(shape, kind, heap);
 
   const JSClass* clasp = &ArrayObject::class_;
@@ -65,6 +66,10 @@ namespace js {
 
 inline DenseElementResult ArrayObject::addDenseElementNoLengthChange(
     JSContext* cx, uint32_t index, const Value& val) {
+  printf_stderr(
+      "jamiedbg ArrayObject.addDenseElementNoLengthChange() index: %u, value: "
+      "0x%" PRIx64 "\n",
+      index, val.asBits_);
   MOZ_ASSERT(isExtensible());
 
   // Only support the `index < length` case so that we don't have to increase

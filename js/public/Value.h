@@ -540,7 +540,7 @@ class alignas(8) Value {
  private:
   explicit constexpr Value(uint64_t asBits) : asBits_(asBits) {
     if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
-      printf_stderr("jamiedbg Value %" PRIx64 "\n", asBits_);
+      printf_stderr("jamiedbg Value() asBits_ = %" PRIx64 "\n", asBits_);
     }
   }
 
@@ -598,39 +598,60 @@ class alignas(8) Value {
 
   void setNull() {
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_NULL, 0);
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setNull() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(isNull());
   }
 
   void setUndefined() {
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_UNDEFINED, 0);
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setUndefined() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(isUndefined());
   }
 
   void setInt32(int32_t i) {
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_INT32, uint32_t(i));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setInt32() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(toInt32() == i);
   }
 
   void setDouble(double d) {
     asBits_ = bitsFromDouble(d);
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setDouble() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(isDouble());
   }
 
   void setString(JSString* str) {
     MOZ_ASSERT(js::gc::IsCellPointerValid(str));
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_STRING, PayloadType(str));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setString() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(toString() == str);
   }
 
   void setSymbol(JS::Symbol* sym) {
     MOZ_ASSERT(js::gc::IsCellPointerValid(sym));
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_SYMBOL, PayloadType(sym));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setSymbol() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(toSymbol() == sym);
   }
 
   void setBigInt(JS::BigInt* bi) {
     MOZ_ASSERT(js::gc::IsCellPointerValid(bi));
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_BIGINT, PayloadType(bi));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setBigInt() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(toBigInt() == bi);
   }
 
@@ -649,6 +670,10 @@ class alignas(8) Value {
     MOZ_ASSERT(js::gc::MaybeForwardedIsExtendedPrimitive(obj));
     asBits_ =
         bitsFromTagAndPayload(JSVAL_TAG_EXTENDED_PRIMITIVE, PayloadType(&obj));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setExtendedPrimitive() asBits_ = %" PRIx64 "\n",
+                    asBits_);
+    }
     MOZ_ASSERT(&toExtendedPrimitive() == &obj);
   }
 #endif
@@ -659,6 +684,10 @@ class alignas(8) Value {
     assertTraceKindMatches(cell);
 #endif
     asBits_ = bitsFromTagAndPayload(toTag(), PayloadType(cell));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg changeGCThingPayload() asBits_ = %" PRIx64 "\n",
+                    asBits_);
+    }
     MOZ_ASSERT(toGCThing() == cell);
   }
 
@@ -669,6 +698,10 @@ class alignas(8) Value {
 
   void setObjectNoCheck(JSObject* obj) {
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_OBJECT, PayloadType(obj));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setObjectNoCheck() asBits_ = %" PRIx64 "\n",
+                    asBits_);
+    }
   }
 
   friend inline Value js::PoisonedObjectValue(uintptr_t poison);
@@ -676,11 +709,17 @@ class alignas(8) Value {
  public:
   void setBoolean(bool b) {
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_BOOLEAN, uint32_t(b));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setBoolean() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(toBoolean() == b);
   }
 
   void setMagic(JSWhyMagic why) {
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_MAGIC, uint32_t(why));
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setMagic() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(whyMagic() == why);
   }
 
@@ -688,6 +727,10 @@ class alignas(8) Value {
     MOZ_ASSERT(payload >= JS_WHY_MAGIC_COUNT,
                "This should only be used for non-standard magic values");
     asBits_ = bitsFromTagAndPayload(JSVAL_TAG_MAGIC, payload);
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setMagicUint32() asBits_ = %" PRIx64 "\n",
+                    asBits_);
+    }
     MOZ_ASSERT(magicUint32() == payload);
   }
 
@@ -751,6 +794,9 @@ class alignas(8) Value {
     uint64_t tmp = rhs.asBits_;
     rhs.asBits_ = asBits_;
     asBits_ = tmp;
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg swap() asBits_ = %" PRIx64 "\n", asBits_);
+    }
   }
 
  private:
@@ -762,16 +808,17 @@ class alignas(8) Value {
                "GC pointer is not aligned. Is this memory corruption?");
 #if defined(JS_NUNBOX32)
     uintptr_t payload = uint32_t(asBits_);
-    printf_stderr("jamiedbg unboxGCPointer() NUNBOX32 payload: %" PRIxPTR "\n", payload);
     return reinterpret_cast<T*>(payload);
 #elif defined(JS_PUNBOX64)
     // Note: the 'Spectre mitigations' comment at the top of this class
     // explains why we use XOR here.
     constexpr uint64_t shiftedTag = uint64_t(Tag) << JSVAL_TAG_SHIFT;
     T* const ret = reinterpret_cast<T*>(uintptr_t(asBits_ ^ shiftedTag));
-    printf_stderr("jamiedbg unboxGCPointer() JS_PUNBOX64 asBits_: %" PRIx64 
-      ", shiftedTag %" PRIx64 ", ret: %p\n",
-      asBits_, shiftedTag, ret);
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg unboxGCPointer() JS_PUNBOX64 asBits_: %" PRIx64
+                    ", shiftedTag %" PRIx64 ", ret: %p\n",
+                    asBits_, shiftedTag, ret);
+    }
     return ret;
 #endif
   }
@@ -1073,6 +1120,9 @@ class alignas(8) Value {
     MOZ_ASSERT(detail::IsValidUserModePointer(uintptr_t(ptr)));
 #endif
     asBits_ = uintptr_t(ptr);
+    if (asBits_ == 0xFFFFFFFFFFFFFFFF) {
+      printf_stderr("jamiedbg setPrivate() asBits_ = %" PRIx64 "\n", asBits_);
+    }
     MOZ_ASSERT(isDouble());
   }
 

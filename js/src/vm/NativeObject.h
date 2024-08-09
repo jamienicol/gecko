@@ -1468,6 +1468,7 @@ class NativeObject : public JSObject {
 
  private:
   void setDenseInitializedLengthInternal(uint32_t length) {
+    printf_stderr("jamiedbg setDenseInitializedLengthInternal() length: %u\n", length);
     MOZ_ASSERT(length <= getDenseCapacity());
     MOZ_ASSERT(!denseElementsAreFrozen());
     prepareElementRangeForOverwrite(length,
@@ -1505,12 +1506,16 @@ class NativeObject : public JSObject {
   // Note: 'Unchecked' here means we don't assert |val| isn't the hole
   // MagicValue.
   void initDenseElementUnchecked(uint32_t index, const Value& val) {
+    // printf_stderr("jamiedbg initDenseElementUnchecked() index: %u, val: 0x%" PRIx64 "\n",
+    //   index, val.asBits_);
     MOZ_ASSERT(index < getDenseInitializedLength());
     MOZ_ASSERT(isExtensible());
     checkStoredValue(val);
     elements_[index].init(this, HeapSlot::Element, unshiftedIndex(index), val);
   }
   void setDenseElementUnchecked(uint32_t index, const Value& val) {
+    // printf_stderr("jamiedbg setDenseElementUnchecked() index: %u, val: 0x%" PRIx64 "\n",
+    //   index, val.asBits_);
     MOZ_ASSERT(index < getDenseInitializedLength());
     MOZ_ASSERT(!denseElementsAreFrozen());
     checkStoredValue(val);

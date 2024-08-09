@@ -235,6 +235,7 @@ inline bool NativeObject::initDenseElementsFromRange(JSContext* cx, Iter begin,
   size_t slot = 0;
   for (; begin != end; sp++, begin++) {
     Value v = *begin;
+    printf_stderr("jamiedbg initDenseElementsFromRange slot: %zu, val: 0x%" PRIx64 "\n", slot, v.asBits_);
 #ifdef DEBUG
     checkStoredValue(v);
 #endif
@@ -242,6 +243,7 @@ inline bool NativeObject::initDenseElementsFromRange(JSContext* cx, Iter begin,
   }
   MOZ_ASSERT(slot == count);
 
+  printf_stderr("jamiedbg initDenseElementsFromRange() count: %u\n", count);
   getElementsHeader()->initializedLength = count;
   as<ArrayObject>().setLength(count);
   return true;
@@ -347,6 +349,7 @@ inline void NativeObject::reverseDenseElementsNoPreBarrier(uint32_t length) {
 
 inline void NativeObject::ensureDenseInitializedLength(uint32_t index,
                                                        uint32_t extra) {
+printf_stderr("jamiedbg ensureDenseInitializedLength() index: %u, extra: %u\n", index, extra);
   // Ensure that the array's contents have been initialized up to index, and
   // mark the elements through 'index + extra' as initialized in preparation
   // for a write.

@@ -540,6 +540,7 @@ class ElementSpecific {
     MOZ_ASSERT(source->getDenseInitializedLength() <= target->length());
 
     size_t len = source->getDenseInitializedLength();
+    printf_stderr("jamiedbg initFromIterablePackedArray() len: %zu\n", len);
     size_t i = 0;
 
     // Attempt fast-path infallible conversion of dense elements up to the
@@ -548,8 +549,20 @@ class ElementSpecific {
     SharedMem<T*> dest = Ops::extract(target).template cast<T*>();
 
     const Value* srcValues = source->getDenseElements();
+    if (len == 73728) {
+      for (size_t j = 65546; j <= 65550; j++) {
+        printf_stderr("jamiedbg i: %zu, value: 0x%" PRIx64 "\n", j,
+                      srcValues[j].asBits_);
+      }
+    }
     for (; i < len; i++) {
+      // item at i == 65548 has bits 0xffffffffffffffff in opt build.
+      // 0x3fec800000000000 in debug. the surrounding elements before and after
+      // are the same between opt and debug builds
       if (!canConvertInfallibly(srcValues[i])) {
+        printf_stderr(
+            "jamiedbg cannot infallibly convert i: %zu, value: 0x%" PRIx64 "\n",
+            i, srcValues[i].asBits_);
         break;
       }
       Ops::store(dest + i, infallibleValueToNative(srcValues[i]));
@@ -566,8 +579,11 @@ class ElementSpecific {
     }
 
     RootedValue v(cx);
+    printf_stderr("jamiedbg remaining elements length: %zu\n", values.length());
     for (size_t j = 0; j < values.length(); i++, j++) {
       v = values[j];
+      printf_stderr("jamiedbg j: %zu, bits: 0x%" PRIx64 "\n", j,
+                    v.get().asBits_);
 
       T n;
       if (!valueToNative(cx, v, &n)) {
@@ -679,7 +695,8 @@ class ElementSpecific {
   static bool valueToNative(JSContext* cx, HandleValue v, T* result) {
     MOZ_ASSERT(!v.isMagic());
 
-    printf_stderr("jamiedbg valueToNative() v bits: %" PRIx64 "\n", v.asBits_);
+    printf_stderr("jamiedbg valueToNative() v bits: %" PRIx64 "\n",
+                  v.get().asBits_);
 
     if (MOZ_LIKELY(canConvertInfallibly(v))) {
       *result = infallibleValueToNative(v);

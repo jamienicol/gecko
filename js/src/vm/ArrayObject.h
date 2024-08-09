@@ -38,6 +38,7 @@ class ArrayObject : public NativeObject {
     MOZ_ASSERT(lengthIsWritable());
     MOZ_ASSERT_IF(length != getElementsHeader()->length,
                   !denseElementsAreFrozen());
+    printf_stderr("jamiedbg ArrayObject.setLength() %u\n", length);
     getElementsHeader()->length = length;
   }
 
