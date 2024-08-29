@@ -222,16 +222,17 @@ class RemoteVideoDecoder final : public RemoteDataDecoder {
         mJavaDecoder->IsAdaptivePlaybackSupported();
     mIsHardwareAccelerated = mJavaDecoder->IsHardwareAccelerated();
 
+    printf_stderr("jamiedbg Mime type: %s, hw accel: %d\n", mMimeType.get(), mIsHardwareAccelerated);
     // On some devices we have observed that the transform obtained from
     // SurfaceTexture.getTransformMatrix() is incorrect for surfaces produced by
     // a MediaCodec. We therefore override the transform to be a simple y-flip
     // to ensure it is rendered correctly.
-    const auto hardware = java::sdk::Build::HARDWARE()->ToString();
-    if (hardware.EqualsASCII("mt6735") || hardware.EqualsASCII("kirin980") ||
-        hardware.EqualsASCII("mt8696")) {
-      mTransformOverride = Some(
-          gfx::Matrix4x4::Scaling(1.0, -1.0, 1.0).PostTranslate(0.0, 1.0, 0.0));
-    }
+    // const auto hardware = java::sdk::Build::HARDWARE()->ToString();
+    // if (hardware.EqualsASCII("kirin970") || hardware.EqualsASCII("kirin980") ||
+    //     hardware.EqualsASCII("mt6735") || hardware.EqualsASCII("mt8696")) {
+    //   mTransformOverride = Some(
+    //       gfx::Matrix4x4::Scaling(1.0, -1.0, 1.0).PostTranslate(0.0, 1.0, 0.0));
+    // }
 
     mMediaInfoFlag = MediaInfoFlag::None;
     mMediaInfoFlag |= mIsHardwareAccelerated ? MediaInfoFlag::HardwareDecoding

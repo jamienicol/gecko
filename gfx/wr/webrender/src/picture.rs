@@ -2522,6 +2522,8 @@ impl TileCacheInstance {
     ) -> Result<CompositorSurfaceKind, SurfacePromotionFailure> {
         use crate::picture::SurfacePromotionFailure::*;
 
+        // return Err(SurfacePromotionFailure::SizeTooLarge);
+
         // Each strategy has different restrictions on whether we can promote
         match surface_kind {
             CompositorSurfaceKind::Overlay => {

@@ -132,9 +132,9 @@ wr::WrExternalImage RenderAndroidHardwareBufferTextureHost::Lock(
     return InvalidToWrExternalImage();
   }
 
-  const auto uvs = GetUvCoords(GetSize());
-  return NativeTextureToWrExternalImage(
-      mTextureHandle, uvs.first.x, uvs.first.y, uvs.second.x, uvs.second.y);
+  const gfx::IntSize size = GetSize();
+  return NativeTextureToWrExternalImage(mTextureHandle, 0.0, 0.0, size.width,
+                                        size.height);
 }
 
 void RenderAndroidHardwareBufferTextureHost::Unlock() {}
@@ -209,7 +209,8 @@ RenderAndroidHardwareBufferTextureHost::ReadTexImage() {
   int shaderConfig = config.mFeatures;
 
   bool ret = mGL->ReadTexImageHelper()->ReadTexImage(
-      surf, mTextureHandle, LOCAL_GL_TEXTURE_EXTERNAL, GetSize(), shaderConfig,
+      surf, mTextureHandle, LOCAL_GL_TEXTURE_EXTERNAL, GetSize(),
+      gfx::Matrix4x4(), shaderConfig,
       /* aYInvert */ false);
   if (!ret) {
     return nullptr;

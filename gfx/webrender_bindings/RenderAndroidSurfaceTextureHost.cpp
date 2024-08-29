@@ -45,6 +45,7 @@ RenderAndroidSurfaceTextureHost::~RenderAndroidSurfaceTextureHost() {
 
 wr::WrExternalImage RenderAndroidSurfaceTextureHost::Lock(uint8_t aChannelIndex,
                                                           gl::GLContext* aGL) {
+  printf_stderr("jamiedbg RenderAndroidSurfaceTextureHost::Lock()\n");
   MOZ_ASSERT(aChannelIndex == 0);
   MOZ_ASSERT((mPrepareStatus == STATUS_PREPARED) ||
              (!mSurfTex->IsSingleBuffer() &&
@@ -72,10 +73,29 @@ wr::WrExternalImage RenderAndroidSurfaceTextureHost::Lock(uint8_t aChannelIndex,
 
   UpdateTexImageIfNecessary();
 
-  const auto uvs = GetUvCoords(mSize);
-  return NativeTextureToWrExternalImage(mSurfTex->GetTexName(), uvs.first.x,
-                                        uvs.first.y, uvs.second.x,
-                                        uvs.second.y);
+  gfx::Size size(mSize);
+  printf_stderr("jamiedbg size: %s\n", mozilla::ToString(size).c_str());
+  gfx::Matrix4x4 transform = GetTextureTransform();
+  gfx::Size invTransfSize = transform.As2D().Inverse().TransformSize(size);
+  printf_stderr("jamiedbg invTransfSize: %s\n",
+                mozilla::ToString(invTransfSize).c_str());
+  gfx::MatrixScales scale = transform.As2D().ScaleFactors();
+  printf_stderr("jamiedbg scale: %s\n", mozilla::ToString(scale).c_str());
+  gfx::MatrixScales invScale =
+      gfx::MatrixScales(1.0 / scale.xScale, 1.0 / scale.yScale);
+  printf_stderr("jamiedbg invScale: %s\n", mozilla::ToString(invScale).c_str());
+
+  gfx::Point uv0(0.0, 0.0);
+  gfx::Point uv1(1.0, 1.0);
+  // transform = transform.PostScale(invScale);
+  // transform = transform.PostScale(mSize.width, mSize.height, 1.0);
+  uv0 = transform.TransformPoint(uv0);
+  uv1 = transform.TransformPoint(uv1);
+
+  printf_stderr("jamiedbg uv0: %s, uv1: %s\n", mozilla::ToString(uv0).c_str(),
+                mozilla::ToString(uv1).c_str());
+  return NativeTextureToWrExternalImage(mSurfTex->GetTexName(), uv0.x, uv0.y,
+                                        uv1.x, uv1.y);
 }
 
 void RenderAndroidSurfaceTextureHost::Unlock() {}
@@ -251,7 +271,7 @@ RenderAndroidSurfaceTextureHost::ReadTexImage() {
 
   bool ret = mGL->ReadTexImageHelper()->ReadTexImage(
       surf, mSurfTex->GetTexName(), LOCAL_GL_TEXTURE_EXTERNAL, mSize,
-      shaderConfig, /* aYInvert */ false);
+      GetTextureTransform(), shaderConfig, /* aYInvert */ false);
   if (!ret) {
     return nullptr;
   }
@@ -262,6 +282,7 @@ RenderAndroidSurfaceTextureHost::ReadTexImage() {
 bool RenderAndroidSurfaceTextureHost::MapPlane(RenderCompositor* aCompositor,
                                                uint8_t aChannelIndex,
                                                PlaneInfo& aPlaneInfo) {
+  printf_stderr("jamiedbg MapPlane() %d\n", aChannelIndex);
   UpdateTexImageIfNecessary();
 
   RefPtr<gfx::DataSourceSurface> readback = ReadTexImage();
@@ -288,8 +309,7 @@ void RenderAndroidSurfaceTextureHost::UnmapPlanes() {
   }
 }
 
-std::pair<gfx::Point, gfx::Point> RenderAndroidSurfaceTextureHost::GetUvCoords(
-    gfx::IntSize aTextureSize) const {
+gfx::Matrix4x4 RenderAndroidSurfaceTextureHost::GetTextureTransform() const {
   gfx::Matrix4x4 transform;
 
   // GetTransformMatrix() returns the transform set by the producer side of the
@@ -299,27 +319,21 @@ std::pair<gfx::Point, gfx::Point> RenderAndroidSurfaceTextureHost::GetUvCoords(
   // MediaCodec output on devices where where we know the value is incorrect.
   if (mTransformOverride) {
     transform = *mTransformOverride;
+    printf_stderr(
+        "jamiedbg RenderAndroidSurfaceTextureHost::GetTextureTransform "
+        "override: %s\n",
+        mozilla::ToString(transform).c_str());
   } else if (mSurfTex) {
     const auto& surf = java::sdk::SurfaceTexture::LocalRef(
         java::sdk::SurfaceTexture::Ref::From(mSurfTex));
     gl::AndroidSurfaceTexture::GetTransformMatrix(surf, &transform);
+    printf_stderr(
+        "jamiedbg RenderAndroidSurfaceTextureHost::GetTextureTransform "
+        "transform: %s\n",
+        mozilla::ToString(transform).c_str());
   }
 
-  // We expect this transform to always be rectilinear, usually just a
-  // y-flip and sometimes an x and y scale. This allows this function
-  // to simply transform and return 2 points here instead of 4.
-  MOZ_ASSERT(transform.IsRectilinear(),
-             "Unexpected non-rectilinear transform returned from "
-             "SurfaceTexture.GetTransformMatrix()");
-
-  transform.PostScale(aTextureSize.width, aTextureSize.height, 0.0);
-
-  gfx::Point uv0 = gfx::Point(0.0, 0.0);
-  gfx::Point uv1 = gfx::Point(1.0, 1.0);
-  uv0 = transform.TransformPoint(uv0);
-  uv1 = transform.TransformPoint(uv1);
-
-  return std::make_pair(uv0, uv1);
+  return transform;
 }
 
 RefPtr<layers::TextureSource>

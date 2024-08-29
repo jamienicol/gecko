@@ -2564,6 +2564,7 @@ impl Device {
         }
 
         if self.bound_program != program.id {
+            warn!("jamiedbg bind_program() {}", program.source_info.full_name());
             self.gl.use_program(program.id);
             self.bound_program = program.id;
             self.bound_program_name = program.source_info.full_name_cstr.clone();

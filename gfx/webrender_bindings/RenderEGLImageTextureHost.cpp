@@ -54,9 +54,8 @@ wr::WrExternalImage RenderEGLImageTextureHost::Lock(uint8_t aChannelIndex,
     return InvalidToWrExternalImage();
   }
 
-  const auto uvs = GetUvCoords(mSize);
-  return NativeTextureToWrExternalImage(
-      mTextureHandle, uvs.first.x, uvs.first.y, uvs.second.x, uvs.second.y);
+  return NativeTextureToWrExternalImage(mTextureHandle, 0.0, 0.0, mSize.width,
+                                        mSize.height);
 }
 
 void RenderEGLImageTextureHost::Unlock() {}
@@ -209,7 +208,8 @@ RenderEGLImageTextureHost::ReadTexImage() {
   int shaderConfig = config.mFeatures;
 
   bool ret = mGL->ReadTexImageHelper()->ReadTexImage(
-      surf, mTextureHandle, mTextureTarget, mSize, shaderConfig,
+      surf, mTextureHandle, mTextureTarget, mSize, gfx::Matrix4x4(),
+      shaderConfig,
       /* aYInvert */ false);
   if (!ret) {
     return nullptr;

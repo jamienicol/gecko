@@ -871,13 +871,16 @@ fn add_scaling_instances(
 
     let source_rect = source_task.unwrap().get_target_rect().to_f32();
 
+    warn!("jamiedbg add_scaling_instances() normalized_uvs: {}", source.uses_normalized_uvs());
+
     instances
         .entry(source)
         .or_insert(Vec::new())
-        .push(ScalingInstance {
+        .push(ScalingInstance::new(
             target_rect,
             source_rect,
-        });
+            source.uses_normalized_uvs(),
+        ));
 }
 
 fn add_svg_filter_instances(

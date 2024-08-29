@@ -67,15 +67,13 @@ pub struct GlyphFetchResult {
     pub scale: f32,
 }
 
-// These coordinates are always in texels.
-// They are converted to normalized ST
-// values in the vertex shader. The reason
-// for this is that the texture may change
-// dimensions (e.g. the pages in a texture
-// atlas can grow). When this happens, by
-// storing the coordinates as texel values
-// we don't need to go through and update
-// various CPU-side structures.
+// The uv_rect coordinates are usually in texels, in which case normalized_uvs
+// is false. They are converted to normalized ST values in the vertex shader.
+// The reason for this is that the texture may change dimensions (e.g. the
+// pages in a texture atlas can grow). When this happens, by storing the
+// coordinates as texel value we don't need to go through and update various
+// CPU-side structures. The exception is for some external textures for which
+// we do not know the dimensions and must use normalized ST values.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
@@ -1290,6 +1288,7 @@ impl ResourceCache {
         gpu_cache: &mut GpuCache,
         profile: &mut TransactionProfile,
     ) {
+        warn!("jamiedbg ResourceCache.block_until_all_resources_added()");
         profile_scope!("block_until_all_resources_added");
 
         debug_assert_eq!(self.state, State::AddResources);
@@ -1345,6 +1344,7 @@ impl ResourceCache {
     }
 
     fn update_texture_cache(&mut self, gpu_cache: &mut GpuCache) {
+        warn!("jamiedbg ResourceCache.update_texture_cache()");
         profile_scope!("update_texture_cache");
         for request in self.pending_image_requests.drain() {
             let image_template = self.resources.image_templates.get_mut(request.key).unwrap();
