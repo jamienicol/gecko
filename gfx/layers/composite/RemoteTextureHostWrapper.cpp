@@ -223,4 +223,18 @@ AndroidHardwareBuffer* RemoteTextureHostWrapper::GetAndroidHardwareBuffer()
   return mRemoteTexture->GetAndroidHardwareBuffer();
 }
 
+void RemoteTextureHostWrapper::SetAcquireFence(
+    mozilla::ipc::FileDescriptor&& aFenceFd) {
+  if (mRemoteTexture) {
+    mRemoteTexture->SetAcquireFence(std::move(aFenceFd));
+  }
+}
+
+void RemoteTextureHostWrapper::SetReleaseFence(
+    mozilla::ipc::FileDescriptor&& aFenceFd) {
+  if (mRemoteTexture) {
+    mRemoteTexture->SetReleaseFence(std::move(aFenceFd));
+  }
+}
+
 }  // namespace mozilla::layers
