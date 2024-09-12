@@ -127,7 +127,7 @@ TextureType TexTypeForWebgl(KnowsCompositor* const knowsCompositor,
     if (aIsWebglOop && StaticPrefs::webgl_enable_egl_image()) {
       return TextureType::EGLImage;
     }
-    if (gfx::gfxVars::UseAHardwareBufferSharedSurfaceWebglOop()) {
+    if (StaticPrefs::webgl_enable_ahardwarebuffer()) {
       return TextureType::AndroidHardwareBuffer;
     }
     if (StaticPrefs::webgl_enable_surface_texture()) {

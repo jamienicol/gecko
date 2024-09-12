@@ -321,6 +321,11 @@ class TextureData {
     return mozilla::ipc::FileDescriptor();
   }
 
+  // FIXME: comment
+  virtual void SetReleaseFence(mozilla::ipc::FileDescriptor&& aReleaseFence) {}
+
+  virtual void SetRemoteTextureOwnerId(RemoteTextureOwnerId) {}
+
   virtual bool RequiresRefresh() const { return false; }
 
   virtual already_AddRefed<FwdTransactionTracker> UseCompositableForwarder(

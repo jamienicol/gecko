@@ -54,7 +54,6 @@ class TransactionBuilder;
 
 namespace layers {
 
-class AndroidHardwareBuffer;
 class AndroidHardwareBufferTextureHost;
 class BufferDescriptor;
 class BufferTextureHost;
@@ -701,10 +700,6 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
 
   virtual mozilla::ipc::FileDescriptor GetAndResetReleaseFence() {
     return mozilla::ipc::FileDescriptor();
-  }
-
-  virtual AndroidHardwareBuffer* GetAndroidHardwareBuffer() const {
-    return nullptr;
   }
 
   virtual bool SupportsExternalCompositing(WebRenderBackend aBackend) {

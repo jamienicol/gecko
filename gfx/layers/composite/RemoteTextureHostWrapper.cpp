@@ -215,14 +215,6 @@ bool RemoteTextureHostWrapper::NeedsDeferredDeletion() const {
   return mRemoteTexture->NeedsDeferredDeletion();
 }
 
-AndroidHardwareBuffer* RemoteTextureHostWrapper::GetAndroidHardwareBuffer()
-    const {
-  if (!mRemoteTexture) {
-    return nullptr;
-  }
-  return mRemoteTexture->GetAndroidHardwareBuffer();
-}
-
 void RemoteTextureHostWrapper::SetAcquireFence(
     mozilla::ipc::FileDescriptor&& aFenceFd) {
   if (mRemoteTexture) {

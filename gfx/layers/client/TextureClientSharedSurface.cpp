@@ -55,19 +55,11 @@ bool SharedSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
 
 TextureFlags SharedSurfaceTextureData::GetTextureFlags() const {
   TextureFlags flags = TextureFlags::NO_FLAGS;
-  return flags;
-}
-
-Maybe<uint64_t> SharedSurfaceTextureData::GetBufferId() const {
-#ifdef MOZ_WIDGET_ANDROID
   if (mDesc.type() ==
       SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer) {
-    const SurfaceDescriptorAndroidHardwareBuffer& desc =
-        mDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
-    return Some(desc.bufferId());
+    flags |= TextureFlags::WAIT_HOST_USAGE_END;
   }
-#endif
-  return Nothing();
+  return flags;
 }
 
 mozilla::ipc::FileDescriptor SharedSurfaceTextureData::GetAcquireFence() {
@@ -86,6 +78,22 @@ mozilla::ipc::FileDescriptor SharedSurfaceTextureData::GetAcquireFence() {
   }
 #endif
   return ipc::FileDescriptor();
+}
+
+void SharedSurfaceTextureData::SetReleaseFence(
+    mozilla::ipc::FileDescriptor&& aReleaseFence) {
+#ifdef MOZ_WIDGET_ANDROID
+  if (mDesc.type() ==
+      SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer) {
+    const SurfaceDescriptorAndroidHardwareBuffer& desc =
+        mDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
+    RefPtr<AndroidHardwareBuffer> buffer =
+        AndroidHardwareBufferManager::Get()->GetBuffer(desc.bufferId());
+    if (buffer) {
+      buffer->SetReleaseFence(std::move(aReleaseFence));
+    }
+  }
+#endif
 }
 
 }  // namespace layers

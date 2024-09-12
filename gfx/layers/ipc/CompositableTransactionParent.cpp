@@ -95,6 +95,18 @@ bool CompositableParentManager::ReceiveCompositableUpdate(
       host->UseRemoteTexture();
       break;
     }
+    case CompositableOperationDetail::TOpDeliverAcquireFence: {
+      const OpDeliverAcquireFence& op = aDetail.get_OpDeliverAcquireFence();
+      const RefPtr<TextureHost> tex =
+          TextureHost::AsTextureHost(op.texture().AsParent());
+      MOZ_ASSERT(tex.get());
+
+      ipc::FileDescriptor& fenceFd =
+          const_cast<ipc::FileDescriptor&>(op.fenceFd());
+
+      tex->SetAcquireFence(std::move(fenceFd));
+      break;
+    }
     default: {
       MOZ_ASSERT(false, "bad type");
     }

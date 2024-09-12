@@ -429,7 +429,14 @@ void ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
     return;
   }
 
-  uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+  const uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+
+  FileDescriptor fenceFd = texture->GetAndResetReleaseFence();
+  if (fenceFd.IsValid()) {
+    mPendingAsyncMessage.push_back(
+        OpDeliverReleaseFence(textureId, aTransactionId, std::move(fenceFd)));
+  }
+
   mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
 
   if (!IsAboutToSendAsyncMessages()) {

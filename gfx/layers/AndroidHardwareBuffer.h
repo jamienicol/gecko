@@ -92,10 +92,18 @@ class AndroidHardwareBuffer
   static already_AddRefed<AndroidHardwareBuffer> Create(
       gfx::IntSize aSize, gfx::SurfaceFormat aFormat);
 
+  // Deserializes the HardwareBuffer from a SurfaceDescriptor.
+  static already_AddRefed<AndroidHardwareBuffer> FromSurfaceDescriptor(
+      const SurfaceDescriptorAndroidHardwareBuffer& aDesc);
+
   virtual ~AndroidHardwareBuffer();
 
   int Lock(uint64_t aUsage, const ARect* aRect, void** aOutVirtualAddress);
   int Unlock();
+
+  // Serializes the HardwareBuffer to a SurfaceDescriptor that can be used to
+  // share it with another process.
+  bool Serialize(SurfaceDescriptor& aOutDescriptor);
 
   AHardwareBuffer* GetNativeBuffer() const { return mNativeBuffer; }
 

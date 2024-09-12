@@ -547,10 +547,6 @@ class AndroidHardwareBufferTextureHost : public TextureHost {
 
   mozilla::ipc::FileDescriptor GetAndResetReleaseFence() override;
 
-  AndroidHardwareBuffer* GetAndroidHardwareBuffer() const override {
-    return mAndroidHardwareBuffer;
-  }
-
   bool SupportsExternalCompositing(WebRenderBackend aBackend) override;
 
   // gecko does not need deferred deletion with WebRender

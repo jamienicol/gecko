@@ -156,6 +156,13 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
   void HoldUntilCompositableRefReleasedIfNecessary(TextureClient* aClient);
 
   /**
+   * Delivers a release fence from host to the specified texture. Used to
+   * indicate when host usage of texture has completed.
+   */
+  void DeliverReleaseFence(uint64_t aTextureId, uint64_t aFwdTransactionId,
+                           mozilla::ipc::FileDescriptor&& aFenceFd);
+
+  /**
    * Notify id of Texture When host side end its use. Transaction id is used to
    * make sure if there is no newer usage.
    */

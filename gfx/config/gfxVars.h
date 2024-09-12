@@ -78,7 +78,6 @@ class gfxVarReceiver;
   _(UseGLSwizzle, bool, true)                                      \
   _(ForceSubpixelAAWherePossible, bool, false)                     \
   _(FxREmbedded, bool, false)                                      \
-  _(UseAHardwareBufferSharedSurfaceWebglOop, bool, false)          \
   _(UseEGL, bool, false)                                           \
   _(DrmRenderDevice, nsCString, nsCString())                       \
   _(UseDMABuf, bool, false)                                        \
