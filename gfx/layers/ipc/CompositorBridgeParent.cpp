@@ -32,6 +32,7 @@
 #include "mozilla/gfx/gfxVars.h"  // for gfxVars
 #include "mozilla/gfx/GPUParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
+#include "mozilla/ipc/FileDescriptor.h"            // for FileDescriptor
 #include "mozilla/layers/APZCTreeManagerParent.h"  // for APZCTreeManagerParent
 #include "mozilla/layers/APZSampler.h"             // for APZSampler
 #include "mozilla/layers/APZThreadUtils.h"         // for APZThreadUtils
@@ -136,7 +137,15 @@ void CompositorBridgeParentBase::NotifyNotUsed(PTextureParent* aTexture,
     return;
   }
 
-  uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+  const uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+
+  FileDescriptor::UniquePlatformHandle fenceFd =
+      texture->GetAndResetReleaseFence();
+  if (fenceFd) {
+    mPendingAsyncMessage.push_back(OpDeliverReleaseFence(
+        textureId, aTransactionId, ipc::FileDescriptor(std::move(fenceFd))));
+  }
+
   mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
 }
 

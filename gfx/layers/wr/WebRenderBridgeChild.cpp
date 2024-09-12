@@ -8,6 +8,7 @@
 
 #include "gfxPlatform.h"
 #include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "mozilla/layers/CompositorManagerChild.h"
@@ -439,6 +440,14 @@ void WebRenderBridgeChild::UseTextures(
         t.mPictureRect, t.mFrameID, t.mProducerID, readLocked));
     GetCompositorBridgeChild()->HoldUntilCompositableRefReleasedIfNecessary(
         t.mTextureClient);
+
+    auto fenceFd = t.mTextureClient->GetInternalData()->GetAcquireFence();
+    if (fenceFd) {
+      AddWebRenderParentCommand(CompositableOperation(
+          aCompositable->GetIPCHandle(),
+          OpDeliverAcquireFence(WrapNotNull(t.mTextureClient->GetIPDLActor()),
+                                ipc::FileDescriptor(std::move(fenceFd)))));
+    }
   }
   AddWebRenderParentCommand(CompositableOperation(aCompositable->GetIPCHandle(),
                                                   OpUseTexture(textures)));

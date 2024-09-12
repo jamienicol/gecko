@@ -119,9 +119,7 @@ void SharedSurface_AndroidHardwareBuffer::ProducerReleaseImpl() {
 
 Maybe<layers::SurfaceDescriptor>
 SharedSurface_AndroidHardwareBuffer::ToSurfaceDescriptor() {
-  return Some(layers::SurfaceDescriptorAndroidHardwareBuffer(
-      mAndroidHardwareBuffer->mId, mAndroidHardwareBuffer->mSize,
-      mAndroidHardwareBuffer->mFormat));
+  return mAndroidHardwareBuffer->Serialize();
 }
 
 void SharedSurface_AndroidHardwareBuffer::WaitForBufferOwnership() {

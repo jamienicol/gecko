@@ -7,6 +7,7 @@
 #include "AndroidHardwareBuffer.h"
 
 #include <dlfcn.h>
+#include <sys/socket.h>
 
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -177,6 +178,45 @@ already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
   return buffer.forget();
 }
 
+/* static */
+already_AddRefed<AndroidHardwareBuffer>
+AndroidHardwareBuffer::FromSurfaceDescriptor(
+    const SurfaceDescriptorAndroidHardwareBuffer& aDesc) {
+  // First check whether this buffer has already been shared to this process
+  RefPtr<AndroidHardwareBuffer> buffer =
+      AndroidHardwareBufferManager::Get()->GetBuffer(aDesc.bufferId());
+  if (buffer) {
+    return buffer.forget();
+  }
+
+  // Otherwise obtain the handle from the provided fd.
+  ipc::FileDescriptor& handle =
+      const_cast<ipc::FileDescriptor&>(aDesc.handle());
+  if (!handle.IsValid()) {
+    gfxCriticalNote << "AndroidHardwareBuffer invalid FileDescriptor";
+    return nullptr;
+  }
+
+  auto rawFD = handle.TakePlatformHandle();
+  AHardwareBuffer* nativeBuffer = nullptr;
+  int ret = AndroidHardwareBufferApi::Get()->RecvHandleFromUnixSocket(
+      rawFD.get(), &nativeBuffer);
+  if (ret < 0) {
+    gfxCriticalNote << "RecvHandleFromUnixSocket failed";
+    return nullptr;
+  }
+
+  AHardwareBuffer_Desc desc = {};
+  AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &desc);
+
+  buffer = new AndroidHardwareBuffer(nativeBuffer, aDesc.size(), desc.stride,
+                                     aDesc.format(), aDesc.bufferId());
+
+  // Register the buffer so that subsequent calls can find it.
+  AndroidHardwareBufferManager::Get()->Register(buffer);
+  return buffer.forget();
+}
+
 AndroidHardwareBuffer::AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer,
                                              gfx::IntSize aSize,
                                              uint32_t aStride,
@@ -223,6 +263,30 @@ int AndroidHardwareBuffer::Unlock() {
 
   SetAcquireFence(UniqueFileHandle(rawFd));
   return 0;
+}
+
+Maybe<SurfaceDescriptorAndroidHardwareBuffer>
+AndroidHardwareBuffer::Serialize() {
+  int fd[2];
+  if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd) != 0) {
+    return Nothing();
+  }
+
+  UniqueFileHandle readerFd(fd[0]);
+  UniqueFileHandle writerFd(fd[1]);
+
+  // Send the AHardwareBuffer to an AF_UNIX socket. It does not acquire or
+  // retain a reference to the buffer object. The caller is therefore
+  // responsible for ensuring that the buffer remains alive through the lifetime
+  // of this file descriptor.
+  int ret = AndroidHardwareBufferApi::Get()->SendHandleToUnixSocket(
+      mNativeBuffer, writerFd.get());
+  if (ret < 0) {
+    return Nothing();
+  }
+
+  return Some(SurfaceDescriptorAndroidHardwareBuffer(
+      ipc::FileDescriptor(std::move(readerFd)), mId, mSize, mFormat));
 }
 
 void AndroidHardwareBuffer::SetReleaseFence(UniqueFileHandle&& aFenceFd) {

@@ -54,7 +54,6 @@ class TransactionBuilder;
 
 namespace layers {
 
-class AndroidHardwareBuffer;
 class AndroidHardwareBufferTextureHost;
 class BufferDescriptor;
 class BufferTextureHost;
@@ -695,16 +694,16 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
 
   virtual bool NeedsYFlip() const;
 
+  // The acquire fence signals when the client side has finished writing to the
+  // texture, meaning the host side is free to read from it.
   virtual void SetAcquireFence(UniqueFileHandle&& aFenceFd) {}
 
+  // The release fence signals when the host side has finished reading from the
+  // texture, meaning the client side is free to write to it again.
   virtual void SetReleaseFence(UniqueFileHandle&& aFenceFd) {}
 
   virtual UniqueFileHandle GetAndResetReleaseFence() {
     return UniqueFileHandle();
-  }
-
-  virtual AndroidHardwareBuffer* GetAndroidHardwareBuffer() const {
-    return nullptr;
   }
 
   virtual bool SupportsExternalCompositing(WebRenderBackend aBackend) {

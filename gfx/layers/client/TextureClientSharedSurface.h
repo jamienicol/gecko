@@ -57,9 +57,8 @@ class SharedSurfaceTextureData : public TextureData {
 
   TextureFlags GetTextureFlags() const override;
 
-  Maybe<uint64_t> GetBufferId() const override;
-
   UniqueFileHandle GetAcquireFence() override;
+  void SetReleaseFence(UniqueFileHandle&& aReleaseFence) override;
 };
 
 }  // namespace layers

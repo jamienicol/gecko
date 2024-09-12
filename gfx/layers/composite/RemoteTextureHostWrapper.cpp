@@ -215,12 +215,16 @@ bool RemoteTextureHostWrapper::NeedsDeferredDeletion() const {
   return mRemoteTexture->NeedsDeferredDeletion();
 }
 
-AndroidHardwareBuffer* RemoteTextureHostWrapper::GetAndroidHardwareBuffer()
-    const {
-  if (!mRemoteTexture) {
-    return nullptr;
+void RemoteTextureHostWrapper::SetAcquireFence(UniqueFileHandle&& aFenceFd) {
+  if (mRemoteTexture) {
+    mRemoteTexture->SetAcquireFence(std::move(aFenceFd));
   }
-  return mRemoteTexture->GetAndroidHardwareBuffer();
+}
+
+void RemoteTextureHostWrapper::SetReleaseFence(UniqueFileHandle&& aFenceFd) {
+  if (mRemoteTexture) {
+    mRemoteTexture->SetReleaseFence(std::move(aFenceFd));
+  }
 }
 
 }  // namespace mozilla::layers

@@ -14,6 +14,7 @@
 #include "mozilla/Hal.h"        // for hal::SetCurrentThreadPriority()
 #include "mozilla/HalTypes.h"   // for hal::THREAD_PRIORITY_COMPOSITOR
 #include "mozilla/ipc/Endpoint.h"
+#include "mozilla/ipc/FileDescriptor.h"  // for FileDescriptor
 #include "mozilla/ipc/MessageChannel.h"  // for MessageChannel, etc
 #include "mozilla/media/MediaSystemResourceManagerParent.h"  // for MediaSystemResourceManagerParent
 #include "mozilla/layers/BufferTexture.h"
@@ -429,7 +430,14 @@ void ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
     return;
   }
 
-  uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+  const uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+
+  UniqueFileHandle fenceFd = texture->GetAndResetReleaseFence();
+  if (fenceFd) {
+    mPendingAsyncMessage.push_back(OpDeliverReleaseFence(
+        textureId, aTransactionId, ipc::FileDescriptor(std::move(fenceFd))));
+  }
+
   mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
 
   if (!IsAboutToSendAsyncMessages()) {

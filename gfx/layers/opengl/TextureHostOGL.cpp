@@ -776,7 +776,7 @@ already_AddRefed<AndroidHardwareBufferTextureHost>
 AndroidHardwareBufferTextureHost::Create(
     TextureFlags aFlags, const SurfaceDescriptorAndroidHardwareBuffer& aDesc) {
   RefPtr<AndroidHardwareBuffer> buffer =
-      AndroidHardwareBufferManager::Get()->GetBuffer(aDesc.bufferId());
+      AndroidHardwareBuffer::FromSurfaceDescriptor(aDesc);
   if (!buffer) {
     return nullptr;
   }

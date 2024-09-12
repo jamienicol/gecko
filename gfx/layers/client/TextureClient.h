@@ -309,15 +309,13 @@ class TextureData {
 
   virtual RecordedTextureData* AsRecordedTextureData() { return nullptr; }
 
-  // It is used by AndroidHardwareBufferTextureData and
-  // SharedSurfaceTextureData. Returns buffer id when it owns
-  // AndroidHardwareBuffer. It is used only on android.
-  virtual Maybe<uint64_t> GetBufferId() const { return Nothing(); }
-
-  // The acquire fence is a fence that is used for waiting until rendering to
-  // its AHardwareBuffer is completed.
-  // It is used only on android.
+  // The acquire fence signals when the client side has finished writing to the
+  // texture, meaning the host side is free to read from it.
   virtual UniqueFileHandle GetAcquireFence() { return UniqueFileHandle(); }
+
+  // The release fence signals when the host side has finished reading from the
+  // texture, meaning the client side is free to write to it again.
+  virtual void SetReleaseFence(UniqueFileHandle&& aReleaseFence) {}
 
   virtual bool RequiresRefresh() const { return false; }
 

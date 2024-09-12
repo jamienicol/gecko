@@ -207,10 +207,6 @@ UniqueFileHandle WebRenderTextureHost::GetAndResetReleaseFence() {
   return mWrappedTextureHost->GetAndResetReleaseFence();
 }
 
-AndroidHardwareBuffer* WebRenderTextureHost::GetAndroidHardwareBuffer() const {
-  return mWrappedTextureHost->GetAndroidHardwareBuffer();
-}
-
 TextureHostType WebRenderTextureHost::GetTextureHostType() {
   return mWrappedTextureHost->GetTextureHostType();
 }

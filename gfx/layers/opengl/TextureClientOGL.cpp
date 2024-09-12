@@ -249,9 +249,12 @@ void AndroidHardwareBufferTextureData::FillInfo(
 
 bool AndroidHardwareBufferTextureData::Serialize(
     SurfaceDescriptor& aOutDescriptor) {
-  aOutDescriptor = SurfaceDescriptorAndroidHardwareBuffer(
-      mAndroidHardwareBuffer->mId, mSize, mFormat);
-  return true;
+  Maybe<SurfaceDescriptor> desc = mAndroidHardwareBuffer->Serialize();
+  if (desc) {
+    aOutDescriptor = *desc;
+    return true;
+  }
+  return false;
 }
 
 bool AndroidHardwareBufferTextureData::Lock(OpenMode aMode) {
@@ -312,16 +315,19 @@ TextureFlags AndroidHardwareBufferTextureData::GetTextureFlags() const {
   return TextureFlags::WAIT_HOST_USAGE_END;
 }
 
-Maybe<uint64_t> AndroidHardwareBufferTextureData::GetBufferId() const {
-  return Some(mAndroidHardwareBuffer->mId);
-}
-
 UniqueFileHandle AndroidHardwareBufferTextureData::GetAcquireFence() {
   if (!mAndroidHardwareBuffer) {
     return UniqueFileHandle();
   }
 
   return mAndroidHardwareBuffer->GetAcquireFence();
+}
+
+void AndroidHardwareBufferTextureData::SetReleaseFence(
+    UniqueFileHandle&& aReleaseFence) {
+  if (mAndroidHardwareBuffer) {
+    mAndroidHardwareBuffer->SetReleaseFence(std::move(aReleaseFence));
+  }
 }
 
 #endif  // MOZ_WIDGET_ANDROID
