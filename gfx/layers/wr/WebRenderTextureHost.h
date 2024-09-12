@@ -103,8 +103,6 @@ class WebRenderTextureHost : public TextureHost {
 
   mozilla::ipc::FileDescriptor GetAndResetReleaseFence() override;
 
-  AndroidHardwareBuffer* GetAndroidHardwareBuffer() const override;
-
   void MaybeNotifyForUse(wr::TransactionBuilder& aTxn);
 
   TextureHostType GetTextureHostType() override;

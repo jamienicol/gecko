@@ -117,10 +117,7 @@ UniquePtr<SurfaceFactory> SurfaceFactory::Create(
 
     case layers::TextureType::AndroidHardwareBuffer:
 #ifdef MOZ_WIDGET_ANDROID
-      if (XRE_IsGPUProcess()) {
-        // Enable SharedSurface of AndroidHardwareBuffer only in GPU process.
-        return SurfaceFactory_AndroidHardwareBuffer::Create(gl);
-      }
+      return SurfaceFactory_AndroidHardwareBuffer::Create(gl);
 #endif
       break;
 

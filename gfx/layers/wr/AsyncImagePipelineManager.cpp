@@ -736,7 +736,8 @@ void AsyncImagePipelineManager::ProcessPipelineRendered(
     for (auto it = holder->mTextureHostsUntilRenderSubmitted.begin();
          it != firstSubmittedHostToKeep; ++it) {
       const auto& entry = it;
-      if (entry->mTexture->GetAndroidHardwareBuffer() &&
+      if (entry->mTexture->GetTextureHostType() ==
+              TextureHostType::AndroidHardwareBuffer &&
           mReleaseFenceFd.IsValid()) {
         ipc::FileDescriptor fenceFd = mReleaseFenceFd;
         entry->mTexture->SetReleaseFence(std::move(fenceFd));

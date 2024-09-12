@@ -110,6 +110,14 @@ void ImageBridgeChild::UseTextures(
 
     bool readLocked = t.mTextureClient->OnForwardedToHost();
 
+    auto fenceFd = t.mTextureClient->GetInternalData()->GetAcquireFence();
+    if (fenceFd.IsValid()) {
+      mTxn->AddNoSwapEdit(CompositableOperation(
+          aCompositable->GetIPCHandle(),
+          OpDeliverAcquireFence(WrapNotNull(t.mTextureClient->GetIPDLActor()),
+                                std::move(fenceFd))));
+    }
+
     textures.AppendElement(TimedTexture(
         WrapNotNull(t.mTextureClient->GetIPDLActor()), t.mTimeStamp,
         t.mPictureRect, t.mFrameID, t.mProducerID, readLocked));
@@ -152,6 +160,25 @@ void ImageBridgeChild::HoldUntilCompositableRefReleasedIfNecessary(
 
   aClient->SetLastFwdTransactionId(GetFwdTransactionId());
   mTexturesWaitingNotifyNotUsed.emplace(aClient->GetSerial(), aClient);
+}
+
+void ImageBridgeChild::DeliverReleaseFence(uint64_t aTextureId,
+                                           uint64_t aFwdTransactionId,
+                                           ipc::FileDescriptor&& aFenceFd) {
+  auto it = mTexturesWaitingNotifyNotUsed.find(aTextureId);
+  MOZ_ASSERT(it != mTexturesWaitingNotifyNotUsed.end());
+  if (it == mTexturesWaitingNotifyNotUsed.end()) {
+    return;
+  }
+
+  if (aFwdTransactionId < it->second->GetLastFwdTransactionId()) {
+    // Released on host side, but client already requested newer use texture.
+    return;
+  }
+
+  auto& texture = it->second;
+  TextureData* data = texture->GetInternalData();
+  data->SetReleaseFence(std::move(aFenceFd));
 }
 
 void ImageBridgeChild::NotifyNotUsed(uint64_t aTextureId,
@@ -812,12 +839,20 @@ bool ImageBridgeChild::DeallocPMediaSystemResourceManagerChild(
 mozilla::ipc::IPCResult ImageBridgeChild::RecvParentAsyncMessages(
     nsTArray<AsyncParentMessageData>&& aMessages) {
   for (AsyncParentMessageArray::index_type i = 0; i < aMessages.Length(); ++i) {
-    const AsyncParentMessageData& message = aMessages[i];
+    AsyncParentMessageData& message = aMessages[i];
 
     switch (message.type()) {
       case AsyncParentMessageData::TOpNotifyNotUsed: {
         const OpNotifyNotUsed& op = message.get_OpNotifyNotUsed();
         NotifyNotUsed(op.TextureId(), op.fwdTransactionId());
+        break;
+      }
+      case AsyncParentMessageData::TOpDeliverReleaseFence: {
+        OpDeliverReleaseFence& op = message.get_OpDeliverReleaseFence();
+        if (op.fenceFd().IsValid()) {
+          DeliverReleaseFence(op.textureId(), op.fwdTransactionId(),
+                              std::move(op.fenceFd()));
+        }
         break;
       }
       default:

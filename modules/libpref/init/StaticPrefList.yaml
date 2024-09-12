@@ -16583,6 +16583,13 @@
   value: true
   mirror: always
 
+#if defined(MOZ_WIDGET_ANDROID)
+- name: webgl.enable-ahardwarebuffer
+  type: bool
+  value: false
+  mirror: always
+#endif
+
 - name: webgl.enable-webgl2
   type: RelaxedAtomicBool
   value: true
@@ -16715,13 +16722,6 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
-
-#if defined(MOZ_WIDGET_ANDROID)
-- name: webgl.out-of-process.enable-ahardwarebuffer
-  type: bool
-  value: false
-  mirror: once
-#endif
 
 # Override the blocklist to assume that GL is threadsafe.
 - name: webgl.threadsafe-gl.force-enabled

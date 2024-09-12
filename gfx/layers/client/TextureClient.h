@@ -306,17 +306,15 @@ class TextureData {
     return nullptr;
   }
 
-  // It is used by AndroidHardwareBufferTextureData and
-  // SharedSurfaceTextureData. Returns buffer id when it owns
-  // AndroidHardwareBuffer. It is used only on android.
-  virtual Maybe<uint64_t> GetBufferId() const { return Nothing(); }
-
   // The acquire fence is a fence that is used for waiting until rendering to
   // its AHardwareBuffer is completed.
   // It is used only on android.
   virtual mozilla::ipc::FileDescriptor GetAcquireFence() {
     return mozilla::ipc::FileDescriptor();
   }
+
+  // FIXME: comment
+  virtual void SetReleaseFence(mozilla::ipc::FileDescriptor&& aReleaseFence) {}
 
   virtual void SetRemoteTextureOwnerId(RemoteTextureOwnerId) {}
 

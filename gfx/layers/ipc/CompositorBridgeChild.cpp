@@ -404,12 +404,20 @@ bool CompositorBridgeChild::DeallocPTextureChild(PTextureChild* actor) {
 mozilla::ipc::IPCResult CompositorBridgeChild::RecvParentAsyncMessages(
     nsTArray<AsyncParentMessageData>&& aMessages) {
   for (AsyncParentMessageArray::index_type i = 0; i < aMessages.Length(); ++i) {
-    const AsyncParentMessageData& message = aMessages[i];
+    AsyncParentMessageData& message = aMessages[i];
 
     switch (message.type()) {
       case AsyncParentMessageData::TOpNotifyNotUsed: {
         const OpNotifyNotUsed& op = message.get_OpNotifyNotUsed();
         NotifyNotUsed(op.TextureId(), op.fwdTransactionId());
+        break;
+      }
+      case AsyncParentMessageData::TOpDeliverReleaseFence: {
+        OpDeliverReleaseFence& op = message.get_OpDeliverReleaseFence();
+        if (op.fenceFd().IsValid()) {
+          DeliverReleaseFence(op.textureId(), op.fwdTransactionId(),
+                              std::move(op.fenceFd()));
+        }
         break;
       }
       default:
@@ -477,6 +485,25 @@ void CompositorBridgeChild::HoldUntilCompositableRefReleasedIfNecessary(
   aClient->SetLastFwdTransactionId(
       GetFwdTransactionCounter().mFwdTransactionId);
   mTexturesWaitingNotifyNotUsed.emplace(aClient->GetSerial(), aClient);
+}
+
+void CompositorBridgeChild::DeliverReleaseFence(
+    uint64_t aTextureId, uint64_t aFwdTransactionId,
+    ipc::FileDescriptor&& aFenceFd) {
+  auto it = mTexturesWaitingNotifyNotUsed.find(aTextureId);
+  MOZ_ASSERT(it != mTexturesWaitingNotifyNotUsed.end());
+  if (it == mTexturesWaitingNotifyNotUsed.end()) {
+    return;
+  }
+
+  if (aFwdTransactionId < it->second->GetLastFwdTransactionId()) {
+    // Released on host side, but client already requested newer use texture.
+    return;
+  }
+
+  auto& texture = it->second;
+  TextureData* data = texture->GetInternalData();
+  data->SetReleaseFence(std::move(aFenceFd));
 }
 
 void CompositorBridgeChild::NotifyNotUsed(uint64_t aTextureId,

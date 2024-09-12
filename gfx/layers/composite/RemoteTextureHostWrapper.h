@@ -76,8 +76,6 @@ class RemoteTextureHostWrapper : public TextureHost {
 
   bool NeedsDeferredDeletion() const override;
 
-  AndroidHardwareBuffer* GetAndroidHardwareBuffer() const override;
-
   void SetAcquireFence(mozilla::ipc::FileDescriptor&& aFenceFd) override;
   void SetReleaseFence(mozilla::ipc::FileDescriptor&& aFenceFd) override;
 

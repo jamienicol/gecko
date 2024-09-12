@@ -438,6 +438,14 @@ void WebRenderBridgeChild::UseTextures(
         t.mPictureRect, t.mFrameID, t.mProducerID, readLocked));
     GetCompositorBridgeChild()->HoldUntilCompositableRefReleasedIfNecessary(
         t.mTextureClient);
+
+    auto fenceFd = t.mTextureClient->GetInternalData()->GetAcquireFence();
+    if (fenceFd.IsValid()) {
+      AddWebRenderParentCommand(CompositableOperation(
+          aCompositable->GetIPCHandle(),
+          OpDeliverAcquireFence(WrapNotNull(t.mTextureClient->GetIPDLActor()),
+                                std::move(fenceFd))));
+    }
   }
   AddWebRenderParentCommand(CompositableOperation(aCompositable->GetIPCHandle(),
                                                   OpUseTexture(textures)));

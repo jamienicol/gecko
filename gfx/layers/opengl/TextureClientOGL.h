@@ -135,9 +135,8 @@ class AndroidHardwareBufferTextureData : public TextureData {
 
   TextureFlags GetTextureFlags() const override;
 
-  Maybe<uint64_t> GetBufferId() const override;
-
   mozilla::ipc::FileDescriptor GetAcquireFence() override;
+  void SetReleaseFence(mozilla::ipc::FileDescriptor&& aReleaseFence) override;
 
   AndroidHardwareBufferTextureData* AsAndroidHardwareBufferTextureData()
       override {
