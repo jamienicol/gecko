@@ -78,6 +78,9 @@ class RemoteTextureHostWrapper : public TextureHost {
 
   AndroidHardwareBuffer* GetAndroidHardwareBuffer() const override;
 
+  void SetAcquireFence(mozilla::ipc::FileDescriptor&& aFenceFd) override;
+  void SetReleaseFence(mozilla::ipc::FileDescriptor&& aFenceFd) override;
+
   bool IsReadyForRendering();
 
   void ApplyTextureFlagsToRemoteTexture();
