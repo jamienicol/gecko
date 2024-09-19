@@ -258,6 +258,8 @@ def extra_toolchain_flags(android_sysroot, toolchain_dir):
     flags = [
         "--sysroot={}".format(android_sysroot),
         "--gcc-toolchain={}".format(toolchain_dir),
+        "-D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__",
+        # "-Werror=unguarded-availability", // Causes warnings in cubeb
     ]
     return flags
 
