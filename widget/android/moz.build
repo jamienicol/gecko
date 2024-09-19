@@ -198,7 +198,7 @@ LOCAL_INCLUDES += [
     "/xpcom/threads",
 ]
 
-OS_LIBS += ["android"]
+OS_LIBS += ["android", "mediandk"]
 
 if CONFIG["MOZ_NATIVE_DEVICES"]:
     DEFINES["MOZ_NATIVE_DEVICES"] = True
