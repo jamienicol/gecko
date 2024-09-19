@@ -2,9 +2,10 @@
 [android.media.MediaCodec$BufferInfo = exceptionMode:nsresult]
 [android.media.MediaCodec$CryptoInfo = exceptionMode:nsresult]
 
-# We only use constants from CodecCapabilities
-[android.media.MediaCodecInfo$CodecCapabilities = skip:true]
-<field> = skip:false
+[android.media.MediaCodecInfo = exceptionMode:abort]
+[android.media.MediaCodecInfo$CodecCapabilities = exceptionMode:abort]
+[android.media.MediaCodecInfo$VideoCapabilities = exceptionMode:abort]
+[android.media.MediaCodecList = exceptionMode:abort]
 
 # We only use constants from KeyStatus
 [android.media.MediaDrm$KeyStatus = skip:true]
