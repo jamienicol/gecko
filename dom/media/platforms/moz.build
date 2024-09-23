@@ -120,6 +120,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         "android/AndroidDataEncoder.cpp",
         "android/AndroidDecoderModule.cpp",
         "android/AndroidEncoderModule.cpp",
+        "android/MediaCodecDecoder.cpp",
         "android/RemoteDataDecoder.cpp",
     ]
     LOCAL_INCLUDES += [
