@@ -166,7 +166,8 @@ import org.mozilla.gecko.util.HardwareCodecCapabilityUtils;
 
   @Override
   public boolean isAdaptivePlaybackSupported(final String mimeType) {
-    return HardwareCodecCapabilityUtils.checkSupportsAdaptivePlayback(mCodec, mimeType);
+    return HardwareCodecCapabilityUtils.checkSupportsAdaptivePlayback(
+        mCodec.getCodecInfo(), mimeType);
   }
 
   @Override

@@ -10726,6 +10726,12 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+
+  # Use the NDK instead of Java
+-   name: media.android-media-codec.native
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
 #endif  # ANDROID
 
 # Now we will completely disable the ability to perform audio decoding outside

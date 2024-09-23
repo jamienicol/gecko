@@ -10,6 +10,7 @@
 #  include "AOMDecoder.h"
 #endif
 #include "MediaInfo.h"
+#include "MediaCodecDecoder.h"
 #include "RemoteDataDecoder.h"
 #include "VPXDecoder.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -17,6 +18,7 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/java/HardwareCodecCapabilityUtilsWrappers.h"
+#include "mozilla/jni/Utils.h"
 #include "nsIGfxInfo.h"
 #include "nsPromiseFlatString.h"
 #include "prlog.h"
@@ -323,8 +325,16 @@ already_AddRefed<MediaDataDecoder> AndroidDecoderModule::CreateVideoDecoder(
     drmStubId = mProxy->GetMediaDrmStubId();
   }
 
-  RefPtr<MediaDataDecoder> decoder =
-      RemoteDataDecoder::CreateVideoDecoder(aParams, drmStubId, mProxy);
+  RefPtr<MediaDataDecoder> decoder;
+  if (StaticPrefs::media_android_media_codec_native() &&
+      jni::GetAPIVersion() >= 28) {
+    decoder = MediaCodecDecoder::CreateVideoDecoder(aParams, drmStubId, mProxy);
+  }
+
+  if (!decoder) {
+    decoder = RemoteDataDecoder::CreateVideoDecoder(aParams, drmStubId, mProxy);
+  }
+
   return decoder.forget();
 }
 

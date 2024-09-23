@@ -7,7 +7,6 @@
 package org.mozilla.gecko.util;
 
 import android.annotation.SuppressLint;
-import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecList;
@@ -189,15 +188,16 @@ public final class HardwareCodecCapabilityUtils {
     return false;
   }
 
+  @WrapForJNI
   public static boolean checkSupportsAdaptivePlayback(
-      final MediaCodec aCodec, final String aMimeType) {
+      final MediaCodecInfo aCodecInfo, final String aMimeType) {
     if (isAdaptivePlaybackBlocklisted(aMimeType)) {
       return false;
     }
 
     try {
-      final MediaCodecInfo info = aCodec.getCodecInfo();
-      final MediaCodecInfo.CodecCapabilities capabilities = info.getCapabilitiesForType(aMimeType);
+      final MediaCodecInfo.CodecCapabilities capabilities =
+          aCodecInfo.getCapabilitiesForType(aMimeType);
       return capabilities != null
           && capabilities.isFeatureSupported(
               MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback);
