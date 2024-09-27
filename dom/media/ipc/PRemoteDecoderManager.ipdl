@@ -64,6 +64,10 @@ parent:
 
   sync Readback(SurfaceDescriptorGPUVideo sd) returns (SurfaceDescriptor aResult);
 
+  // FIXME: find a better way of doing this which guarantees we will render the
+  // frame to the surface prior to the texture being used.
+  async OnSetCurrent(SurfaceDescriptorGPUVideo sd);
+
   async DeallocateSurfaceDescriptorGPUVideo(SurfaceDescriptorGPUVideo sd);
 };
 

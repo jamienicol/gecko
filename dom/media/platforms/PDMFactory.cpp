@@ -88,6 +88,9 @@ class PDMInitializer final {
 #ifdef XP_WIN
     WMFDecoderModule::Init();
 #endif
+    // #ifdef MOZ_WIDGET_ANDROID
+    //     AndroidDecoderModule::Init();
+    // #endif
   }
 
   static void InitRddPDMs() {
@@ -513,6 +516,12 @@ void PDMFactory::CreateGpuPDMs() {
     StartupPDM(WMFDecoderModule::Create());
   }
 #endif
+#ifdef MOZ_WIDGET_ANDROID
+  if (StaticPrefs::media_android_media_codec_enabled()) {
+    StartupPDM(AndroidDecoderModule::Create(),
+               StaticPrefs::media_android_media_codec_preferred());
+  }
+#endif
 }
 
 #if defined(MOZ_FFMPEG)
@@ -676,12 +685,12 @@ void PDMFactory::CreateContentPDMs() {
 #endif  // !defined(MOZ_WIDGET_ANDROID)
 
   // Android still needs this, the actual decoder is remoted on java side
-#ifdef MOZ_WIDGET_ANDROID
-  if (StaticPrefs::media_android_media_codec_enabled()) {
-    StartupPDM(AndroidDecoderModule::Create(),
-               StaticPrefs::media_android_media_codec_preferred());
-  }
-#endif
+  // #ifdef MOZ_WIDGET_ANDROID
+  //   if (StaticPrefs::media_android_media_codec_enabled()) {
+  //     StartupPDM(AndroidDecoderModule::Create(),
+  //                StaticPrefs::media_android_media_codec_preferred());
+  //   }
+  // #endif
 
   if (StaticPrefs::media_gmp_decoder_enabled() &&
       !StartupPDM(GMPDecoderModule::Create(),

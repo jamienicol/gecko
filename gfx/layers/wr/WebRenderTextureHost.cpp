@@ -96,6 +96,10 @@ gfx::IntSize WebRenderTextureHost::GetSize() const {
   return mWrappedTextureHost->GetSize();
 }
 
+bool WebRenderTextureHost::NeedsYFlip() const {
+  return mWrappedTextureHost->NeedsYFlip();
+};
+
 gfx::SurfaceFormat WebRenderTextureHost::GetFormat() const {
   return mWrappedTextureHost->GetFormat();
 }

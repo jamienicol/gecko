@@ -74,6 +74,7 @@ class RemoteDecoderManagerChild final
   // internally and will be ignored if the IPDL actor has been destroyed.
   already_AddRefed<gfx::SourceSurface> Readback(
       const SurfaceDescriptorGPUVideo& aSD) override;
+  void OnSetCurrent(const SurfaceDescriptorGPUVideo& aSD) override;
   void DeallocateSurfaceDescriptor(
       const SurfaceDescriptorGPUVideo& aSD) override;
 

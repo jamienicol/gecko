@@ -44,6 +44,10 @@ class RemoteDecoderManagerParent final
     MOZ_ASSERT_UNREACHABLE("Not usable from the parent");
     return nullptr;
   }
+  void OnSetCurrent(const SurfaceDescriptorGPUVideo& aSD) override {
+    // FIXME: should we allow this??
+    MOZ_ASSERT_UNREACHABLE("Not usable from the parent");
+  };
   void DeallocateSurfaceDescriptor(
       const SurfaceDescriptorGPUVideo& aSD) override;
 
@@ -76,6 +80,8 @@ class RemoteDecoderManagerParent final
 
   mozilla::ipc::IPCResult RecvReadback(const SurfaceDescriptorGPUVideo& aSD,
                                        SurfaceDescriptor* aResult);
+  mozilla::ipc::IPCResult RecvOnSetCurrent(
+      const SurfaceDescriptorGPUVideo& aSD);
   mozilla::ipc::IPCResult RecvDeallocateSurfaceDescriptorGPUVideo(
       const SurfaceDescriptorGPUVideo& aSD);
 

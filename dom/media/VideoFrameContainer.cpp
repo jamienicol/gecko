@@ -86,12 +86,7 @@ static void NotifySetCurrent(Image* aImage) {
     return;
   }
 
-  SurfaceTextureImage* image = aImage->AsSurfaceTextureImage();
-  if (image == nullptr) {
-    return;
-  }
-
-  image->OnSetCurrent();
+  aImage->OnSetCurrent();
 }
 #endif
 

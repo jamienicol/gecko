@@ -178,6 +178,8 @@ class Image {
       int32_t& aStride,
       const std::function<layers::MemoryOrShmem(uint32_t)>& aAllocate);
 
+  virtual void OnSetCurrent() {}
+
  protected:
   Maybe<SurfaceDescriptor> GetDescFromTexClient(
       TextureClient* tcOverride = nullptr);

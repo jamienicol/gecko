@@ -118,6 +118,14 @@ gfx::SurfaceFormat GPUVideoTextureHost::GetFormat() const {
   return mWrappedTextureHost->GetFormat();
 }
 
+bool GPUVideoTextureHost::NeedsYFlip() const {
+  MOZ_ASSERT(mWrappedTextureHost, "Image isn't valid yet");
+  if (!mWrappedTextureHost) {
+    return false;
+  }
+  return bool(mWrappedTextureHost->mFlags & TextureFlags::ORIGIN_BOTTOM_LEFT);
+};
+
 void GPUVideoTextureHost::CreateRenderTexture(
     const wr::ExternalImageId& aExternalImageId) {
   MOZ_ASSERT(mExternalImageId.isSome());
@@ -222,6 +230,15 @@ DXGITextureHostD3D11* GPUVideoTextureHost::AsDXGITextureHostD3D11() {
   }
   return nullptr;
 }
+
+#ifdef MOZ_WIDGET_ANDROID
+SurfaceTextureHost* GPUVideoTextureHost::AsSurfaceTextureHost() {
+  if (EnsureWrappedTextureHost()) {
+    return EnsureWrappedTextureHost()->AsSurfaceTextureHost();
+  }
+  return nullptr;
+}
+#endif
 
 bool GPUVideoTextureHost::IsWrappingSurfaceTextureHost() {
   if (EnsureWrappedTextureHost()) {

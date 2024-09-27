@@ -82,6 +82,14 @@ bool AndroidSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
   return true;
 }
 
+void AndroidSurfaceTextureData::GetSubDescriptor(
+    RemoteDecoderVideoSubDescriptor* const aOutDesc) {
+  *aOutDesc = SurfaceTextureDescriptor(
+      mHandle, mSize,
+      mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8,
+      mContinuous, mForceBT709ColorSpace, mTransformOverride);
+}
+
 #endif  // MOZ_WIDGET_ANDROID
 
 ////////////////////////////////////////////////////////////////////////

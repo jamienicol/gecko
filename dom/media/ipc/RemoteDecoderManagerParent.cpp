@@ -349,6 +349,16 @@ mozilla::ipc::IPCResult RemoteDecoderManagerParent::RecvReadback(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult RemoteDecoderManagerParent::RecvOnSetCurrent(
+    const SurfaceDescriptorGPUVideo& aSD) {
+  const SurfaceDescriptorRemoteDecoder& sd = aSD;
+  RefPtr<Image> image = mImageMap[sd.handle()];
+  if (image) {
+    image->OnSetCurrent();
+  }
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult
 RemoteDecoderManagerParent::RecvDeallocateSurfaceDescriptorGPUVideo(
     const SurfaceDescriptorGPUVideo& aSD) {

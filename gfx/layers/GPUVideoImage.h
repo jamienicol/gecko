@@ -28,6 +28,7 @@ class IGPUVideoSurfaceManager {
 
   virtual already_AddRefed<gfx::SourceSurface> Readback(
       const SurfaceDescriptorGPUVideo& aSD) = 0;
+  virtual void OnSetCurrent(const SurfaceDescriptorGPUVideo& aSD) = 0;
   virtual void DeallocateSurfaceDescriptor(
       const SurfaceDescriptorGPUVideo& aSD) = 0;
 };
@@ -45,6 +46,7 @@ class GPUVideoImage final : public Image {
                 gfx::TransferFunction aTransferFunction,
                 gfx::ColorRange aColorRange)
       : Image(nullptr, ImageFormat::GPU_VIDEO),
+        mManager(aManager),
         mSize(aSize),
         mColorDepth(aColorDepth),
         mColorSpace(aColorPrimaries),
@@ -81,6 +83,13 @@ class GPUVideoImage final : public Image {
     return GetDescFromTexClient(mTextureClient);
   }
 
+  void OnSetCurrent() override {
+    GPUVideoTextureData* data = GetData();
+    if (data) {
+      mManager->OnSetCurrent(data->SD());
+    }
+  }
+
  private:
   GPUVideoTextureData* GetData() const {
     if (!mTextureClient) {
@@ -109,6 +118,7 @@ class GPUVideoImage final : public Image {
   }
 
  private:
+  RefPtr<IGPUVideoSurfaceManager> mManager;
   gfx::IntSize mSize;
   gfx::ColorDepth mColorDepth;
   gfx::ColorSpace2 mColorSpace;

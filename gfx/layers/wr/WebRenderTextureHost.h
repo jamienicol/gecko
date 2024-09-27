@@ -31,6 +31,8 @@ class WebRenderTextureHost : public TextureHost {
 
   void UnbindTextureSource() override;
 
+  bool NeedsYFlip() const override;
+
   gfx::SurfaceFormat GetFormat() const override;
 
   virtual void NotifyNotUsed() override;

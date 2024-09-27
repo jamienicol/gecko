@@ -22,6 +22,8 @@ class GPUVideoTextureHost : public TextureHost {
 
   void DeallocateDeviceData() override {}
 
+  bool NeedsYFlip() const override;
+
   gfx::SurfaceFormat GetFormat() const override;
 
   already_AddRefed<gfx::DataSourceSurface> GetAsSurface(
@@ -68,6 +70,10 @@ class GPUVideoTextureHost : public TextureHost {
   BufferTextureHost* AsBufferTextureHost() override;
 
   DXGITextureHostD3D11* AsDXGITextureHostD3D11() override;
+
+#ifdef MOZ_WIDGET_ANDROID
+  SurfaceTextureHost* AsSurfaceTextureHost() override;
+#endif
 
   bool IsWrappingSurfaceTextureHost() override;
 

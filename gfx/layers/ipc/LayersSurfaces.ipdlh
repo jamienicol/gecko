@@ -129,6 +129,7 @@ namespace layers {
   SurfaceDescriptorDMABuf;
   SurfaceDescriptorMacIOSurface;
   SurfaceDescriptorDcompSurface;
+  SurfaceTextureDescriptor;
   null_t;
 };
 

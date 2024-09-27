@@ -894,6 +894,23 @@ already_AddRefed<SourceSurface> RemoteDecoderManagerChild::Readback(
   return source.forget();
 }
 
+void RemoteDecoderManagerChild::OnSetCurrent(
+    const SurfaceDescriptorGPUVideo& aSD) {
+  nsCOMPtr<nsISerialEventTarget> managerThread = GetManagerThread();
+  if (!managerThread) {
+    return;
+  }
+
+  SurfaceDescriptor sd;
+  RefPtr<Runnable> task =
+      NS_NewRunnableFunction("RemoteDecoderManagerChild::OnSetCurrent", [&]() {
+        if (CanSend()) {
+          SendOnSetCurrent(aSD);
+        }
+      });
+  SyncRunnable::DispatchToThread(managerThread, task);
+}
+
 void RemoteDecoderManagerChild::DeallocateSurfaceDescriptor(
     const SurfaceDescriptorGPUVideo& aSD) {
   nsCOMPtr<nsISerialEventTarget> managerThread = GetManagerThread();

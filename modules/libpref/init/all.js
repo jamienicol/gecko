@@ -4188,3 +4188,5 @@ pref("privacy.query_stripping.strip_on_share.enableTestMode", false);
 
 // To disable the Strip on Share context menu option if nothing can be stripped
 pref("privacy.query_stripping.strip_on_share.canDisable", true);
+
+pref("media.gpu-process-decoder", true);
