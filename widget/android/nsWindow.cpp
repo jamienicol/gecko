@@ -14,6 +14,8 @@
 #include <type_traits>
 #include <unistd.h>
 
+#include <dlfcn.h>
+
 #include "AndroidBridge.h"
 #include "AndroidBridgeUtilities.h"
 #include "AndroidCompositorWidget.h"
@@ -1456,6 +1458,24 @@ class LayerViewSupport final
     } else {
       mSurface = java::sdk::Surface::GlobalRef::From(aSurface);
     }
+
+    using _ANativeWindow_setFrameRate =
+        int32_t (*)(ANativeWindow*, float, int8_t);
+    static void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+    MOZ_RELEASE_ASSERT(handle);
+    static _ANativeWindow_setFrameRate setFrameRate =
+        (_ANativeWindow_setFrameRate)dlsym(handle,
+                                           "ANativeWindow_setFrameRate");
+    MOZ_RELEASE_ASSERT(setFrameRate);
+
+    printf_stderr("jamiedbg SyncResumeResizeCompositor()\n");
+    JNIEnv* const env = jni::GetEnvForThread();
+    ANativeWindow* const nativeWindow = ANativeWindow_fromSurface(
+        env, reinterpret_cast<jobject>(mSurface.Get()));
+    MOZ_RELEASE_ASSERT(nativeWindow);
+    setFrameRate(nativeWindow, 60.0,
+                 ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+    ANativeWindow_release(nativeWindow);
 
     if (mUiCompositorControllerChild) {
       if (auto window = mWindow.Access()) {
