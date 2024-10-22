@@ -531,11 +531,11 @@ tasks:
                 - 'testing/mozharness/configs/android/*.py'
                 - 'testing/mozbase/mozdevice/**'
 
-    android-hw-a51-debug:
-        description: Run debug wrench reftests on Android Samsung Galaxy A51
+    android-hw-a55-debug:
+        description: Run debug wrench reftests on Android Samsung Galaxy A55
         attributes:
             build_platform: android
-        worker-type: t-bitbar-gw-perf-a51
+        worker-type: t-bitbar-gw-perf-a55
         worker:
             max-run-time: 5400
             artifacts:
@@ -570,7 +570,7 @@ tasks:
                 export MOZHARNESS_PATH=$MOZ_FETCHES_DIR/mozharness &&
                 python3 ${MOZHARNESS_PATH}/scripts/${MOZHARNESS_SCRIPT} --config-file ${MOZHARNESS_PATH}/configs/${MOZHARNESS_CONFIG}
         treeherder:
-            platform: android-hw-a51-11-0-arm7/debug
+            platform: android-hw-a55-14-0-arm7/debug
             symbol: WR(wrench)
         when:
             files-changed:
@@ -579,11 +579,11 @@ tasks:
                 - 'testing/mozharness/configs/android/*.py'
                 - 'testing/mozbase/mozdevice/**'
 
-    android-hw-a51-opt:
-        description: Run opt wrench reftests on Android Samsung Galaxy A51
+    android-hw-a55-opt:
+        description: Run opt wrench reftests on Android Samsung Galaxy A55
         attributes:
             build_platform: android
-        worker-type: t-bitbar-gw-perf-a51
+        worker-type: t-bitbar-gw-perf-a55
         worker:
             max-run-time: 5400
             artifacts:
@@ -618,7 +618,7 @@ tasks:
                 export MOZHARNESS_PATH=$MOZ_FETCHES_DIR/mozharness &&
                 python3 ${MOZHARNESS_PATH}/scripts/${MOZHARNESS_SCRIPT} --config-file ${MOZHARNESS_PATH}/configs/${MOZHARNESS_CONFIG}
         treeherder:
-            platform: android-hw-a51-11-0-arm7/opt
+            platform: android-hw-a55-14-0-arm7/opt
             symbol: WR(wrench)
         when:
             files-changed:
