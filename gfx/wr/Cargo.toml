@@ -9,6 +9,9 @@ members = [
 
 [workspace.dependencies]
 glean = "=61.2.0"
+# FIXME: need to add x11 and wayland to features?
+glutin = { version = "0.29", default-features = false }
+winit = { version = "0.27", default-features = false }
 
 [profile.release]
 debug = true
@@ -26,5 +29,3 @@ opt-level = 2
 
 [patch.crates-io]
 firefox-on-glean = { path = "fog" }
-# use a patched version of glutin that works on android
-glutin = { version = "0.28", git = "https://github.com/jamienicol/glutin", branch="wr" }
