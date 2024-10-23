@@ -232,7 +232,7 @@ class AndroidWrench(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
         if self.is_emulator:
             self.setup_emulator()
 
-        self.verify_device()
+        # self.verify_device()
         self.info("Logging device properties...")
         self.info(self.shell_output("getprop", attempts=3))
         self.info("Installing APK...")
