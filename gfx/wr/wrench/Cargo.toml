@@ -55,8 +55,8 @@ mozangle = { version = "0.3.2", features = ["egl"] }
 libc = "0.2"
 ndk-glue = "0.7"
 
-[target.'cfg(all(unix, not(target_os = "android")))'.dependencies]
-font-loader = "0.11"
+# [target.'cfg(all(unix, not(target_os = "android")))'.dependencies]
+# font-loader = "0.11"
 
 # Configuration information used when building wrench as an APK.
 [package.metadata.android]
