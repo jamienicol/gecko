@@ -57,6 +57,7 @@ class UiCompositorControllerParent final
   void NotifyLayersUpdated();
   void NotifyFirstPaint();
   void NotifyUpdateScreenMetrics(const GeckoViewMetrics& aMetrics);
+  void SetFrameRate(float aFrameRate);
 
  private:
   explicit UiCompositorControllerParent(const LayersId& aRootLayerTreeId);

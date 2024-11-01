@@ -85,6 +85,7 @@ class UiCompositorControllerChild final
   mozilla::ipc::IPCResult RecvScreenPixels(Shmem&& aMem,
                                            const ScreenIntSize& aSize,
                                            bool aNeedsYFlip);
+  mozilla::ipc::IPCResult RecvSetFrameRate(const float& aFrameRate);
 
  private:
   explicit UiCompositorControllerChild(const uint64_t& aProcessToken,

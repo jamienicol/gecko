@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "UiCompositorControllerParent.h"
+#include "mozilla/glue/Debug.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
 #  include "apz/src/APZCTreeManager.h"
@@ -217,6 +218,12 @@ void UiCompositorControllerParent::NotifyUpdateScreenMetrics(
       &UiCompositorControllerParent::SendRootFrameMetrics, scrollOffset,
       scale));
 #endif
+}
+
+void UiCompositorControllerParent::SetFrameRate(float aFrameRate) {
+  printf_stderr("jamiedbg UiCompositorControllerParent::SetFrameRate() %f\n",
+                aFrameRate);
+  Unused << SendSetFrameRate(aFrameRate);
 }
 
 UiCompositorControllerParent::UiCompositorControllerParent(

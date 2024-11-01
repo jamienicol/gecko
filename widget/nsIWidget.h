@@ -2025,6 +2025,8 @@ class nsIWidget : public nsISupports {
   virtual mozilla::ScreenIntCoord GetDynamicToolbarMaxHeight() const {
     return 0;
   }
+
+  virtual void SetFrameRate(float aFrameRate) = 0;
 #endif
 
   static already_AddRefed<nsIBidiKeyboard> CreateBidiKeyboard();

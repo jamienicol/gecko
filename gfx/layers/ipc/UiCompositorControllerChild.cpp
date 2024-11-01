@@ -7,6 +7,7 @@
 #include "mozilla/layers/UiCompositorControllerChild.h"
 
 #include "mozilla/dom/ContentChild.h"
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/SynchronousTask.h"
 #include "mozilla/layers/UiCompositorControllerMessageTypes.h"
@@ -246,6 +247,16 @@ mozilla::ipc::IPCResult UiCompositorControllerChild::RecvScreenPixels(
   }
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult UiCompositorControllerChild::RecvSetFrameRate(
+    const float& aFrameRate) {
+  printf_stderr("jamiedbg UiCompositorControllerChild::RecvSetFrameRate() %f\n",
+                aFrameRate);
+#if defined(MOZ_WIDGET_ANDROID)
+  mWidget->SetFrameRate(aFrameRate);
+#endif
   return IPC_OK();
 }
 

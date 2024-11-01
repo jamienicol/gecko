@@ -9,6 +9,7 @@
 #include <android/log.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
+#include <dlfcn.h>
 #include <math.h>
 #include <queue>
 #include <type_traits>
@@ -39,6 +40,7 @@
 #include "WindowRenderer.h"
 
 #include "mozilla/EventForwards.h"
+#include "mozilla/glue/Debug.h"
 #include "nsAppShell.h"
 #include "nsContentUtils.h"
 #include "nsFocusManager.h"
@@ -1245,6 +1247,38 @@ class LayerViewSupport final
     }
   }
 
+  void SetFrameRate(float aFrameRate) {
+    printf_stderr("jamiedbg LayerViewSupport::SetFrameRate() %f\n", aFrameRate);
+
+    MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
+    if (!mSurface) {
+      return;
+    }
+    JNIEnv* const env = jni::GetEnvForThread();
+    ANativeWindow* window = ANativeWindow_fromSurface(env, mSurface.Get());
+
+    static void* const libandroid =
+        dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+    using ANativeWindow_setFrameRate = void (*)(ANativeWindow*, float, int32_t);
+    static const ANativeWindow_setFrameRate setFrameRateFn =
+        (ANativeWindow_setFrameRate)dlsym(libandroid,
+                                          "ANativeWindow_setFrameRate");
+
+    printf_stderr("jamiedbg ANativeWindow_setFrameRate() %f", aFrameRate);
+    setFrameRateFn(window, aFrameRate,
+                   ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+    printf_stderr("jamiedbg ANativeWindow_setFrameRate() finished");
+
+    // if (__builtin_available(android 30, *)) {
+    //   printf_stderr("jamiedbg Calling ANativeWindow_setFrameRate");
+    //   ANativeWindow_setFrameRate(
+    //       window, aFrameRate,
+    //       ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+    //   printf_stderr("jamiedbg Finished ANativeWindow_setFrameRate");
+    // }
+    ANativeWindow_release(window);
+  }
+
   java::sdk::Surface::Param GetSurface() { return mSurface; }
 
  private:
@@ -1456,6 +1490,27 @@ class LayerViewSupport final
     } else {
       mSurface = java::sdk::Surface::GlobalRef::From(aSurface);
     }
+
+    // JNIEnv* const env = jni::GetEnvForThread();
+    // ANativeWindow* window = ANativeWindow_fromSurface(
+    //     env, reinterpret_cast<jobject>(mSurface.Get()));
+    // if (window) {
+    //   if (jni::GetAPIVersion() >= 30) {
+    //     static void* const libandroid =
+    //         dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+    //     using ANativeWindow_setFrameRate =
+    //         void (*)(ANativeWindow*, float, int32_t);
+    //     static const ANativeWindow_setFrameRate setFrameRateFn =
+    //         (ANativeWindow_setFrameRate)dlsym(libandroid,
+    //                                           "ANativeWindow_setFrameRate");
+
+    //     printf_stderr("jamiedbg ANativeWindow_setFrameRate() %f", 60.0);
+    //     setFrameRateFn(window, 60.0,
+    //                    ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+    //     printf_stderr("jamiedbg ANativeWindow_setFrameRate() finished");
+    //     ANativeWindow_release(window);
+    //   }
+    // }
 
     if (mUiCompositorControllerChild) {
       if (auto window = mWindow.Access()) {
@@ -3236,6 +3291,14 @@ void nsWindow::RecvScreenPixels(Shmem&& aMem, const ScreenIntSize& aSize,
   if (::mozilla::jni::NativeWeakPtr<LayerViewSupport>::Accessor lvs{
           mLayerViewSupport.Access()}) {
     lvs->RecvScreenPixels(std::move(aMem), aSize, aNeedsYFlip);
+  }
+}
+
+void nsWindow::SetFrameRate(float aFrameRate) {
+  printf_stderr("jamiedbg nsWindow::SetFrameRate() %f\n", aFrameRate);
+  MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
+  if (auto lvs{mLayerViewSupport.Access()}) {
+    lvs->SetFrameRate(aFrameRate);
   }
 }
 

@@ -1464,10 +1464,15 @@ void CompositorBridgeParent::NotifyDidRender(const VsyncId& aCompositeStartId,
     return;
   }
 
+  printf_stderr("jamiedbg CompositorBridgeParent::NotifyDidRender()\n");
   MOZ_RELEASE_ASSERT(mWrBridge->IsRootWebRenderBridgeParent());
 
   RefPtr<UiCompositorControllerParent> uiController =
       UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeID);
+
+  if (uiController) {
+    uiController->SetFrameRate(60.0f);
+  }
 
   if (uiController && mIsForcedFirstPaint) {
     uiController->NotifyFirstPaint();
@@ -1543,6 +1548,9 @@ void CompositorBridgeParent::NotifyPipelineRendered(
     const VsyncId& aCompositeStartId, TimeStamp& aCompositeStart,
     TimeStamp& aRenderStart, TimeStamp& aCompositeEnd,
     wr::RendererStats* aStats) {
+  printf_stderr("jamiedbg NotifyPipelineRendered() pipeline: %s, epoch: %s\n",
+                mozilla::ToString(aPipelineId).c_str(),
+                mozilla::ToString(aEpoch).c_str());
   if (!mWrBridge || !mAsyncImageManager) {
     return;
   }

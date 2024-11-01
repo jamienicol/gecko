@@ -248,6 +248,7 @@ class nsWindow final : public nsBaseWidget {
   mozilla::ScreenIntCoord GetDynamicToolbarMaxHeight() const override {
     return mDynamicToolbarMaxHeight;
   }
+  void SetFrameRate(float aFrameRate) override;
 
   void UpdateDynamicToolbarOffset(mozilla::ScreenIntCoord aOffset);
 

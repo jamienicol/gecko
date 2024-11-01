@@ -412,6 +412,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
                               const CSSToScreenScale& aZoom) override {};
   void RecvScreenPixels(mozilla::ipc::Shmem&& aMem, const ScreenIntSize& aSize,
                         bool aNeedsYFlip) override {};
+  void SetFrameRate(float aFrameRate) override {}
 #endif
 
   virtual void LocalesChanged() {}

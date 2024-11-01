@@ -769,12 +769,19 @@ static void NotifyDidRender(layers::CompositorBridgeParent* aBridge,
                             TimeStamp aCompositeStart, TimeStamp aRenderStart,
                             TimeStamp aEnd, bool aRender,
                             RendererStats aStats) {
+  printf_stderr("jamiedbg NotifyDidRender()\n");
+
   if (aRender && aBridge->GetWrBridge()) {
     // We call this here to mimic the behavior in LayerManagerComposite, as to
     // not change what Talos measures. That is, we do not record an empty frame
     // as a frame.
     aBridge->GetWrBridge()->RecordFrame();
   }
+
+  // FIXME: Maybe here is a reasonable place to decide frame rate? We should
+  // be able to figure out which pipelines changed and which remained the same.
+  // With a bit of plumbing elsewhere perhaps we can associate a desired refresh
+  // rate with each pipeline...
 
   aBridge->NotifyDidRender(aCompositeStartId, aCompositeStart, aRenderStart,
                            aEnd, &aStats);
