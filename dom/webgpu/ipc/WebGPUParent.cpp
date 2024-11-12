@@ -588,8 +588,8 @@ static const char* MapStatusString(ffi::WGPUBufferMapAsyncStatus status) {
       return "Already mapped";
     case ffi::WGPUBufferMapAsyncStatus_MapAlreadyPending:
       return "Map is already pending";
-    case ffi::WGPUBufferMapAsyncStatus_Aborted:
-      return "Map aborted";
+    // case ffi::WGPUBufferMapAsyncStatus_Aborted:
+    //   return "Map aborted";
     case ffi::WGPUBufferMapAsyncStatus_ContextLost:
       return "Context lost";
     case ffi::WGPUBufferMapAsyncStatus_Invalid:

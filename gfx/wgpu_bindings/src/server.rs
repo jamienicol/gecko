@@ -2048,6 +2048,7 @@ impl Global {
                     error_buf.init(err);
                 }
             }
+            CommandEncoderAction::BuildAccelerationStructuresUnsafeTlas { .. } | CommandEncoderAction::BuildAccelerationStructures { .. } => todo!()
         }
     }
 }
