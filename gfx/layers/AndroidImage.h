@@ -34,6 +34,9 @@ class AndroidImage {
   // Retrieves the Image's hardware buffer. All references to this buffer *must*
   // be dropped before the Image is destroyed.
   RefPtr<AndroidHardwareBuffer> GetHardwareBuffer();
+
+  gfx::IntRect GetCropRect() const;
+
   // Gets the timestamp in nanoseconds of the image.
   int64_t GetTimestamp() const;
 

@@ -96,7 +96,8 @@ class AndroidHardwareBuffer
   // acquires a reference to the AHardwareBuffer and will release the reference
   // upon destruction.
   static already_AddRefed<AndroidHardwareBuffer> FromNativeBuffer(
-      AHardwareBuffer* nativeBuffer, gfx::SurfaceFormat aFormat);
+      AHardwareBuffer* nativeBuffer, gfx::SurfaceFormat aFormat,
+      Maybe<gfx::IntRect> aCropRect);
 
   // Deserializes the HardwareBuffer from a SurfaceDescriptor.
   static already_AddRefed<AndroidHardwareBuffer> FromSurfaceDescriptor(
@@ -126,12 +127,13 @@ class AndroidHardwareBuffer
   const gfx::IntSize mSize;
   const uint32_t mStride;
   const gfx::SurfaceFormat mFormat;
+  const Maybe<gfx::IntRect> mCropRect;
   const uint64_t mId;
 
  protected:
   AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer, gfx::IntSize aSize,
                         uint32_t aStride, gfx::SurfaceFormat aFormat,
-                        uint64_t aId);
+                        Maybe<gfx::IntRect> aCropRect, uint64_t aId);
 
   void SetReleaseFence(ipc::FileDescriptor&& aFenceFd,
                        const MonitorAutoLock& aAutoLock);

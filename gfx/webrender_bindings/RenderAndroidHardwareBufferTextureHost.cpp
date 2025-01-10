@@ -130,10 +130,11 @@ wr::WrExternalImage RenderAndroidHardwareBufferTextureHost::Lock(
     return InvalidToWrExternalImage();
   }
 
-  const gfx::IntSize size = GetSize();
-  return NativeTextureToWrExternalImage(mTextureHandle, 0.0, 0.0,
-                                        static_cast<float>(size.width),
-                                        static_cast<float>(size.height));
+  const gfx::IntRect rect =
+      mAndroidHardwareBuffer->mCropRect.valueOr(gfx::IntRect({}, GetSize()));
+  return NativeTextureToWrExternalImage(
+      mTextureHandle, static_cast<float>(rect.x), static_cast<float>(rect.y),
+      static_cast<float>(rect.width), static_cast<float>(rect.height));
 }
 
 void RenderAndroidHardwareBufferTextureHost::Unlock() {}

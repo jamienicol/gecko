@@ -42,8 +42,20 @@ RefPtr<AndroidHardwareBuffer> AndroidImage::GetHardwareBuffer() {
 
   // FIXME: don't hard code this format
   mHardwareBuffer = AndroidHardwareBuffer::FromNativeBuffer(
-      buffer, gfx::SurfaceFormat::R8G8B8X8);
+      buffer, gfx::SurfaceFormat::R8G8B8X8, Some(GetCropRect()));
   return mHardwareBuffer;
+}
+
+gfx::IntRect AndroidImage::GetCropRect() const {
+  const auto* api = layers::AndroidImageApi::Get();
+
+  AImageCropRect cropRect;
+  media_status_t res = api->AImage_getCropRect(mImage, &cropRect);
+  MOZ_RELEASE_ASSERT(res == AMEDIA_OK);
+
+  return gfx::IntRect(cropRect.left, cropRect.top,
+                      cropRect.right - cropRect.left,
+                      cropRect.bottom - cropRect.top);
 }
 
 int64_t AndroidImage::GetTimestamp() const {
