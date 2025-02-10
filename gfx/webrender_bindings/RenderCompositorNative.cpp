@@ -20,6 +20,10 @@
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "RenderCompositorRecordedFrame.h"
+#ifdef MOZ_WIDGET_ANDROID
+#  include "GLContextEGL.h"
+#  include "mozilla/layers/NativeLayerAndroid.h"
+#endif
 
 namespace mozilla::wr {
 
@@ -32,7 +36,7 @@ RenderCompositorNative::RenderCompositorNative(
       mNativeLayerRoot(GetWidget()->GetNativeLayerRoot()) {
   LOG("RenderCompositorNative::RenderCompositorNative()");
 
-#if defined(XP_DARWIN) || defined(MOZ_WAYLAND)
+#if defined(XP_DARWIN) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   auto pool = RenderThread::Get()->SharedSurfacePool();
   if (pool) {
     mSurfacePoolHandle = pool->GetHandleForGL(aGL);
@@ -543,7 +547,23 @@ void RenderCompositorNativeOGL::DoSwap() {
   }
 }
 
-void RenderCompositorNativeOGL::DoFlush() { mGL->fFlush(); }
+void RenderCompositorNativeOGL::DoFlush() {
+#ifdef MOZ_WIDGET_ANDROID
+  const auto& gle = gl::GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
+
+  UniqueFileHandle fence;
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+  if (sync) {
+    int fd = egl->fDupNativeFenceFDANDROID(sync);
+    egl->fDestroySync(sync);
+    fence = UniqueFileHandle(fd);
+  }
+  mNativeLayerRoot->AsNativeLayerRootAndroid()->SetLayersRenderedFence(
+      std::move(fence));
+#endif
+  mGL->fFlush();
+}
 
 void RenderCompositorNativeOGL::InsertFrameDoneSync() {
 #ifdef XP_DARWIN

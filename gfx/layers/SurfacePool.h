@@ -31,7 +31,7 @@ class SurfacePool {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SurfacePool);
 
-#if defined(XP_DARWIN) || defined(MOZ_WAYLAND)
+#if defined(XP_DARWIN) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   static RefPtr<SurfacePool> Create(size_t aPoolSizeLimit);
 #endif
 
@@ -43,6 +43,7 @@ class SurfacePool {
   virtual ~SurfacePool() = default;
 };
 
+class SurfacePoolHandleAndroid;
 class SurfacePoolHandleCA;
 class SurfacePoolHandleWayland;
 
@@ -55,6 +56,9 @@ class SurfacePoolHandleWayland;
 class SurfacePoolHandle {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SurfacePoolHandle);
+  virtual SurfacePoolHandleAndroid* AsSurfacePoolHandleAndroid() {
+    return nullptr;
+  }
   virtual SurfacePoolHandleCA* AsSurfacePoolHandleCA() { return nullptr; }
   virtual SurfacePoolHandleWayland* AsSurfacePoolHandleWayland() {
     return nullptr;

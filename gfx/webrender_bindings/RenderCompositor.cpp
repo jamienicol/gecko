@@ -27,11 +27,7 @@
 #  include "mozilla/webrender/RenderCompositorEGL.h"
 #endif
 
-#ifdef MOZ_WAYLAND
-#  include "mozilla/webrender/RenderCompositorNative.h"
-#endif
-
-#ifdef XP_DARWIN
+#if defined(XP_DARWIN) || defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
 #  include "mozilla/webrender/RenderCompositorNative.h"
 #endif
 
@@ -231,7 +227,7 @@ UniquePtr<RenderCompositor> RenderCompositor::Create(
   }
 #endif
 
-#if defined(MOZ_WAYLAND)
+#if defined(MOZ_WAYLAND) || defined(MOZ_WIDGET_ANDROID)
   if (gfx::gfxVars::UseWebRenderCompositor()) {
     return RenderCompositorNativeOGL::Create(aWidget, aError);
   }

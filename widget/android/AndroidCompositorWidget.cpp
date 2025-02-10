@@ -6,7 +6,9 @@
 
 #include "AndroidCompositorWidget.h"
 
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/layers/NativeLayerAndroid.h"
 #include "mozilla/widget/PlatformWidgetTypes.h"
 #include "nsWindow.h"
 
@@ -20,7 +22,11 @@ AndroidCompositorWidget::AndroidCompositorWidget(
       mWidgetId(aInitData.widgetId()),
       mNativeWindow(nullptr),
       mFormat(WINDOW_FORMAT_RGBA_8888),
-      mClientSize(aInitData.clientSize()) {}
+      mClientSize(aInitData.clientSize()) {
+  if (gfx::gfxVars::UseWebRenderCompositor()) {
+    mNativeLayerRoot = layers::NativeLayerRootAndroid::Create();
+  }
+}
 
 AndroidCompositorWidget::~AndroidCompositorWidget() {
   if (mNativeWindow) {
@@ -75,12 +81,40 @@ void AndroidCompositorWidget::EndRemoteDrawingInRegion(
   ANativeWindow_unlockAndPost(mNativeWindow);
 }
 
+RefPtr<mozilla::layers::NativeLayerRoot>
+AndroidCompositorWidget::GetNativeLayerRoot() {
+  return mNativeLayerRoot;
+}
+
+void AndroidCompositorWidget::OnPauseComposition() {
+  if (mNativeLayerRoot) {
+    mNativeLayerRoot->Detach();
+  }
+  if (mNativeWindow) {
+    ANativeWindow_release(mNativeWindow);
+    mNativeWindow = nullptr;
+  }
+  mSurface = nullptr;
+}
+
 bool AndroidCompositorWidget::OnResumeComposition() {
   OnCompositorSurfaceChanged();
 
   if (!mSurface) {
     gfxCriticalError() << "OnResumeComposition called with null Surface";
     return false;
+  }
+
+  if (mNativeLayerRoot) {
+    JNIEnv* const env = jni::GetEnvForThread();
+    ANativeWindow* const nativeWindow = ANativeWindow_fromSurface(
+        env, reinterpret_cast<jobject>(mSurface.Get()));
+    if (!nativeWindow) {
+      gfxCriticalError() << "Failed to get NativeWindow from Surface";
+      return false;
+    }
+    mNativeLayerRoot->Attach(nativeWindow);
+    ANativeWindow_release(nativeWindow);
   }
 
   return true;

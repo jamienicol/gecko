@@ -4112,4 +4112,7 @@ pref("privacy.query_stripping.strip_on_share.canDisable", true);
 pref("captchadetection.loglevel", "Warn");
 pref("captchadetection.actor.enabled", true);
 
+pref("layers.gpu-process.crash-also-crashes-browser", true);
 pref("media.android-image-reader.enabled", true);
+pref("gfx.webrender.compositor", true);
+pref("gfx.webrender.layer-compositor", false);

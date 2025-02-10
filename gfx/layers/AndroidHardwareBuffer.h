@@ -125,6 +125,10 @@ class AndroidHardwareBuffer
 
   UniqueFileHandle GetAcquireFence() const;
 
+  // Returns true if the releaase fence is invalid or has already been
+  // signalled. If already signalled, the fence is reset.
+  bool CheckReleaseFence();
+
   const gfx::IntSize mSize;
   const uint32_t mStride;
   const gfx::SurfaceFormat mFormat;

@@ -7,6 +7,7 @@
 #include "AndroidHardwareBuffer.h"
 
 #include <dlfcn.h>
+#include <poll.h>
 #include <sys/socket.h>
 
 #include "mozilla/gfx/2D.h"
@@ -346,6 +347,26 @@ UniqueFileHandle AndroidHardwareBuffer::GetAcquireFence() const {
   }
 
   return DuplicateFileHandle(mAcquireFenceFd);
+}
+
+bool AndroidHardwareBuffer::CheckReleaseFence() {
+  if (!mReleaseFenceFd) {
+    return true;
+  }
+
+  pollfd p;
+  p.fd = mReleaseFenceFd.get();
+  p.events = POLLIN;
+  int ret = ::poll(&p, 1, 0);
+  if (ret == -1) {
+    printf_stderr("jamiedbg Error in poll(): %s\n", strerror(errno));
+    return true;
+  } else if (ret > 0) {
+    Unused << mReleaseFenceFd.release();
+    return true;
+  }
+
+  return false;
 }
 
 StaticAutoPtr<AndroidHardwareBufferManager>
