@@ -846,8 +846,10 @@ void RenderCompositorANGLE::Bind(wr::NativeTileId aId,
 
 void RenderCompositorANGLE::Unbind() { mDCLayerTree->Unbind(); }
 
-void RenderCompositorANGLE::BindSwapChain(wr::NativeSurfaceId aId) {
+void RenderCompositorANGLE::BindSwapChain(wr::NativeSurfaceId aId,
+                                          uint32_t* aFboId) {
   mDCLayerTree->BindSwapChain(aId);
+  *aFboId = 0;
 }
 void RenderCompositorANGLE::PresentSwapChain(wr::NativeSurfaceId aId) {
   mDCLayerTree->PresentSwapChain(aId);

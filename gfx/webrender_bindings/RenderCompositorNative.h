@@ -67,6 +67,10 @@ class RenderCompositorNative : public RenderCompositor {
   void CreateExternalSurface(wr::NativeSurfaceId aId, bool aIsOpaque) override;
   void CreateBackdropSurface(wr::NativeSurfaceId aId,
                              wr::ColorF aColor) override;
+  void CreateSwapChainSurface(wr::NativeSurfaceId aId, wr::DeviceIntSize aSize,
+                                bool aIsOpaque) override;
+  void ResizeSwapChainSurface(wr::NativeSurfaceId aId,
+                              wr::DeviceIntSize aSize) override;
   void DestroySurface(NativeSurfaceId aId) override;
   void CreateTile(wr::NativeSurfaceId aId, int32_t aX, int32_t aY) override;
   void DestroyTile(wr::NativeSurfaceId aId, int32_t aX, int32_t aY) override;
@@ -169,6 +173,8 @@ class RenderCompositorNativeOGL : public RenderCompositorNative {
             wr::DeviceIntRect aDirtyRect,
             wr::DeviceIntRect aValidRect) override;
   void Unbind() override;
+  void BindSwapChain(wr::NativeSurfaceId aId, uint32_t* aFboId) override;
+  void PresentSwapChain(wr::NativeSurfaceId aId) override;
 
  protected:
   void InsertFrameDoneSync();

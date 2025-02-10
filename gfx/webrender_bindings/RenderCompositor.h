@@ -135,7 +135,7 @@ class RenderCompositor {
   }
   virtual void ResizeSwapChainSurface(wr::NativeSurfaceId aId,
                                       wr::DeviceIntSize aSize) {}
-  virtual void BindSwapChain(wr::NativeSurfaceId aId) {}
+  virtual void BindSwapChain(wr::NativeSurfaceId aId, uint32_t* aFboId) {}
   virtual void PresentSwapChain(wr::NativeSurfaceId aId) {}
   virtual void CreateExternalSurface(wr::NativeSurfaceId aId, bool aIsOpaque) {}
   virtual void CreateBackdropSurface(wr::NativeSurfaceId aId,

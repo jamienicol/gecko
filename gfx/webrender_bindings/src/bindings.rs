@@ -1326,7 +1326,7 @@ extern "C" {
     fn wr_compositor_get_capabilities(compositor: *mut c_void, caps: *mut CompositorCapabilities);
     fn wr_compositor_get_window_visibility(compositor: *mut c_void, caps: *mut WindowVisibility);
     fn wr_compositor_get_window_properties(compositor: *mut c_void, props: *mut WindowProperties);
-    fn wr_compositor_bind_swapchain(compositor: *mut c_void, id: NativeSurfaceId);
+    fn wr_compositor_bind_swapchain(compositor: *mut c_void, id: NativeSurfaceId, fbo_id: &mut u32);
     fn wr_compositor_present_swapchain(compositor: *mut c_void, id: NativeSurfaceId);
     fn wr_compositor_map_tile(
         compositor: *mut c_void,
@@ -1626,15 +1626,19 @@ impl LayerCompositor for WrLayerCompositor {
     }
 
     // Bind a layer by index for compositing into
-    fn bind_layer(&mut self, index: usize) {
+    fn bind_layer(&mut self, index: usize) -> u32 {
         let layer = &self.visual_tree[index];
+        let mut fbo_id = 0;
 
         unsafe {
             wr_compositor_bind_swapchain(
                 self.compositor,
                 layer.id,
+                &mut fbo_id,
             );
         }
+
+        fbo_id
     }
 
     // Finish compositing a layer and present the swapchain

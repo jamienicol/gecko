@@ -3688,11 +3688,11 @@ impl Renderer {
 
             let draw_target = match self.compositor_config {
                 CompositorConfig::Layer { ref mut compositor } => {
-                    compositor.bind_layer(layer_index);
+                    let external_fbo_id = compositor.bind_layer(layer_index);
 
                     DrawTarget::NativeSurface {
                         offset: -layer.offset,
-                        external_fbo_id: 0,
+                        external_fbo_id,
                         dimensions: fb_draw_target.dimensions(),
                     }
                 }

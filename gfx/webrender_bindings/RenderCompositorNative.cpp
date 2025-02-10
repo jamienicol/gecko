@@ -331,6 +331,33 @@ void RenderCompositorNative::CreateBackdropSurface(wr::NativeSurfaceId aId,
   mSurfaces.insert({aId, std::move(surface)});
 }
 
+void RenderCompositorNative::CreateSwapChainSurface(wr::NativeSurfaceId aId,
+                                                    wr::DeviceIntSize aSize,
+                                                    bool aIsOpaque) {
+  MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
+
+  const RefPtr<layers::NativeLayer> layer = mNativeLayerRoot->CreateLayer(
+      gfx::IntSize(aSize.width, aSize.height), aIsOpaque, mSurfacePoolHandle);
+
+  Surface surface{DeviceIntSize{}, aIsOpaque};
+  surface.mNativeLayers.insert({TileKey(0, 0), layer});
+
+  mSurfaces.insert({aId, std::move(surface)});
+}
+
+void RenderCompositorNative::ResizeSwapChainSurface(wr::NativeSurfaceId aId,
+                                                    wr::DeviceIntSize aSize) {
+  auto it = mSurfaces.find(aId);
+  MOZ_RELEASE_ASSERT(it != mSurfaces.end());
+  Surface& surface = it->second;
+
+  surface.mNativeLayers.clear();
+  RefPtr<layers::NativeLayer> newLayer =
+      mNativeLayerRoot->CreateLayer(gfx::IntSize(aSize.width, aSize.height),
+                                    surface.mIsOpaque, mSurfacePoolHandle);
+  surface.mNativeLayers.insert({TileKey(0, 0), newLayer});
+}
+
 void RenderCompositorNative::AttachExternalImage(
     wr::NativeSurfaceId aId, wr::ExternalImageId aExternalImage) {
   RenderTextureHost* image =
@@ -585,6 +612,31 @@ void RenderCompositorNativeOGL::Bind(wr::NativeTileId aId,
 void RenderCompositorNativeOGL::Unbind() {
   mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
 
+  UnbindNativeLayer();
+}
+
+void RenderCompositorNativeOGL::BindSwapChain(wr::NativeSurfaceId aId,
+                                              uint32_t* aFboId) {
+  auto it = mSurfaces.find(aId);
+  MOZ_RELEASE_ASSERT(it != mSurfaces.end());
+  const Surface& surface = it->second;
+
+  const auto tileId = NativeTileId{aId, 0, 0};
+  MOZ_RELEASE_ASSERT(surface.mNativeLayers.begin() !=
+                     surface.mNativeLayers.end());
+  const auto surfaceRect = surface.mNativeLayers.begin()->second->GetRect();
+
+  BindNativeLayer(tileId, surfaceRect);
+
+  Maybe<GLuint> fbo = mCurrentlyBoundNativeLayer->NextSurfaceAsFramebuffer(
+      surfaceRect, surfaceRect, false);
+
+  if (fbo) {
+    *aFboId = *fbo;
+  }
+}
+
+void RenderCompositorNativeOGL::PresentSwapChain(wr::NativeSurfaceId aId) {
   UnbindNativeLayer();
 }
 
