@@ -48,6 +48,7 @@ class NativeLayerRootAndroid final : public NativeLayerRoot {
   void AppendLayer(NativeLayer* aLayer) override;
   void RemoveLayer(NativeLayer* aLayer) override;
   void SetLayers(const nsTArray<RefPtr<NativeLayer>>& aLayers) override;
+  UniquePtr<NativeLayerRootSnapshotter> CreateSnapshotter() override;
 
   bool CommitToScreen() override;
 
@@ -75,6 +76,27 @@ class NativeLayerRootAndroid final : public NativeLayerRoot {
   };
   std::queue<std::unordered_map<ASurfaceControl*, PendingBuffer>>
       mPendingBuffers;
+};
+
+class NativeLayerRootSnapshotterAndroid final
+    : public NativeLayerRootSnapshotter {
+ public:
+  static UniquePtr<NativeLayerRootSnapshotterAndroid> Create() {
+    return WrapUnique(new NativeLayerRootSnapshotterAndroid());
+  }
+
+  bool ReadbackPixels(const gfx::IntSize& aReadbackSize,
+                      gfx::SurfaceFormat aReadbackFormat,
+                      const Range<uint8_t>& aReadbackBuffer) override;
+  already_AddRefed<profiler_screenshots::RenderSource> GetWindowContents(
+      const gfx::IntSize& aWindowSize) override;
+  already_AddRefed<profiler_screenshots::DownscaleTarget> CreateDownscaleTarget(
+      const gfx::IntSize& aSize) override;
+  already_AddRefed<profiler_screenshots::AsyncReadbackBuffer>
+  CreateAsyncReadbackBuffer(const gfx::IntSize& aSize) override;
+
+ private:
+  NativeLayerRootSnapshotterAndroid() = default;
 };
 
 class NativeLayerAndroid final : public NativeLayer {

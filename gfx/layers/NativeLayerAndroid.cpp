@@ -91,6 +91,11 @@ void NativeLayerRootAndroid::SetLayers(
   }
 }
 
+UniquePtr<NativeLayerRootSnapshotter>
+NativeLayerRootAndroid::CreateSnapshotter() {
+  return NativeLayerRootSnapshotterAndroid::Create();
+}
+
 bool NativeLayerRootAndroid::CommitToScreen() {
   MutexAutoLock lock(mMutex);
   MOZ_ASSERT(mSurfaceControl);
@@ -287,6 +292,30 @@ void NativeLayerRootAndroid::OnTransactionComplete(
              "PendingBuffer entry found with no corresponding release fence.");
 
   ASurfaceTransactionStats_releaseASurfaceControls(surfaceControls);
+}
+
+bool NativeLayerRootSnapshotterAndroid::ReadbackPixels(
+    const gfx::IntSize& aReadbackSize, gfx::SurfaceFormat aReadbackFormat,
+    const Range<uint8_t>& aReadbackBuffer) {
+  return true;
+}
+
+already_AddRefed<profiler_screenshots::RenderSource>
+NativeLayerRootSnapshotterAndroid::GetWindowContents(
+    const gfx::IntSize& aWindowSize) {
+  return nullptr;
+}
+
+already_AddRefed<profiler_screenshots::DownscaleTarget>
+NativeLayerRootSnapshotterAndroid::CreateDownscaleTarget(
+    const gfx::IntSize& aSize) {
+  return nullptr;
+}
+
+already_AddRefed<profiler_screenshots::AsyncReadbackBuffer>
+NativeLayerRootSnapshotterAndroid::CreateAsyncReadbackBuffer(
+    const gfx::IntSize& aSize) {
+  return nullptr;
 }
 
 NativeLayerAndroid::NativeLayerAndroid(
