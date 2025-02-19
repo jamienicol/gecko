@@ -118,7 +118,7 @@ bool NativeLayerRootAndroid::CommitToScreen() {
       if (layer->mFrontBuffer) {
         pendingBuffers.insert(
             {layer->mSurfaceControl.get(),
-             PendingBuffer{.mLayer = layer,
+             PendingBuffer{.mSurfacePoolHandle = layer->mSurfacePoolHandle,
                            .mBuffer = std::move(layer->mFrontBuffer)}});
       }
       MOZ_ASSERT(!layer->mPrevFrontBuffer,
@@ -156,7 +156,7 @@ bool NativeLayerRootAndroid::CommitToScreen() {
 
       if (layer->mPrevFrontBuffer) {
         pendingBuffers.insert(
-            {sc, PendingBuffer{.mLayer = layer,
+            {sc, PendingBuffer{.mSurfacePoolHandle = layer->mSurfacePoolHandle,
                                .mBuffer = std::move(layer->mPrevFrontBuffer)}});
       }
     }
@@ -279,7 +279,7 @@ void NativeLayerRootAndroid::OnTransactionComplete(
     const auto& releasedBuffer = pendingBuffers.find(sc);
     if (releasedBuffer != pendingBuffers.end()) {
       releasedBuffer->second.mBuffer->SetReleaseFence(std::move(releaseFence));
-      releasedBuffer->second.mLayer->mSurfacePoolHandle->ReturnBufferToPool(
+      releasedBuffer->second.mSurfacePoolHandle->ReturnBufferToPool(
           std::move(releasedBuffer->second.mBuffer));
       pendingBuffers.erase(sc);
     } else {

@@ -71,7 +71,7 @@ class NativeLayerRootAndroid final : public NativeLayerRoot {
   UniqueFileHandle mLayersRenderedFence;
 
   struct PendingBuffer {
-    RefPtr<NativeLayerAndroid> mLayer;
+    RefPtr<SurfacePoolHandleAndroid> mSurfacePoolHandle;
     RefPtr<AndroidHardwareBuffer> mBuffer;
   };
   std::queue<std::unordered_map<ASurfaceControl*, PendingBuffer>>
