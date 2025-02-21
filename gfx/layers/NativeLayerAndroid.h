@@ -6,12 +6,13 @@
 #ifndef mozilla_layers_NativeLayerAndroid_h
 #define mozilla_layers_NativeLayerAndroid_h
 
+#include "android/surface_control.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/UniquePtrExtensions.h"
+#include "mozilla/Variant.h"
 #include "mozilla/layers/NativeLayer.h"
 #include "nsTArray.h"
-#include <android/surface_control.h>
 #include <queue>
 #include <unordered_map>
 
@@ -25,10 +26,35 @@ class DefaultDelete<ASurfaceControl> {
   }
 };
 
+namespace wr {
+class RenderAndroidHardwareBufferTextureHost;
+}
+
 namespace layers {
 
 class AndroidHardwareBuffer;
 class SurfacePoolHandleAndroid;
+
+class NativeLayerAndroidBufferSource {
+ public:
+  explicit NativeLayerAndroidBufferSource(
+      RefPtr<AndroidHardwareBuffer> aBuffer);
+  explicit NativeLayerAndroidBufferSource(
+      RefPtr<wr::RenderAndroidHardwareBufferTextureHost> aTextureHost);
+
+  auto operator=(RefPtr<AndroidHardwareBuffer> aBuffer);
+  auto operator=(
+      RefPtr<wr::RenderAndroidHardwareBufferTextureHost> aTextureHost);
+  operator bool() const;
+  RefPtr<AndroidHardwareBuffer> Buffer() const;
+  RefPtr<wr::RenderAndroidHardwareBufferTextureHost> AsTextureHost() const;
+
+  bool IsExternal() const;
+
+  Variant<RefPtr<AndroidHardwareBuffer>,
+          RefPtr<wr::RenderAndroidHardwareBufferTextureHost>>
+      mBuffer;
+};
 
 class NativeLayerRootAndroid final : public NativeLayerRoot {
  public:
@@ -72,7 +98,7 @@ class NativeLayerRootAndroid final : public NativeLayerRoot {
 
   struct PendingBuffer {
     RefPtr<SurfacePoolHandleAndroid> mSurfacePoolHandle;
-    RefPtr<AndroidHardwareBuffer> mBuffer;
+    NativeLayerAndroidBufferSource mBuffer;
   };
   std::queue<std::unordered_map<ASurfaceControl*, PendingBuffer>>
       mPendingBuffers;
@@ -128,10 +154,6 @@ class NativeLayerAndroid final : public NativeLayer {
   void AttachExternalImage(wr::RenderTextureHost* aExternalImage) override;
   GpuFence* GetGpuFence() override { return nullptr; }
 
-  void Commit();
-  void Unmap();
-  const auto& GetSurfacePoolHandle() { return mSurfacePoolHandle; };
-
  private:
   friend class NativeLayerRootAndroid;
 
@@ -146,7 +168,7 @@ class NativeLayerAndroid final : public NativeLayer {
   Mutex mMutex MOZ_UNANNOTATED;
 
   const RefPtr<SurfacePoolHandleAndroid> mSurfacePoolHandle;
-  const gfx::IntSize mSize;
+  gfx::IntSize mSize;
   const bool mIsOpaque = false;
   gfx::IntPoint mPosition;
   gfx::Matrix4x4 mTransform;
@@ -159,8 +181,8 @@ class NativeLayerAndroid final : public NativeLayer {
   const UniquePtr<ASurfaceControl> mSurfaceControl;
 
   RefPtr<AndroidHardwareBuffer> mInProgressBuffer;
-  RefPtr<AndroidHardwareBuffer> mFrontBuffer;
-  RefPtr<AndroidHardwareBuffer> mPrevFrontBuffer;
+  NativeLayerAndroidBufferSource mFrontBuffer;
+  NativeLayerAndroidBufferSource mPrevFrontBuffer;
   bool mFrontBufferUpdated = false;
 };
 

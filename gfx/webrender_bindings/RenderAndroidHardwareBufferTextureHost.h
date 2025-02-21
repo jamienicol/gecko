@@ -50,6 +50,10 @@ class RenderAndroidHardwareBufferTextureHost final
 
   gfx::IntSize GetSize() const;
 
+  RefPtr<layers::AndroidHardwareBuffer> GetAndroidHardwareBuffer() {
+    return mAndroidHardwareBuffer;
+  }
+
  private:
   virtual ~RenderAndroidHardwareBufferTextureHost();
   bool EnsureLockable();

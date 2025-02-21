@@ -158,10 +158,13 @@ already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
   desc.width = aSize.width;
   desc.height = aSize.height;
   desc.layers = 1;  // number of images
-  desc.usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN |
-               AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN |
-               AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
-               AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+  // desc.usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN |
+  //              AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN |
+  //              AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+  //              AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+  desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+               AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER |
+               AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY;
   desc.format = ToAHardwareBuffer_Format(aFormat);
 
   AHardwareBuffer* nativeBuffer = nullptr;
@@ -198,14 +201,6 @@ AndroidHardwareBuffer::FromNativeBuffer(AHardwareBuffer* nativeBuffer,
 already_AddRefed<AndroidHardwareBuffer>
 AndroidHardwareBuffer::FromSurfaceDescriptor(
     const SurfaceDescriptorAndroidHardwareBuffer& aDesc) {
-  // First check whether this buffer has already been shared to this process
-  RefPtr<AndroidHardwareBuffer> buffer =
-      AndroidHardwareBufferManager::Get()->GetBuffer(aDesc.bufferId());
-  if (buffer) {
-    return buffer.forget();
-  }
-
-  // Otherwise obtain the handle from the provided fd.
   ipc::FileDescriptor& handle =
       const_cast<ipc::FileDescriptor&>(aDesc.handle());
   if (!handle.IsValid()) {
@@ -225,12 +220,10 @@ AndroidHardwareBuffer::FromSurfaceDescriptor(
   AHardwareBuffer_Desc desc = {};
   AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &desc);
 
-  buffer = new AndroidHardwareBuffer(nativeBuffer, aDesc.size(), desc.stride,
-                                     aDesc.format(), aDesc.cropRect(),
-                                     aDesc.bufferId());
+  RefPtr<AndroidHardwareBuffer> buffer =
+      new AndroidHardwareBuffer(nativeBuffer, aDesc.size(), desc.stride,
+                                aDesc.format(), aDesc.cropRect(), GetNextId());
 
-  // Register the buffer so that subsequent calls can find it.
-  AndroidHardwareBufferManager::Get()->Register(buffer);
   return buffer.forget();
 }
 
@@ -310,8 +303,7 @@ AndroidHardwareBuffer::Serialize() {
   }
 
   return Some(SurfaceDescriptorAndroidHardwareBuffer(
-      ipc::FileDescriptor(std::move(readerFd)), mId, mSize, mFormat,
-      mCropRect));
+      ipc::FileDescriptor(std::move(readerFd)), mSize, mFormat, mCropRect));
 }
 
 void AndroidHardwareBuffer::SetReleaseFence(UniqueFileHandle&& aFenceFd) {

@@ -4,21 +4,75 @@
 
 #include "mozilla/layers/NativeLayerAndroid.h"
 
-#include <android/native_window.h>
-
 #include "GLBlitHelper.h"
+#include "android/native_window.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/UniquePtrExtensions.h"
+#include "mozilla/Variant.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
 #include "mozilla/layers/SurfacePoolAndroid.h"
+#include "mozilla/webrender/RenderAndroidHardwareBufferTextureHost.h"
 #include "mozilla/webrender/RenderThread.h"
 
 namespace mozilla::layers {
 
+NativeLayerAndroidBufferSource::NativeLayerAndroidBufferSource(
+    RefPtr<AndroidHardwareBuffer> aBuffer)
+    : mBuffer(aBuffer) {}
+NativeLayerAndroidBufferSource::NativeLayerAndroidBufferSource(
+    RefPtr<wr::RenderAndroidHardwareBufferTextureHost> aTextureHost)
+    : mBuffer(aTextureHost) {}
+
+auto NativeLayerAndroidBufferSource::operator=(
+    RefPtr<AndroidHardwareBuffer> aBuffer) {
+  MOZ_ASSERT(mBuffer.is<decltype(aBuffer)>(),
+             "NativeLayer should not change type.");
+  mBuffer = AsVariant(aBuffer);
+}
+auto NativeLayerAndroidBufferSource::operator=(
+    RefPtr<wr::RenderAndroidHardwareBufferTextureHost> aTextureHost) {
+  MOZ_ASSERT(mBuffer.is<decltype(aTextureHost)>(),
+             "NativeLayer should not change type.");
+  mBuffer = AsVariant(aTextureHost);
+}
+
+NativeLayerAndroidBufferSource::operator bool() const {
+  return mBuffer.match(
+      [](const RefPtr<AndroidHardwareBuffer>& surface) {
+        return surface != nullptr;
+      },
+      [](const RefPtr<wr::RenderAndroidHardwareBufferTextureHost>& host) {
+        return host && host->GetAndroidHardwareBuffer();
+      });
+}
+
+RefPtr<AndroidHardwareBuffer> NativeLayerAndroidBufferSource::Buffer() const {
+  return mBuffer.match(
+      [](const RefPtr<AndroidHardwareBuffer>& buffer) { return buffer; },
+      [](const RefPtr<wr::RenderAndroidHardwareBufferTextureHost>& host) {
+        return host ? host->GetAndroidHardwareBuffer() : nullptr;
+      });
+}
+
+bool NativeLayerAndroidBufferSource::IsExternal() const {
+  return mBuffer.is<RefPtr<wr::RenderAndroidHardwareBufferTextureHost>>();
+}
+
+RefPtr<wr::RenderAndroidHardwareBufferTextureHost>
+NativeLayerAndroidBufferSource::AsTextureHost() const {
+  return mBuffer.match(
+      [](const RefPtr<AndroidHardwareBuffer>& buffer) {
+        return RefPtr<wr::RenderAndroidHardwareBufferTextureHost>(nullptr);
+      },
+      [](const RefPtr<wr::RenderAndroidHardwareBufferTextureHost>& host) {
+        return host;
+      });
+}
+
 /* static */
 already_AddRefed<NativeLayerRootAndroid> NativeLayerRootAndroid::Create() {
-  if (mozilla::jni::GetAPIVersion() < 29) {
+  if (mozilla::jni::GetAPIVersion() < 31) {
     return nullptr;
   }
   RefPtr<NativeLayerRootAndroid> layerRoot = new NativeLayerRootAndroid();
@@ -135,9 +189,15 @@ bool NativeLayerRootAndroid::CommitToScreen() {
 
     if (layer->mFrontBufferUpdated) {
       layer->mFrontBufferUpdated = false;
-      ASurfaceTransaction_setBuffer(txn, sc,
-                                    layer->mFrontBuffer->GetNativeBuffer(),
-                                    mLayersRenderedFence.release());
+      UniqueFileHandle fence;
+      if (layer->mFrontBuffer.IsExternal()) {
+        fence = layer->mFrontBuffer.Buffer()->GetAndResetAcquireFence();
+      } else {
+        fence = DuplicateFileHandle(mLayersRenderedFence);
+      }
+      ASurfaceTransaction_setBuffer(
+          txn, sc, layer->mFrontBuffer.Buffer()->GetNativeBuffer(),
+          fence.release());
 
       AutoTArray<ARect, 1> dirtyRects;
       dirtyRects.SetCapacity(layer->mDirtyRegion.GetNumRects());
@@ -218,7 +278,7 @@ bool NativeLayerRootAndroid::CommitToScreen() {
   AddRef();
   ASurfaceTransaction_setOnComplete(
       txn, this, [](void* context, ASurfaceTransactionStats* stats) {
-        NativeLayerRootAndroid* root = (NativeLayerRootAndroid*)context;
+        auto* root = static_cast<NativeLayerRootAndroid*>(context);
         root->OnTransactionComplete(stats);
         root->Release();
       });
@@ -278,9 +338,21 @@ void NativeLayerRootAndroid::OnTransactionComplete(
         ASurfaceTransactionStats_getPreviousReleaseFenceFd(stats, sc));
     const auto& releasedBuffer = pendingBuffers.find(sc);
     if (releasedBuffer != pendingBuffers.end()) {
-      releasedBuffer->second.mBuffer->SetReleaseFence(std::move(releaseFence));
-      releasedBuffer->second.mSurfacePoolHandle->ReturnBufferToPool(
-          std::move(releasedBuffer->second.mBuffer));
+      releasedBuffer->second.mBuffer.Buffer()->SetReleaseFence(
+          std::move(releaseFence));
+      if (releasedBuffer->second.mBuffer.IsExternal()) {
+        // Ensure external texture is released on the render threaad.
+        // Really we need to ensure it is kept alive until this point
+        printf_stderr(
+            "jamiedbg FIXME: handle released external hardware buffer %" PRIu64
+            "\n",
+            releasedBuffer->second.mBuffer.AsTextureHost()
+                ->GetAndroidHardwareBuffer()
+                ->mId);
+      } else {
+        releasedBuffer->second.mSurfacePoolHandle->ReturnBufferToPool(
+            releasedBuffer->second.mBuffer.Buffer());
+      }
       pendingBuffers.erase(sc);
     } else {
       MOZ_ASSERT(!releaseFence,
@@ -325,7 +397,9 @@ NativeLayerAndroid::NativeLayerAndroid(
       mSurfacePoolHandle(aSurfacePoolHandle),
       mSize(aSize),
       mIsOpaque(aIsOpaque),
-      mSurfaceControl(std::move(aSurfaceControl)) {
+      mSurfaceControl(std::move(aSurfaceControl)),
+      mFrontBuffer(static_cast<AndroidHardwareBuffer*>(nullptr)),
+      mPrevFrontBuffer(static_cast<AndroidHardwareBuffer*>(nullptr)) {
   MOZ_RELEASE_ASSERT(mSurfacePoolHandle,
                      "Need a non-null surface pool handle.");
 }
@@ -335,13 +409,31 @@ NativeLayerAndroid::NativeLayerAndroid(
     : mMutex("NativeLayerAndroid"),
       mSurfacePoolHandle(nullptr),
       mIsOpaque(aIsOpaque),
-      mSurfaceControl(std::move(aSurfaceControl)) {
-  MOZ_RELEASE_ASSERT(false);  // external image
-}
+      mSurfaceControl(std::move(aSurfaceControl)),
+      mFrontBuffer(
+          static_cast<wr::RenderAndroidHardwareBufferTextureHost*>(nullptr)),
+      mPrevFrontBuffer(
+          static_cast<wr::RenderAndroidHardwareBufferTextureHost*>(nullptr)) {}
 
 void NativeLayerAndroid::AttachExternalImage(
     wr::RenderTextureHost* aExternalImage) {
-  MOZ_RELEASE_ASSERT(false);
+  RefPtr<wr::RenderAndroidHardwareBufferTextureHost> externalImage =
+      aExternalImage->AsRenderAndroidHardwareBufferTextureHost();
+  MOZ_ASSERT(aExternalImage);
+  // printf_stderr(
+  //     "jamiedbg NativeLayerAndroid::AttachExternalImage() ID: %" PRIu64 "\n",
+  //     externalImage->GetAndroidHardwareBuffer()->mId);
+  if (mFrontBuffer.AsTextureHost() != externalImage) {
+    // printf_stderr(
+    //     "jamiedbg Updating external front buffer with hardwarebuffer %p\n",
+    //     externalImage->GetAndroidHardwareBuffer()->GetNativeBuffer());
+    mPrevFrontBuffer = std::move(mFrontBuffer);
+    mFrontBuffer = externalImage;
+    mFrontBufferUpdated = true;
+  }
+  mSize = externalImage->GetSize();
+  mDisplayRect = gfx::IntRect({}, mSize);
+  mDirtyRegion = gfx::IntRect({}, mSize);
 }
 
 gfx::IntSize NativeLayerAndroid::GetSize() {
@@ -464,10 +556,6 @@ void NativeLayerAndroid::NotifySurfaceReady() {
 
 void NativeLayerAndroid::DiscardBackbuffers() {}
 
-void NativeLayerAndroid::Commit() { MutexAutoLock lock(mMutex); }
-
-void NativeLayerAndroid::Unmap() { MutexAutoLock lock(mMutex); }
-
 void NativeLayerAndroid::HandlePartialUpdate(
     const MutexAutoLock& aProofOfLock) {
   gfx::IntRegion copyRegion = gfx::IntRegion(mDisplayRect);
@@ -477,8 +565,8 @@ void NativeLayerAndroid::HandlePartialUpdate(
     auto& gl = mSurfacePoolHandle->gl();
     if (gl) {
       gl->MakeCurrent();
-      Maybe<GLuint> sourceFB =
-          mSurfacePoolHandle->GetFramebufferForBuffer(mFrontBuffer, false);
+      Maybe<GLuint> sourceFB = mSurfacePoolHandle->GetFramebufferForBuffer(
+          mFrontBuffer.Buffer(), false);
       MOZ_RELEASE_ASSERT(sourceFB);
       Maybe<GLuint> destFB =
           mSurfacePoolHandle->GetFramebufferForBuffer(mInProgressBuffer, false);

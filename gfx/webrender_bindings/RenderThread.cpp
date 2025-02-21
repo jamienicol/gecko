@@ -877,6 +877,14 @@ void RenderThread::UpdateAndRender(
     // and for avoiding GPU queue is filled with too much tasks.
     // WaitForGPU's implementation is different for each platform.
     auto timerId = glean::wr::gpu_wait_time.Start();
+    
+    // FIXME: if I make WaitForGPU wait for the previous frame's onComplete callback to fire
+    // will that mean that as long as NeedsDeferredDeletion() is true, we will hold on to the texture
+    // hosts long enough?
+    // 
+    // Add some minimal logging to not affect timing. Just when the onComplete callback fires,
+    // and when we destroy the host in async image pipeline.
+    // 
     renderer->WaitForGPU();
     glean::wr::gpu_wait_time.StopAndAccumulate(std::move(timerId));
   } else {

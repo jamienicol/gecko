@@ -899,8 +899,7 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
     const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
   bool preferCompositorSurface =
       aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE);
-  bool supportsExternalCompositing =
-      SupportsExternalCompositing(aBuilder.GetBackendType());
+  bool supportsExternalCompositing = true;
 
   switch (GetFormat()) {
     case gfx::SurfaceFormat::R8G8B8X8:
@@ -918,11 +917,6 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
     }
   }
-}
-
-bool AndroidHardwareBufferTextureHost::SupportsExternalCompositing(
-    WebRenderBackend aBackend) {
-  return aBackend == WebRenderBackend::SOFTWARE;
 }
 
 #endif  // MOZ_WIDGET_ANDROID

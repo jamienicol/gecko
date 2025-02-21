@@ -66,15 +66,17 @@ UniqueFileHandle SharedSurfaceTextureData::GetAcquireFence() {
 #ifdef MOZ_WIDGET_ANDROID
   if (mDesc.type() ==
       SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer) {
-    const SurfaceDescriptorAndroidHardwareBuffer& desc =
-        mDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
-    RefPtr<AndroidHardwareBuffer> buffer =
-        AndroidHardwareBufferManager::Get()->GetBuffer(desc.bufferId());
-    if (!buffer) {
-      return UniqueFileHandle();
-    }
+    // FIXME: get hardware buffer and return acquire fence
+    //
+    // const SurfaceDescriptorAndroidHardwareBuffer& desc =
+    //     mDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
+    // RefPtr<AndroidHardwareBuffer> buffer =
+    //     AndroidHardwareBufferManager::Get()->GetBuffer(desc.bufferId());
+    // if (!buffer) {
+    //   return UniqueFileHandle();
+    // }
 
-    return buffer->GetAcquireFence();
+    // return buffer->GetAcquireFence();
   }
 #endif
   return UniqueFileHandle();
@@ -85,13 +87,15 @@ void SharedSurfaceTextureData::SetReleaseFence(
 #ifdef MOZ_WIDGET_ANDROID
   if (mDesc.type() ==
       SurfaceDescriptor::TSurfaceDescriptorAndroidHardwareBuffer) {
-    const SurfaceDescriptorAndroidHardwareBuffer& desc =
-        mDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
-    RefPtr<AndroidHardwareBuffer> buffer =
-        AndroidHardwareBufferManager::Get()->GetBuffer(desc.bufferId());
-    if (buffer) {
-      buffer->SetReleaseFence(std::move(aReleaseFence));
-    }
+    // FIXME: get hardware buffer and set release fence
+    //
+    // const SurfaceDescriptorAndroidHardwareBuffer& desc =
+    //     mDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
+    // RefPtr<AndroidHardwareBuffer> buffer =
+    //     AndroidHardwareBufferManager::Get()->GetBuffer(desc.bufferId());
+    // if (buffer) {
+    //   buffer->SetReleaseFence(std::move(aReleaseFence));
+    // }
   }
 #endif
 }

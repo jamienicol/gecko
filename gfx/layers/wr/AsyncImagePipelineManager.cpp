@@ -655,6 +655,8 @@ void AsyncImagePipelineManager::HoldExternalImage(
       MakeUnique<ForwardingExternalImage>(aEpoch, aImageId));
 }
 
+// FIXME: call this with aLastCompleted frame changed. we only treat it as completed after
+// we've got the oncomplete callback.
 void AsyncImagePipelineManager::NotifyPipelinesUpdated(
     RefPtr<const wr::WebRenderPipelineInfo> aInfo,
     wr::RenderedFrameId aLatestFrameId,

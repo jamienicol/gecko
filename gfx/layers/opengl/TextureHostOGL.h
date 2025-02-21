@@ -547,8 +547,6 @@ class AndroidHardwareBufferTextureHost : public TextureHost {
 
   UniqueFileHandle GetAndResetReleaseFence() override;
 
-  bool SupportsExternalCompositing(WebRenderBackend aBackend) override;
-
   // gecko does not need deferred deletion with WebRender
   // GPU/hardware task end could be checked by android fence.
   bool NeedsDeferredDeletion() const override { return false; }
