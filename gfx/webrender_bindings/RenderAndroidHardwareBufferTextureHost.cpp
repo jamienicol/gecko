@@ -110,6 +110,9 @@ bool RenderAndroidHardwareBufferTextureHost::EnsureLockable() {
 
 wr::WrExternalImage RenderAndroidHardwareBufferTextureHost::Lock(
     uint8_t aChannelIndex, gl::GLContext* aGL) {
+  printf_stderr(
+      "jamiedbg RenderAndroidHardwareBufferTextureHost::Lock() %" PRIu64 "\n",
+      mAndroidHardwareBuffer->mId);
   MOZ_ASSERT(aChannelIndex == 0);
 
   if (mGL.get() != aGL) {

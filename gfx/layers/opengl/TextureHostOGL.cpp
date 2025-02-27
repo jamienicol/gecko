@@ -831,6 +831,10 @@ void AndroidHardwareBufferTextureHost::SetReleaseFence(
   if (!mAndroidHardwareBuffer) {
     return;
   }
+  printf_stderr(
+      "jamiedbg AndroidHardwareBufferTextureHost::SetReleaseFence() %" PRIu64
+      "\n",
+      mAndroidHardwareBuffer->mId);
   mAndroidHardwareBuffer->SetReleaseFence(std::move(aFenceFd));
 }
 

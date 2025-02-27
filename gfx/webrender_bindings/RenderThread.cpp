@@ -817,6 +817,8 @@ void RenderThread::UpdateAndRender(
     const Maybe<wr::ImageFormat>& aReadbackFormat,
     const Maybe<Range<uint8_t>>& aReadbackBuffer, RendererStats* aStats,
     bool* aNeedsYFlip) {
+  printf_stderr("jamiedbg RenderThread::UpdateAndRender()\n");
+
   AUTO_PROFILER_LABEL("RenderThread::UpdateAndRender", GRAPHICS);
   MOZ_ASSERT(IsInRenderThread());
   MOZ_ASSERT(aRender || aReadbackBuffer.isNothing());
@@ -860,6 +862,8 @@ void RenderThread::UpdateAndRender(
 
   TimeStamp end = TimeStamp::Now();
   RefPtr<const WebRenderPipelineInfo> info = renderer->GetLastPipelineInfo();
+  printf_stderr("jamiedbg Rendered frame %" PRIu64 ", pipelines: %s\n",
+                latestFrameId.mId, mozilla::ToString(info->Raw()).c_str());
 
   layers::CompositorThread()->Dispatch(
       NewRunnableFunction("NotifyDidRenderRunnable", &NotifyDidRender,

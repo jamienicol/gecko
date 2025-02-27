@@ -150,6 +150,8 @@ RefPtr<AndroidImage> AndroidImageReader::AcquireLatestImage() {
   }
   mPendingImages = 0;
   mAcquiredImages++;
+  
+  printf_stderr("jamiedbg Acquired image. %d acquired", mAcquiredImages);
 
   return new AndroidImage(image, UniqueFileHandle(acquireFenceFd), this);
 }
@@ -175,6 +177,8 @@ void AndroidImageReader::ReleaseImage(AndroidImage* aImage) {
   if (--mAcquiredImages < mMaxAcquiredImages) {
     lock.NotifyAll();
   }
+  
+  printf_stderr("jamiedbg Released image. %d acquired", mAcquiredImages);
 }
 
 }  // namespace mozilla::layers
