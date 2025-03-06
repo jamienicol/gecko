@@ -7,6 +7,7 @@
 #include "CanvasContext.h"
 #include "gfxUtils.h"
 #include "LayerUserData.h"
+#include "libyuv.h"  // for libyuv::ARGBRect
 #include "nsDisplayList.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/gfx/2D.h"
@@ -343,6 +344,50 @@ bool CanvasContext::GetIsOpaque() {
   return mConfig->mAlphaMode == dom::GPUCanvasAlphaMode::Opaque;
 }
 
+// Makes a surface of the specified size and opacity, cleared to either
+// transparent or opaque black.
+static already_AddRefed<gfx::DataSourceSurface> MakeFallbackImage(
+    const gfx::IntSize& aSize, bool aIsOpaque) {
+  if (aSize.IsEmpty()) {
+    return nullptr;
+  }
+
+  // CanvasManagerChild::GetSnapshot() always returns a BGRA or BGRX surface
+  // even if we pass RGBA or RGBX as the format. We do the same here to ensure
+  // the fallback surface format matches what an actual readback surface would
+  // be. We must avoid RGBX anyway, as it would result in a (diagnostic) crash
+  // when drawing the surface with Skia.
+  gfx::SurfaceFormat format =
+      aIsOpaque ? gfx::SurfaceFormat::B8G8R8X8 : gfx::SurfaceFormat::B8G8R8A8;
+
+  // If the surface is not opaque we clear to transparent black. Opaque surfaces
+  // need special handling below, so we can skip clearing here.
+  RefPtr<gfx::DataSourceSurface> surface =
+      gfx::Factory::CreateDataSourceSurface(aSize, format, !aIsOpaque);
+  if (!surface) {
+    return nullptr;
+  }
+
+  // If the surface is opaque we must clear the alpha channel to 0xFF.
+  if (aIsOpaque) {
+    gfx::DataSourceSurface::ScopedMap map(surface,
+                                          gfx::DataSourceSurface::WRITE);
+    if (!map.IsMapped()) {
+      return nullptr;
+    }
+    // SurfaceFormat nomenclature lists the channels in the order they appear in
+    // memory, meaning SurfaceFormat::B8G8R8X8 is represented as 0xXXRRGGBB on
+    // little-endian systems. Hence we clear each pixel to 0xFF000000.
+    // We consistently misuse these formats on big-endian systems meaning this
+    // should do the right there too, but this is untested. See
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1257939#c3
+    libyuv::ARGBRect(map.GetData(), map.GetStride(), 0, 0,
+                     surface->GetSize().width, surface->GetSize().height,
+                     0xFF000000);
+  }
+  return surface.forget();
+}
+
 already_AddRefed<gfx::SourceSurface> CanvasContext::GetSurfaceSnapshot(
     gfxAlphaType* aOutAlphaType) {
   const bool isOpaque = GetIsOpaque();
@@ -360,6 +405,16 @@ already_AddRefed<gfx::SourceSurface> CanvasContext::GetSurfaceSnapshot(
     if (aOutAlphaType) {
       *aOutAlphaType = gfxAlphaType::Premult;
     }
+  }
+
+  if (!mConfig) {
+    // The spec (steps 1-3) indicates that attempting to snapshot an
+    // unconfigured context should result in a *transparent* black image.
+    // However, the CTS currently expects a *opaque* black image.
+    //
+    // https://www.w3.org/TR/webgpu/#abstract-opdef-get-a-copy-of-the-image-contents-of-a-context
+    // https://github.com/gpuweb/cts/issues/4259
+    return MakeFallbackImage(mCanvasSize, /* aIsOpaque */ true);
   }
 
   auto* const cm = gfx::CanvasManagerChild::Get();
