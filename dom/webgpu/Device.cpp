@@ -37,6 +37,7 @@
 #include "ValidationError.h"
 #include "ipc/WebGPUChild.h"
 #include "Utility.h"
+#include "mozilla/ipc/ByteBuf.h"
 #include "nsGlobalWindowInner.h"
 
 namespace mozilla::webgpu {
@@ -272,17 +273,10 @@ already_AddRefed<ExtTex> Device::ImportExternalTexture(
     // with device this and the following steps:
     // 1. Set result.[[expired]] to true, releasing ownership of the underlying
     // resource.
+    return nullptr;
   } else {
-    // TODO: If source is a VideoFrame, then when source is closed, run the
-    // following steps:
-    // 1. Set result.[[expired]] to true.
+    return ExtTex::CreateFromVideoFrame(this, aDesc.mSource.GetAsVideoFrame());
   }
-
-  // TODO: Set result.label to descriptor.label.
-
-  // FIXME: what do I pass as aGlobal to ExtTex()?
-  RefPtr<ExtTex> tex = new ExtTex(nullptr);
-  return tex.forget();
 }
 
 already_AddRefed<Sampler> Device::CreateSampler(
@@ -385,6 +379,7 @@ already_AddRefed<QuerySet> Device::CreateQuerySet(
 
 already_AddRefed<BindGroupLayout> Device::CreateBindGroupLayout(
     const dom::GPUBindGroupLayoutDescriptor& aDesc) {
+        printf_stderr("jamiedbg Device::CreateBindGroupLayout()\n");
   struct OptionalData {
     ffi::WGPUTextureViewDimension dim;
     ffi::WGPURawTextureSampleType type;
@@ -483,6 +478,10 @@ already_AddRefed<BindGroupLayout> Device::CreateBindGroupLayout(
           break;
       }
     }
+    if (entry.mExternalTexture.WasPassed()) {
+        printf_stderr("jamiedbg GPUBindGroupLayoutEntry contains external\n");
+        e.ty = ffi::WGPURawBindingType_ExternalTexture;
+    }
     entries.AppendElement(e);
   }
 
@@ -535,6 +534,7 @@ already_AddRefed<PipelineLayout> Device::CreatePipelineLayout(
 
 already_AddRefed<BindGroup> Device::CreateBindGroup(
     const dom::GPUBindGroupDescriptor& aDesc) {
+        // printf_stderr("jamiedbg Device::CreateBindGroup() bgl id: %" PRIu64 "\n", aDesc.mLayout);
   nsTArray<ffi::WGPUBindGroupEntry> entries(aDesc.mEntries.Length());
   for (const auto& entry : aDesc.mEntries) {
     ffi::WGPUBindGroupEntry e = {};
@@ -552,6 +552,9 @@ already_AddRefed<BindGroup> Device::CreateBindGroup(
       e.texture_view = entry.mResource.GetAsGPUTextureView()->mId;
     } else if (entry.mResource.IsGPUSampler()) {
       e.sampler = entry.mResource.GetAsGPUSampler()->mId;
+    } else if (entry.mResource.IsGPUExternalTexture()) {
+        printf_stderr("jamiedbg Device::CreateBindGroup() external\n");
+        e.external_texture = entry.mResource.GetAsGPUExternalTexture()->mId;
     } else {
       // Not a buffer, nor a texture view, nor a sampler. If we pass
       // this to wgpu_client, it'll panic. Log a warning instead and

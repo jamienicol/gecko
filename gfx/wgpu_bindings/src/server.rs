@@ -2086,6 +2086,12 @@ impl Global {
                     error_buf.init(err);
                 }
             }
+            DeviceAction::CreateExternalTexture(id, plane0, desc) => {
+                let (_, error) = self.device_create_external_texture(self_id, plane0, &desc, Some(id));
+                if let Some(err) = error {
+                    error_buf.init(err);
+                }
+            }
             DeviceAction::CreateSampler(id, desc) => {
                 let (_, error) = self.device_create_sampler(self_id, &desc, Some(id));
                 if let Some(err) = error {
@@ -2093,6 +2099,7 @@ impl Global {
                 }
             }
             DeviceAction::CreateBindGroupLayout(id, desc) => {
+                println!("jamiedbg Global.device_action() CreateBindGroupLayout id: {id:?}");
                 let (_, error) = self.device_create_bind_group_layout(self_id, &desc, Some(id));
                 if let Some(err) = error {
                     error_buf.init(err);
@@ -2119,6 +2126,7 @@ impl Global {
                 }
             }
             DeviceAction::CreateBindGroup(id, desc) => {
+                println!("jamiedbg Global.device_action() CreateBindGroup id: {id:?}, layout: {:?}", desc.layout);
                 let (_, error) = self.device_create_bind_group(self_id, &desc, Some(id));
                 if let Some(err) = error {
                     error_buf.init(err);

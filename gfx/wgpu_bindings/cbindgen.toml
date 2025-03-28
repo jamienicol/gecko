@@ -30,6 +30,7 @@ using WGPUOption_BindGroupLayoutId = uint64_t;
 using WGPUOption_SamplerId = uint64_t;
 using WGPUOption_SurfaceId = uint64_t;
 using WGPUOption_TextureViewId = uint64_t;
+using WGPUOption_ExternalTextureId = uint64_t;
 using WGPUOption_QuerySetId = uint64_t;
 
 using WGPUAdapterId = uint64_t;
@@ -52,6 +53,7 @@ using WGPUStagingBufferId = uint64_t;
 using WGPUSurfaceId = uint64_t;
 using WGPUTextureId = uint64_t;
 using WGPUTextureViewId = uint64_t;
+using WGPUExternalTextureId = uint64_t;
 """
 include_version = true
 braces = "SameLine"
@@ -65,7 +67,7 @@ prefix = "WGPU"
 renaming_overrides_prefixing = true
 exclude = [
 	"Option_AdapterId", "Option_BufferId", "Option_BindGroupId", "Option_PipelineLayoutId", "Option_BindGroupLayoutId",
-	"Option_SamplerId", "Option_SurfaceId", "Option_TextureViewId",
+	"Option_SamplerId", "Option_SurfaceId", "Option_TextureViewId", "Option_ExternalTextureId",
 	"Option_BufferSize", "Option_NonZeroU32", "Option_NonZeroU8",
 	"ANativeWindow_setBuffersGeometry", "Option_QuerySetId",
 ]

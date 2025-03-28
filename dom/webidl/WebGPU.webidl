@@ -528,6 +528,7 @@ dictionary GPUBindGroupLayoutEntry {
     GPUSamplerBindingLayout sampler;
     GPUTextureBindingLayout texture;
     GPUStorageTextureBindingLayout storageTexture;
+    GPUExternalTextureBindingLayout externalTexture;
 };
 
 typedef [EnforceRange] unsigned long GPUShaderStageFlags;
@@ -585,6 +586,9 @@ dictionary GPUStorageTextureBindingLayout {
     GPUStorageTextureAccess access = "write-only";
     required GPUTextureFormat format;
     GPUTextureViewDimension viewDimension = "2d";
+};
+
+dictionary GPUExternalTextureBindingLayout {
 };
 
 [Func="mozilla::webgpu::Instance::PrefEnabled",

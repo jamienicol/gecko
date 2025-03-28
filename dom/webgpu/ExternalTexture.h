@@ -6,6 +6,7 @@
 #ifndef ExternalTexture_H_
 #define ExternalTexture_H_
 
+#include "mozilla/AlreadyAddRefed.h"
 #include "nsIGlobalObject.h"
 #include "ObjectModel.h"
 #include "mozilla/gfx/Point.h"
@@ -15,6 +16,10 @@
 
 namespace mozilla {
 
+class Device;
+namespace dom {
+class VideoFrame;
+}
 namespace ipc {
 class Shmem;
 }
@@ -27,18 +32,18 @@ namespace webgpu {
 //
 // Follow-up to complete implementation is at
 // <https://bugzilla.mozilla.org/show_bug.cgi?id=1827116>.
-class ExtTex : public ObjectBase {
+class ExtTex : public ObjectBase, public ChildOf<Device> {
  public:
   GPU_DECL_CYCLE_COLLECTION(ExtTex)
   GPU_DECL_JS_WRAP(ExtTex)
 
-  explicit ExtTex(nsIGlobalObject* const aGlobal) : mGlobal(aGlobal) {}
-
-  nsIGlobalObject* GetParentObject() const { return mGlobal; }
+  static already_AddRefed<ExtTex> CreateFromVideoFrame(Device* const aParent,
+                                     dom::VideoFrame& aVideoFrame);
+  explicit ExtTex(Device* const aParent, RawId aId);
+  Device* GetDevice() { return mParent; }
+  const RawId mId;
 
  private:
-  nsCOMPtr<nsIGlobalObject> mGlobal;
-
   ~ExtTex() = default;
   void Cleanup() {}
 };
