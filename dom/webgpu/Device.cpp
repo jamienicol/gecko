@@ -21,6 +21,7 @@
 #include "CompilationInfo.h"
 #include "ComputePipeline.h"
 #include "DeviceLostInfo.h"
+#include "ExternalTexture.h"
 #include "InternalError.h"
 #include "OutOfMemoryError.h"
 #include "PipelineLayout.h"
@@ -235,6 +236,53 @@ already_AddRefed<Texture> Device::CreateTexture(
   RefPtr<Texture> texture = new Texture(this, id, aDesc);
   texture->SetLabel(aDesc.mLabel);
   return texture.forget();
+}
+
+already_AddRefed<ExtTex> Device::ImportExternalTexture(
+    const dom::GPUExternalTextureDescriptor& aDesc) {
+  dom::OwningHTMLVideoElementOrVideoFrame a;
+
+  // TODO:
+  // 2. If the current image contents of source are the same as the most recent
+  //    importExternalTexture() call with the same descriptor (ignoring label),
+  //    and the user agent chooses to reuse it:
+  //    1. Let previousResult be the GPUExternalTexture returned previously.
+  //    2. Set previousResult.[[expired]] to false, renewing ownership of the
+  //       underlying resource.
+  //    3. Let result be previousResult.
+  //
+  //    Otherwise:
+  //    1. If source is not origin-clean, throw a SecurityError and return.
+  //    2. Let usability be ? check the usability of the image argument(source).
+  //    3. If usability is not good:
+  //       1. Generate a validation error.
+  //       2. Return an invalidated GPUExternalTexture.
+  //    4. Let data be the result of converting the current image contents of
+  //       source into the color space descriptor.colorSpace with
+  //       unpremultiplied alpha. This may result in values outside of the
+  //       range [0, 1]. If clamping is desired, it may be performed after
+  //       sampling.
+  //         Note: This is described like a copy, but may be implemented as a
+  //         reference to read-only underlying data plus appropriate metadata to
+  //         perform conversion later.
+  //    5. Let result be a new GPUExternalTexture object wrapping data.
+
+  if (aDesc.mSource.IsHTMLVideoElement()) {
+    // TODO: If source is an HTMLVideoElement, queue an automatic expiry task
+    // with device this and the following steps:
+    // 1. Set result.[[expired]] to true, releasing ownership of the underlying
+    // resource.
+  } else {
+    // TODO: If source is a VideoFrame, then when source is closed, run the
+    // following steps:
+    // 1. Set result.[[expired]] to true.
+  }
+
+  // TODO: Set result.label to descriptor.label.
+
+  // FIXME: what do I pass as aGlobal to ExtTex()?
+  RefPtr<ExtTex> tex = new ExtTex(nullptr);
+  return tex.forget();
 }
 
 already_AddRefed<Sampler> Device::CreateSampler(
