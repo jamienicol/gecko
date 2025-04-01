@@ -17,6 +17,8 @@
 namespace mozilla {
 
 class Device;
+class Texture;
+class TextureView;
 namespace dom {
 class VideoFrame;
 }
@@ -39,12 +41,14 @@ class ExtTex : public ObjectBase, public ChildOf<Device> {
 
   static already_AddRefed<ExtTex> CreateFromVideoFrame(Device* const aParent,
                                      dom::VideoFrame& aVideoFrame);
-  explicit ExtTex(Device* const aParent, RawId aId);
+  explicit ExtTex(Device* const aParent, RefPtr<Texture> aPlane0);
   Device* GetDevice() { return mParent; }
-  const RawId mId;
+
+  RefPtr<Texture> mPlane0;
+  RefPtr<TextureView> mPlane0View;
 
  private:
-  ~ExtTex() = default;
+  ~ExtTex();
   void Cleanup() {}
 };
 

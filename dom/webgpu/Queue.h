@@ -69,9 +69,9 @@ class Queue final : public ObjectBase, public ChildOf<Device> {
   void Cleanup() {}
 
   RefPtr<WebGPUChild> mBridge;
-  const RawId mId;
 
  public:
+  const RawId mId;
 };
 
 }  // namespace webgpu

@@ -4,10 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ExternalTexture.h"
+#include <cstring>
 
+#include "Queue.h"
+#include "mozilla/dom/TypedArray.h"
 #include "mozilla/dom/VideoFrame.h"
+#include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/webgpu/WebGPUParent.h"
+#include "mozilla/webgpu/Texture.h"
 
 #ifdef XP_WIN
 #  include "mozilla/webgpu/ExternalTextureD3D11.h"
@@ -35,24 +40,6 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
   RefPtr<layers::Image> image = aVideoFrame.GetImage();
   RefPtr<gfx::SourceSurface> surface = image->GetAsSourceSurface();
 
-  if (surface) {
-    printf_stderr("jamiedbg got source surface. isdata: %d\n",
-                  surface->IsDataSourceSurface());
-    RefPtr<gfx::DataSourceSurface> dataSurface = surface->GetDataSurface();
-    gfx::DataSourceSurface::ScopedMap map(dataSurface.get(),
-                                          gfx::DataSourceSurface::READ);
-    for (int y = 0; y < 8; y++) {
-      for (int x = 0; x < 8; x++) {
-        printf_stderr("jamiedbg pixel %d,%d: %f,%f,%f,%f\n", x, y,
-                      static_cast<float>(map.GetData()[(y * map.GetStride() + x) * 4 + 0]) / 255.0,
-                      static_cast<float>(map.GetData()[(y * map.GetStride() + x) * 4 + 1]) / 255.0,
-                      static_cast<float>(map.GetData()[(y * map.GetStride() + x) * 4 + 2]) / 255.0,
-                      static_cast<float>(map.GetData()[(y * map.GetStride() + x) * 4 + 3]) / 255.0);
-      }
-    }
-  } else {
-    printf_stderr("jamiedbg failed to get source surface\n");
-  }
   dom::GPUTextureDescriptor texDesc;
   texDesc.mLabel = u"ext-tex"_ns;
   dom::OwningRangeEnforcedUnsignedLongSequenceOrGPUExtent3DDict size;
@@ -63,33 +50,91 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
   texDesc.mSize = size;
   texDesc.mMipLevelCount = 1;
   texDesc.mSampleCount = 1;
-  texDesc.mFormat = dom::GPUTextureFormat::Rgba8unorm;
-  texDesc.mUsage = WGPUTextureUsages_TEXTURE_BINDING;
+  texDesc.mFormat = dom::GPUTextureFormat::Bgra8unorm;
+  texDesc.mUsage = WGPUTextureUsages_TEXTURE_BINDING | WGPUTextureUsages_COPY_DST;
   // texDesc.mViewFormats = Sequence();
   RefPtr<Texture> tex = aParent->CreateTexture(texDesc);
 
-  dom::GPUTextureViewDescriptor viewDesc = {};
-  // viewDesc.mArrayLayerCount =
-  viewDesc.mAspect = dom::GPUTextureAspect::All;
-  viewDesc.mBaseArrayLayer = 0;
-  viewDesc.mBaseMipLevel = 0;
-  RefPtr<TextureView> view = tex->CreateView(viewDesc);
+  if (surface) {
+    printf_stderr("jamiedbg got source surface. isdata: %d\n",
+                  surface->IsDataSourceSurface());
+    RefPtr<gfx::DataSourceSurface> dataSurface = surface->GetDataSurface();
+    gfx::DataSourceSurface::ScopedMap surface_map(dataSurface.get(),
+                                                  gfx::DataSourceSurface::READ);
+    // for (int y = 0; y < 8; y++) {
+    //   for (int x = 0; x < 8; x++) {
+    //     printf_stderr(
+    //         "jamiedbg pixel %d,%d: %f,%f,%f,%f\n", x, y,
+    //         static_cast<float>(surface_map.GetData()[y *
+    //         surface_map.GetStride() + x * 4 + 0]) /
+    //             255.0,
+    //         static_cast<float>(surface_map.GetData()[y *
+    //         surface_map.GetStride() + x * 4 + 1]) /
+    //             255.0,
+    //         static_cast<float>(surface_map.GetData()[y *
+    //         surface_map.GetStride() + x * 4 + 2]) /
+    //             255.0,
+    //         static_cast<float>(surface_map.GetData()[y *
+    //         surface_map.GetStride() + x * 4 + 3]) /
+    //             255.0);
+    //   }
+    // }
 
-  ffi::WGPUExternalTextureDescriptor_why desc = {
-      .plane0 = view->mId,
-  };
-  ipc::ByteBuf bb;
-  RawId id = ffi::wgpu_client_create_external_texture(
-      aParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-  if (aParent->GetBridge()->CanSend()) {
-    aParent->GetBridge()->SendDeviceAction(aParent->mId, std::move(bb));
+    auto shmem_handle = mozilla::ipc::shared_memory::Create(
+        surface_map.GetStride() * surface->GetSize().height);
+    auto shmem_map = shmem_handle.Map();
+    std::memcpy(shmem_map.DataAs<uint8_t>(), surface_map.GetData(),
+                shmem_handle.Size());
+
+    ipc::ByteBuf bb;
+    ffi::WGPUTexelCopyTextureInfo info = {
+        .texture = tex->mId,
+        .mip_level = 0,
+        .origin =
+            {
+                .x = 0,
+                .y = 0,
+                .z = 0,
+            },
+        .aspect = ffi::WGPUTextureAspect::WGPUTextureAspect_All,
+    };
+    uint32_t stride = surface_map.GetStride();
+    uint32_t height = surface->GetSize().height;
+    ffi::WGPUTexelCopyBufferLayout layout = {
+        .offset = 0,
+        .bytes_per_row = &stride,
+        .rows_per_image = &height,
+    };
+    ffi::WGPUExtent3d size = {
+        .width = tex->Width(),
+        .height = tex->Height(),
+        .depth_or_array_layers = 1,
+    };
+    ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
+    aParent->GetBridge()->SendQueueWriteAction(aParent->GetQueue()->mId,
+                                               aParent->mId, std::move(bb),
+                                               std::move(shmem_handle));
+  } else {
+    printf_stderr("jamiedbg failed to get source surface\n");
   }
 
-  RefPtr<ExtTex> ext = new ExtTex(aParent, id);
+  RefPtr<ExtTex> ext = new ExtTex(aParent, tex);
   return ext.forget();
 }
 
-ExtTex::ExtTex(Device* const aParent, RawId aId) : ChildOf(aParent), mId(aId) {}
+ExtTex::ExtTex(Device* const aParent, RefPtr<Texture> aPlane0)
+    : ChildOf(aParent), mPlane0(aPlane0) {
+  if (mPlane0) {
+    dom::GPUTextureViewDescriptor desc = {};
+    // desc.mArrayLayerCount =
+    desc.mAspect = dom::GPUTextureAspect::All;
+    desc.mBaseArrayLayer = 0;
+    desc.mBaseMipLevel = 0;
+    mPlane0View = mPlane0->CreateView(desc);
+  }
+}
+
+ExtTex::~ExtTex() = default;
 
 JSObject* ExtTex::WrapObject(JSContext* cx, JS ::Handle<JSObject*> givenProto) {
   return dom::GPUExternalTexture_Binding::Wrap(cx, this, givenProto);

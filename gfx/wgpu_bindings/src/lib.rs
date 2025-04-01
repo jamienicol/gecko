@@ -120,11 +120,6 @@ enum DeviceAction<'a> {
         wgc::resource::TextureDescriptor<'a>,
         Option<SwapChainId>,
     ),
-    CreateExternalTexture(
-        id::ExternalTextureId,
-        id::TextureViewId,
-        wgc::resource::ExternalTextureDescriptor<'a>,
-    ),
     CreateSampler(id::SamplerId, wgc::resource::SamplerDescriptor<'a>),
     CreateBindGroupLayout(
         id::BindGroupLayoutId,
@@ -203,7 +198,6 @@ enum DropAction {
     Buffer(id::BufferId),
     Texture(id::TextureId),
     TextureView(id::TextureViewId),
-    ExternalTexture(id::ExternalTextureId),
     Sampler(id::SamplerId),
 }
 

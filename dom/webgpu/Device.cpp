@@ -379,7 +379,6 @@ already_AddRefed<QuerySet> Device::CreateQuerySet(
 
 already_AddRefed<BindGroupLayout> Device::CreateBindGroupLayout(
     const dom::GPUBindGroupLayoutDescriptor& aDesc) {
-        printf_stderr("jamiedbg Device::CreateBindGroupLayout()\n");
   struct OptionalData {
     ffi::WGPUTextureViewDimension dim;
     ffi::WGPURawTextureSampleType type;
@@ -479,7 +478,6 @@ already_AddRefed<BindGroupLayout> Device::CreateBindGroupLayout(
       }
     }
     if (entry.mExternalTexture.WasPassed()) {
-        printf_stderr("jamiedbg GPUBindGroupLayoutEntry contains external\n");
         e.ty = ffi::WGPURawBindingType_ExternalTexture;
     }
     entries.AppendElement(e);
@@ -553,8 +551,7 @@ already_AddRefed<BindGroup> Device::CreateBindGroup(
     } else if (entry.mResource.IsGPUSampler()) {
       e.sampler = entry.mResource.GetAsGPUSampler()->mId;
     } else if (entry.mResource.IsGPUExternalTexture()) {
-        printf_stderr("jamiedbg Device::CreateBindGroup() external\n");
-        e.external_texture = entry.mResource.GetAsGPUExternalTexture()->mId;
+        e.external_texture = entry.mResource.GetAsGPUExternalTexture()->mPlane0View->mId;
     } else {
       // Not a buffer, nor a texture view, nor a sampler. If we pass
       // this to wgpu_client, it'll panic. Log a warning instead and
