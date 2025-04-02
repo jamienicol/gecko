@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ExternalTexture.h"
-#include <cstring>
 
 #include "Queue.h"
-#include "mozilla/dom/TypedArray.h"
+#include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/VideoFrame.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/2D.h"
@@ -30,55 +29,32 @@ namespace mozilla::webgpu {
 
 GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 
-/* static */ already_AddRefed<ExtTex> ExtTex::CreateFromVideoFrame(
-    Device* const aParent, dom::VideoFrame& aVideoFrame) {
-  printf_stderr(
-      "jamiedbg ExtTex::CreateFromVideoFrame() coded: %dx%d, display: %dx%d\n",
-      aVideoFrame.CodedWidth(), aVideoFrame.CodedHeight(),
-      aVideoFrame.DisplayWidth(), aVideoFrame.DisplayHeight());
-
-  RefPtr<layers::Image> image = aVideoFrame.GetImage();
-  RefPtr<gfx::SourceSurface> surface = image->GetAsSourceSurface();
-
+/* static */ already_AddRefed<ExtTex> CreateFromImage(Device* const aParent,
+                                                      layers::Image& aImage) {
   dom::GPUTextureDescriptor texDesc;
   texDesc.mLabel = u"ext-tex"_ns;
   dom::OwningRangeEnforcedUnsignedLongSequenceOrGPUExtent3DDict size;
   (void)size.SetAsGPUExtent3DDict();
-  size.GetAsGPUExtent3DDict().mWidth = aVideoFrame.CodedWidth();
-  size.GetAsGPUExtent3DDict().mHeight = aVideoFrame.CodedHeight();
+  size.GetAsGPUExtent3DDict().mWidth = aImage.GetSize().width;
+  size.GetAsGPUExtent3DDict().mHeight = aImage.GetSize().height;
   size.GetAsGPUExtent3DDict().mDepthOrArrayLayers = 1;
   texDesc.mSize = size;
   texDesc.mMipLevelCount = 1;
   texDesc.mSampleCount = 1;
   texDesc.mFormat = dom::GPUTextureFormat::Bgra8unorm;
-  texDesc.mUsage = WGPUTextureUsages_TEXTURE_BINDING | WGPUTextureUsages_COPY_DST;
+  texDesc.mUsage =
+      WGPUTextureUsages_TEXTURE_BINDING | WGPUTextureUsages_COPY_DST;
   // texDesc.mViewFormats = Sequence();
   RefPtr<Texture> tex = aParent->CreateTexture(texDesc);
 
-  if (surface) {
+  RefPtr<gfx::SourceSurface> surface = aImage.GetAsSourceSurface();
+  RefPtr<gfx::DataSourceSurface> dataSurface =
+      surface ? surface->GetDataSurface() : nullptr;
+  if (dataSurface) {
     printf_stderr("jamiedbg got source surface. isdata: %d\n",
                   surface->IsDataSourceSurface());
-    RefPtr<gfx::DataSourceSurface> dataSurface = surface->GetDataSurface();
     gfx::DataSourceSurface::ScopedMap surface_map(dataSurface.get(),
                                                   gfx::DataSourceSurface::READ);
-    // for (int y = 0; y < 8; y++) {
-    //   for (int x = 0; x < 8; x++) {
-    //     printf_stderr(
-    //         "jamiedbg pixel %d,%d: %f,%f,%f,%f\n", x, y,
-    //         static_cast<float>(surface_map.GetData()[y *
-    //         surface_map.GetStride() + x * 4 + 0]) /
-    //             255.0,
-    //         static_cast<float>(surface_map.GetData()[y *
-    //         surface_map.GetStride() + x * 4 + 1]) /
-    //             255.0,
-    //         static_cast<float>(surface_map.GetData()[y *
-    //         surface_map.GetStride() + x * 4 + 2]) /
-    //             255.0,
-    //         static_cast<float>(surface_map.GetData()[y *
-    //         surface_map.GetStride() + x * 4 + 3]) /
-    //             255.0);
-    //   }
-    // }
 
     auto shmem_handle = mozilla::ipc::shared_memory::Create(
         surface_map.GetStride() * surface->GetSize().height);
@@ -115,11 +91,27 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
                                                aParent->mId, std::move(bb),
                                                std::move(shmem_handle));
   } else {
-    printf_stderr("jamiedbg failed to get source surface\n");
+    printf_stderr("jamiedbg failed to get data source surface\n");
   }
 
   RefPtr<ExtTex> ext = new ExtTex(aParent, tex);
   return ext.forget();
+}
+
+/* static */ already_AddRefed<ExtTex> ExtTex::CreateFromVideoFrame(
+    Device* const aParent, dom::VideoFrame& aVideoFrame) {
+  printf_stderr("jamiedbg ExtTex::CreateFromVideoFrame()\n");
+
+  RefPtr<layers::Image> image = aVideoFrame.GetImage();
+  return CreateFromImage(aParent, *image);
+}
+
+/* static */ already_AddRefed<ExtTex> ExtTex::CreateFromHTMLVideoElement(
+    Device* const aParent, dom::HTMLVideoElement& aVideoElement) {
+  printf_stderr("jamiedbg ExtTex::CreateFromHTMLVideoElement()\n");
+
+  RefPtr<layers::Image> image = aVideoElement.GetCurrentImage();
+  return CreateFromImage(aParent, *image);
 }
 
 ExtTex::ExtTex(Device* const aParent, RefPtr<Texture> aPlane0)

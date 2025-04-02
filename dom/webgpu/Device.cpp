@@ -273,7 +273,7 @@ already_AddRefed<ExtTex> Device::ImportExternalTexture(
     // with device this and the following steps:
     // 1. Set result.[[expired]] to true, releasing ownership of the underlying
     // resource.
-    return nullptr;
+    return ExtTex::CreateFromHTMLVideoElement(this, aDesc.mSource.GetAsHTMLVideoElement());
   } else {
     return ExtTex::CreateFromVideoFrame(this, aDesc.mSource.GetAsVideoFrame());
   }

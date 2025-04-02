@@ -7,7 +7,6 @@
 #define ExternalTexture_H_
 
 #include "mozilla/AlreadyAddRefed.h"
-#include "nsIGlobalObject.h"
 #include "ObjectModel.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/layers/LayersSurfaces.h"
@@ -20,6 +19,7 @@ class Device;
 class Texture;
 class TextureView;
 namespace dom {
+class HTMLVideoElement;
 class VideoFrame;
 }
 namespace ipc {
@@ -41,6 +41,8 @@ class ExtTex : public ObjectBase, public ChildOf<Device> {
 
   static already_AddRefed<ExtTex> CreateFromVideoFrame(Device* const aParent,
                                      dom::VideoFrame& aVideoFrame);
+  static already_AddRefed<ExtTex> CreateFromHTMLVideoElement(Device* const aParent,
+                                     dom::HTMLVideoElement& aVideoElement);
   explicit ExtTex(Device* const aParent, RefPtr<Texture> aPlane0);
   Device* GetDevice() { return mParent; }
 
