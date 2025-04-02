@@ -4130,3 +4130,5 @@ pref("privacy.query_stripping.strip_on_share.canDisable", true);
 // Captcha Detection
 pref("captchadetection.loglevel", "Warn");
 pref("captchadetection.actor.enabled", true);
+
+pref("dom.webgpu.allow-present-without-readback", false);
