@@ -232,6 +232,15 @@ pub struct BindGroupLayoutDescriptor<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
+pub struct ExternalTextureBindGroupEntry {
+    plane0: Option<id::TextureViewId>,
+    plane1: Option<id::TextureViewId>,
+    plane2: Option<id::TextureViewId>,
+    params: id::BufferId,
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct BindGroupEntry {
     binding: u32,
     buffer: Option<id::BufferId>,
@@ -239,7 +248,7 @@ pub struct BindGroupEntry {
     size: Option<wgt::BufferSize>,
     sampler: Option<id::SamplerId>,
     texture_view: Option<id::TextureViewId>,
-    external_texture: Option<id::TextureViewId>, // FIXME: need to support multiple planes
+    external_texture: ExternalTextureBindGroupEntry,
 }
 
 #[repr(C)]
@@ -1111,10 +1120,24 @@ pub unsafe extern "C" fn wgpu_client_create_bind_group(
                 wgc::binding_model::BindingResource::Sampler(id)
             } else if let Some(id) = entry.texture_view {
                 wgc::binding_model::BindingResource::TextureView(id)
-            } else if let Some(id) = entry.external_texture {
-                wgc::binding_model::BindingResource::ExternalTexture {
-                    planes: wgc::binding_model::ExternalTexturePlanes::One(id),
-                }
+            } else if let Some(plane0) = entry.external_texture.plane0 {
+                let planes = match (entry.external_texture.plane1, entry.external_texture.plane2) {
+                    (Some(plane1), Some(plane2)) => {
+                        wgc::binding_model::ExternalTexturePlanes::Three(plane0, plane1, plane2)
+                    }
+                    (Some(plane1), None) => {
+                        wgc::binding_model::ExternalTexturePlanes::Two(plane0, plane1)
+                    }
+                    (None, None) => wgc::binding_model::ExternalTexturePlanes::One(plane0),
+                    _ => unreachable!(),
+                };
+                let params = wgc::binding_model::BufferBinding {
+                    buffer: entry.external_texture.params,
+                    offset: 0,
+                    // FIXME: don't hardcode
+                    size: BufferSize::new(4),
+                };
+                wgc::binding_model::BindingResource::ExternalTexture { planes, params }
             } else {
                 panic!("Unexpected binding entry {:?}", entry);
             },

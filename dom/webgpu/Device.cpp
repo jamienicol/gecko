@@ -478,7 +478,10 @@ already_AddRefed<BindGroupLayout> Device::CreateBindGroupLayout(
       }
     }
     if (entry.mExternalTexture.WasPassed()) {
-        e.ty = ffi::WGPURawBindingType_ExternalTexture;
+      // FIXME: handle textureview resource being bound as externaltexture
+      // maybe nothing to do here for the layout, but needs handled in
+      // createbindgroup()?
+      e.ty = ffi::WGPURawBindingType_ExternalTexture;
     }
     entries.AppendElement(e);
   }
@@ -551,7 +554,14 @@ already_AddRefed<BindGroup> Device::CreateBindGroup(
     } else if (entry.mResource.IsGPUSampler()) {
       e.sampler = entry.mResource.GetAsGPUSampler()->mId;
     } else if (entry.mResource.IsGPUExternalTexture()) {
-        e.external_texture = entry.mResource.GetAsGPUExternalTexture()->mPlane0View->mId;
+      const auto& extTex = entry.mResource.GetAsGPUExternalTexture();
+      // FIXME: handle textureview resource being bound as externaltexture.
+      e.external_texture = ffi::WGPUExternalTextureBindGroupEntry{
+          .plane0 = extTex->mPlane0View->mId,
+          .plane1 = extTex->mPlane1View ? extTex->mPlane1View->mId : 0,
+          .plane2 = extTex->mPlane2View ? extTex->mPlane2View->mId : 0,
+          .params = extTex->mParamsBuffer->mId,
+      };
     } else {
       // Not a buffer, nor a texture view, nor a sampler. If we pass
       // this to wgpu_client, it'll panic. Log a warning instead and

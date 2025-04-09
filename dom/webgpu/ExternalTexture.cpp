@@ -11,7 +11,9 @@
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/webgpu/WebGPUParent.h"
+#include "mozilla/webgpu/Buffer.h"
 #include "mozilla/webgpu/Texture.h"
+#include "mozilla/webgpu/ffi/wgpu.h"
 
 #ifdef XP_WIN
 #  include "mozilla/webgpu/ExternalTextureD3D11.h"
@@ -116,14 +118,30 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 
 ExtTex::ExtTex(Device* const aParent, RefPtr<Texture> aPlane0)
     : ChildOf(aParent), mPlane0(aPlane0) {
+  dom::GPUTextureViewDescriptor viewDesc;
+  viewDesc.mAspect = dom::GPUTextureAspect::All;
+  viewDesc.mBaseArrayLayer = 0;
+  viewDesc.mBaseMipLevel = 0;
+
   if (mPlane0) {
-    dom::GPUTextureViewDescriptor desc = {};
-    // desc.mArrayLayerCount =
-    desc.mAspect = dom::GPUTextureAspect::All;
-    desc.mBaseArrayLayer = 0;
-    desc.mBaseMipLevel = 0;
-    mPlane0View = mPlane0->CreateView(desc);
+    mPlane0View = mPlane0->CreateView(viewDesc);
   }
+  if (mPlane1) {
+    mPlane1View = mPlane1->CreateView(viewDesc);
+  }
+  if (mPlane2) {
+    mPlane2View = mPlane2->CreateView(viewDesc);
+  }
+
+  dom::GPUBufferDescriptor bufferDesc;
+  bufferDesc.mUsage = WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST;
+  bufferDesc.mMappedAtCreation = false;
+  bufferDesc.mSize = 4;
+  ErrorResult res;
+  mParamsBuffer = aParent->CreateBuffer(bufferDesc, res);
+  // aParent->GetQueue()->WriteBuffer(*mParamsBuffer.get(), 0, const
+  // dom::ArrayBufferViewOrArrayBuffer &aData, uint64_t aDataOffset, const
+  // dom::Optional<uint64_t> &aSize, ErrorResult &aRv)
 }
 
 ExtTex::~ExtTex() = default;

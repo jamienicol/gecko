@@ -14,14 +14,16 @@
 #include "mozilla/webgpu/WebGPUTypes.h"
 
 namespace mozilla {
-
+namespace webgpu {
+class Buffer;
 class Device;
 class Texture;
 class TextureView;
+}  // namespace webgpu
 namespace dom {
 class HTMLVideoElement;
 class VideoFrame;
-}
+}  // namespace dom
 namespace ipc {
 class Shmem;
 }
@@ -39,15 +41,20 @@ class ExtTex : public ObjectBase, public ChildOf<Device> {
   GPU_DECL_CYCLE_COLLECTION(ExtTex)
   GPU_DECL_JS_WRAP(ExtTex)
 
-  static already_AddRefed<ExtTex> CreateFromVideoFrame(Device* const aParent,
-                                     dom::VideoFrame& aVideoFrame);
-  static already_AddRefed<ExtTex> CreateFromHTMLVideoElement(Device* const aParent,
-                                     dom::HTMLVideoElement& aVideoElement);
+  static already_AddRefed<ExtTex> CreateFromVideoFrame(
+      Device* const aParent, dom::VideoFrame& aVideoFrame);
+  static already_AddRefed<ExtTex> CreateFromHTMLVideoElement(
+      Device* const aParent, dom::HTMLVideoElement& aVideoElement);
   explicit ExtTex(Device* const aParent, RefPtr<Texture> aPlane0);
   Device* GetDevice() { return mParent; }
 
   RefPtr<Texture> mPlane0;
   RefPtr<TextureView> mPlane0View;
+  RefPtr<Texture> mPlane1;
+  RefPtr<TextureView> mPlane1View;
+  RefPtr<Texture> mPlane2;
+  RefPtr<TextureView> mPlane2View;
+  RefPtr<Buffer> mParamsBuffer;
 
  private:
   ~ExtTex();
