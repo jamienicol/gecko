@@ -51,6 +51,8 @@ class GPUVideoImage final : public Image {
         mYUVColorSpace(aYUVColorSpace),
         mTransferFunction(aTransferFunction),
         mColorRange(aColorRange) {
+    printf_stderr("jamiedbg GPUVideoImage() subdesc.type: %d\n",
+                  aSD.get_SurfaceDescriptorRemoteDecoder().subdesc().type());
     // Create the TextureClient immediately since the GPUVideoTextureData
     // is responsible for deallocating the SurfaceDescriptor.
     //

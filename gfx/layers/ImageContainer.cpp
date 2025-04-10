@@ -239,6 +239,7 @@ ImageContainer::~ImageContainer() {
 nsresult Image::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  printf_stderr("jamiedbg Image::BuildSurfaceDescriptorBuffer()\n");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -270,6 +271,7 @@ ImageContainer::GetImageContainerListener() const {
 }
 
 RefPtr<PlanarYCbCrImage> ImageContainer::CreatePlanarYCbCrImage() {
+  printf_stderr("jamiedbg CreatePlanarYCbCrImage()\n");
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   EnsureImageClient();
   if (mImageClient && mImageClient->AsImageClientSingle()) {
@@ -701,17 +703,21 @@ Maybe<PlanarYCbCrData> PlanarYCbCrData::From(
 PlanarYCbCrImage::PlanarYCbCrImage()
     : Image(nullptr, ImageFormat::PLANAR_YCBCR),
       mOffscreenFormat(SurfaceFormat::UNKNOWN),
-      mBufferSize(0) {}
+      mBufferSize(0) {
+  printf_stderr("jamiedbg PlanarYCbCrImage()\n");
+}
 
 nsresult PlanarYCbCrImage::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  printf_stderr("jamiedbg PlanarYCbCrImage::BuildSurfaceDescriptorBuffer()\n");
   const PlanarYCbCrData* pdata = GetData();
   MOZ_ASSERT(pdata, "must have PlanarYCbCrData");
   MOZ_ASSERT(pdata->mYSkip == 0 && pdata->mCbSkip == 0 && pdata->mCrSkip == 0,
              "YCbCrDescriptor doesn't hold skip values");
 
   if (aFlags & BuildSdbFlags::RgbOnly) {
+    printf_stderr("jamiedbg Serializing as RGB\n");
     gfx::IntSize size(mSize);
     auto format = gfx::ImageFormatToSurfaceFormat(GetOffscreenFormat());
     gfx::GetYCbCrToRGBDestFormatAndSize(mData, format, size);
@@ -772,6 +778,7 @@ nsresult PlanarYCbCrImage::BuildSurfaceDescriptorBuffer(
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
+  printf_stderr("jamiedbg Creating YCbCrDescriptor\n");
   aSdBuffer.desc() = YCbCrDescriptor(
       pdata->mPictureRect, ySize, pdata->mYStride, cbcrSize, pdata->mCbCrStride,
       yOffset, cbOffset, crOffset, pdata->mStereoMode, pdata->mColorDepth,
@@ -941,7 +948,9 @@ PlanarYCbCrImage::~PlanarYCbCrImage() {
                          mSourceSurface.forget());
 }
 
-NVImage::NVImage() : Image(nullptr, ImageFormat::NV_IMAGE), mBufferSize(0) {}
+NVImage::NVImage() : Image(nullptr, ImageFormat::NV_IMAGE), mBufferSize(0) {
+  printf_stderr("jamiedbg NVImage()\n");
+}
 
 NVImage::~NVImage() {
   NS_ReleaseOnMainThread("NVImage::mSourceSurface", mSourceSurface.forget());
@@ -1021,6 +1030,7 @@ already_AddRefed<SourceSurface> NVImage::GetAsSourceSurface() {
 nsresult NVImage::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  printf_stderr("jamiedbg NVImage::BuildSurfaceDescriptorBuffer()\n");
   // Convert the current NV12 or NV21 data to YUV420P so that we can follow the
   // logics in PlanarYCbCrImage::GetAsSourceSurface().
   auto ySize = mData.YDataSize();
@@ -1173,6 +1183,7 @@ SourceSurfaceImage::~SourceSurfaceImage() {
 
 TextureClient* SourceSurfaceImage::GetTextureClient(
     KnowsCompositor* aKnowsCompositor) {
+  printf_stderr("jamiedbg SourceSurfaceImage::GetTextureClient()\n");
   if (!aKnowsCompositor) {
     return nullptr;
   }

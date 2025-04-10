@@ -1293,6 +1293,7 @@ void DMABufSurface::Unmap(int aPlane) {
 nsresult DMABufSurface::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, Image::BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  printf_stderr("jamiedbg DMABufSurface::BuildSurfaceDescriptorBuffer()\n");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -2076,6 +2077,7 @@ void DMABufSurfaceYUV::ReleaseSurface() {
 nsresult DMABufSurfaceYUV::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, Image::BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  printf_stderr("jamiedbg DMABufSurfaceYUV::BuildSurfaceDescriptorBuffer()\n");
   LOGDMABUF("DMABufSurfaceYUV::BuildSurfaceDescriptorBuffer UID %d", mUID);
 
   gfx::IntSize size(GetWidth(), GetHeight());

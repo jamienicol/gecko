@@ -5,15 +5,21 @@
 
 #include "ExternalTexture.h"
 
+#include "GPUVideoImage.h"
+#include "mozilla/layers/GPUVideoTextureClient.h"
 #include "Queue.h"
 #include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/VideoFrame.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/layers/ImageBridgeChild.h"
+#include "mozilla/layers/LayersSurfaces.h"
+#include "mozilla/layers/VideoBridgeUtils.h"
 #include "mozilla/webgpu/WebGPUParent.h"
 #include "mozilla/webgpu/Buffer.h"
 #include "mozilla/webgpu/Texture.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
+#include "mozilla/ToString.h"
 
 #ifdef XP_WIN
 #  include "mozilla/webgpu/ExternalTextureD3D11.h"
@@ -49,6 +55,33 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
   // texDesc.mViewFormats = Sequence();
   RefPtr<Texture> tex = aParent->CreateTexture(texDesc);
 
+  if (layers::GPUVideoImage* videoImage = aImage.AsGPUVideoImage()) {
+    // On my linux desktop the internal image type is PlanarYCbCrImage.
+    // On the webgpu samples videoUpload video at least.
+
+    printf_stderr("CreateFromImage() GPUVideoImage\n");
+    Maybe<layers::SurfaceDescriptor> desc = videoImage->GetDesc();
+    if (!desc) {
+      printf_stderr("jamiedbg failed to get desc\n");
+    }
+    if (desc->type() != layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo) {
+      printf_stderr("jamiedbg unexpected descriptor type\n");
+    }
+    layers::SurfaceDescriptorGPUVideo& gpuDesc =
+        desc->get_SurfaceDescriptorGPUVideo();
+    layers::SurfaceDescriptorRemoteDecoder& remoteDesc =
+        gpuDesc.get_SurfaceDescriptorRemoteDecoder();
+    uint64_t handle = remoteDesc.handle();
+    Maybe<layers::VideoBridgeSource> source = remoteDesc.source();
+    // FIXME: there's an id field too. is it useful?
+    aParent->GetBridge()->SendCreateExternalTexture(aParent->mId, handle,
+                                                    source);
+    printf_stderr("jamiedbg Remote Image handle: %" PRIu64 "\n", handle);
+  } else if (aImage.AsDMABUFSurfaceImage()) {
+    printf_stderr("CreateFromImage() DMABUFSurfaceImage\n");
+  } else {
+    printf_stderr("CreateFromImage() other image type\n");
+  }
   RefPtr<gfx::SourceSurface> surface = aImage.GetAsSourceSurface();
   RefPtr<gfx::DataSourceSurface> dataSurface =
       surface ? surface->GetDataSurface() : nullptr;

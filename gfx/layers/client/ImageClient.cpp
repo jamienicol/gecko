@@ -84,7 +84,10 @@ void ImageClientSingle::ClearImagesInHost(ClearImagesType aType) {
 already_AddRefed<TextureClient> ImageClient::CreateTextureClientForImage(
     Image* aImage, KnowsCompositor* aKnowsCompositor) {
   RefPtr<TextureClient> texture;
+  printf_stderr("CreateTextureClientForImage() format: %d\n",
+                aImage->GetFormat());
   if (aImage->GetFormat() == ImageFormat::PLANAR_YCBCR) {
+    printf_stderr("jamiedbg Creating PLANAR_YCBCR texture client\n");
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(aImage);
     const PlanarYCbCrData* data = ycbcr->GetData();
     if (!data) {

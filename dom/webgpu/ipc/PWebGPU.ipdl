@@ -10,6 +10,7 @@ using mozilla::layers::RemoteTextureId from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::RemoteTextureOwnerId from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::RemoteTextureTxnType from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::RemoteTextureTxnId from "mozilla/layers/LayersTypes.h";
+using mozilla::layers::VideoBridgeSource from "mozilla/layers/VideoBridgeUtils.h";
 using mozilla::webgpu::RawId from "mozilla/webgpu/WebGPUTypes.h";
 using mozilla::dom::GPUErrorFilter from "mozilla/dom/WebGPUBinding.h";
 using mozilla::dom::GPURequestAdapterOptions from "mozilla/dom/WebGPUBinding.h";
@@ -97,6 +98,8 @@ parent:
   // Generate an error on the Device timeline for `deviceId`.
   // The `message` parameter is interpreted as UTF-8.
   async GenerateError(RawId? deviceId, GPUErrorFilter type, nsCString message);
+  
+  async CreateExternalTexture(RawId selfId, uint64_t imageHandle, VideoBridgeSource? imageSource);
 
 child:
   async UncapturedError(RawId? aDeviceId, nsCString message);

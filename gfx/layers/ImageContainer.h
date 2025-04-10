@@ -152,6 +152,7 @@ class Image {
    * synchronize the TextureClient with the TextureHost).
    */
   virtual TextureClient* GetTextureClient(KnowsCompositor* aKnowsCompositor) {
+    printf_stderr("jamiedbg Image::GetTextureClient()\n");
     return nullptr;
   }
 

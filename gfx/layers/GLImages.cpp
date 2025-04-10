@@ -93,6 +93,7 @@ already_AddRefed<gfx::SourceSurface> GLImage::GetAsSourceSurface() {
 nsresult GLImage::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  printf_stderr("jamiedbg GLImage::BuildSurfaceDescriptorBuffer()\n");
   gfx::IntSize size = GetSize();
   auto format = gfx::SurfaceFormat::B8G8R8A8;
 

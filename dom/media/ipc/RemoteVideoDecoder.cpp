@@ -214,6 +214,9 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
                "Decoded video must output a layer::Image to "
                "be used with RemoteDecoderParent");
 
+    printf_stderr("jamiedbg ProcessDecodedData() format: %d\n",
+                  video->mImage->GetFormat());
+
     RefPtr<TextureClient> texture;
     SurfaceDescriptor sd;
     IntSize size;
@@ -224,8 +227,11 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
     TransferFunction transferFunction = gfx::TransferFunction::BT709;
     ColorRange colorRange = gfx::ColorRange::LIMITED;
 
+    printf_stderr("jamiedbg mKnowsCompositor: %p\n", mKnowsCompositor.get());
     if (mKnowsCompositor) {
       texture = video->mImage->GetTextureClient(mKnowsCompositor);
+      printf_stderr("jamiedbg image->GetTextureClient() returned %p\n",
+                    texture.get());
 
       if (!texture) {
         texture = ImageClient::CreateTextureClientForImage(video->mImage,

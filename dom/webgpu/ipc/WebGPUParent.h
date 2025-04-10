@@ -45,7 +45,7 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebGPUParent, override)
 
  public:
-  explicit WebGPUParent();
+  explicit WebGPUParent(const dom::ContentParentId& aContentId);
 
   ipc::IPCResult RecvInstanceRequestAdapter(
       const dom::GPURequestAdapterOptions& aOptions, RawId aAdapterId,
@@ -132,6 +132,10 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
       RawId aDeviceId, DevicePopErrorScopeResolver&& aResolver);
   ipc::IPCResult RecvGenerateError(Maybe<RawId> aDeviceId, dom::GPUErrorFilter,
                                    const nsCString& message);
+
+  ipc::IPCResult RecvCreateExternalTexture(
+      RawId aDeviceId, uint64_t aImageHandle,
+      Maybe<layers::VideoBridgeSource> aImageSource);
 
   ipc::IPCResult GetFrontBufferSnapshot(
       IProtocol* aProtocol, const layers::RemoteTextureOwnerId& aOwnerId,
@@ -243,6 +247,8 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
 
   // Shared handle of wgpu device's fence.
   std::unordered_map<RawId, RefPtr<gfx::FileHandleWrapper>> mDeviceFenceHandles;
+
+  const dom::ContentParentId mContentId;
 };
 
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)

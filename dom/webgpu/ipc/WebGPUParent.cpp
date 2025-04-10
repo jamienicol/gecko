@@ -11,10 +11,12 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/FileHandleWrapper.h"
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageDataSerializer.h"
 #include "mozilla/layers/RemoteTextureMap.h"
 #include "mozilla/layers/TextureHost.h"
+#include "mozilla/layers/VideoBridgeParent.h"
 #include "mozilla/layers/WebRenderImageHost.h"
 #include "mozilla/layers/WebRenderTextureHost.h"
 #include "mozilla/webgpu/ExternalTexture.h"
@@ -321,8 +323,9 @@ class PresentationData {
 #  define MOZ_USE_DXC false
 #endif
 
-WebGPUParent::WebGPUParent()
-    : mContext(ffi::wgpu_server_new(this, MOZ_USE_DXC)) {
+WebGPUParent::WebGPUParent(const dom::ContentParentId& aContentId)
+    : mContext(ffi::wgpu_server_new(this, MOZ_USE_DXC)),
+      mContentId(aContentId) {
   mTimer.Start(base::TimeDelta::FromMilliseconds(POLL_TIME_MS), this,
                &WebGPUParent::MaintainDevices);
 }
@@ -1815,6 +1818,19 @@ ipc::IPCResult WebGPUParent::RecvGenerateError(const Maybe<RawId> aDeviceId,
                                                const dom::GPUErrorFilter aType,
                                                const nsCString& aMessage) {
   ReportError(aDeviceId, aType, aMessage);
+  return IPC_OK();
+}
+
+ipc::IPCResult WebGPUParent::RecvCreateExternalTexture(
+    RawId aDeviceId, uint64_t aImageHandle,
+    Maybe<layers::VideoBridgeSource> aImageSource) {
+  auto vb = layers::VideoBridgeParent::GetSingleton(aImageSource);
+  printf_stderr("jamiedbg Got VideoBridgeParent %p\n", vb.get());
+  printf_stderr("jamiedbg Looking up handle %" PRIu64 "\n", aImageHandle);
+  RefPtr<layers::TextureHost> host =
+      vb->LookupTexture(mContentId, aImageHandle);
+  printf_stderr("jamiedbg Got host %p\n", host.get());
+
   return IPC_OK();
 }
 

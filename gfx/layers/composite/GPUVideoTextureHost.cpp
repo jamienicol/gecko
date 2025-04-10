@@ -22,6 +22,7 @@ GPUVideoTextureHost::GPUVideoTextureHost(
     : TextureHost(TextureHostType::Unknown, aFlags),
       mContentId(aContentId),
       mDescriptor(aDescriptor) {
+  printf_stderr("jamiedbg GPUVideoTextureHost()\n");
   MOZ_COUNT_CTOR(GPUVideoTextureHost);
 }
 
