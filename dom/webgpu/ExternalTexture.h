@@ -24,6 +24,9 @@ namespace dom {
 class HTMLVideoElement;
 class VideoFrame;
 }  // namespace dom
+namespace layers {
+class Image;
+}
 namespace ipc {
 class Shmem;
 }
@@ -41,24 +44,30 @@ class ExtTex : public ObjectBase, public ChildOf<Device> {
   GPU_DECL_CYCLE_COLLECTION(ExtTex)
   GPU_DECL_JS_WRAP(ExtTex)
 
+  explicit ExtTex(Device* const aParent, RawId aId);
+  Device* GetDevice() { return mParent; }
+  const RawId mId;
+
   static already_AddRefed<ExtTex> CreateFromVideoFrame(
       Device* const aParent, dom::VideoFrame& aVideoFrame);
   static already_AddRefed<ExtTex> CreateFromHTMLVideoElement(
       Device* const aParent, dom::HTMLVideoElement& aVideoElement);
-  explicit ExtTex(Device* const aParent, RefPtr<Texture> aPlane0);
-  Device* GetDevice() { return mParent; }
 
-  RefPtr<Texture> mPlane0;
-  RefPtr<TextureView> mPlane0View;
-  RefPtr<Texture> mPlane1;
-  RefPtr<TextureView> mPlane1View;
-  RefPtr<Texture> mPlane2;
-  RefPtr<TextureView> mPlane2View;
-  RefPtr<Buffer> mParamsBuffer;
+  RawId mPlane0Id;
+  RawId mPlane1Id;
+  RawId mPlane2Id;
+  // RefPtr<Texture> mPlane0;
+  // RefPtr<TextureView> mPlane0View;
+  // RefPtr<Texture> mPlane1;
+  // RefPtr<TextureView> mPlane1View;
+  // RefPtr<Texture> mPlane2;
+  // RefPtr<TextureView> mPlane2View;
+  // RefPtr<Buffer> mParamsBuffer;
 
  private:
   ~ExtTex();
   void Cleanup() {}
+  void Init(layers::Image* aImage);
 };
 
 class ExternalTextureD3D11;

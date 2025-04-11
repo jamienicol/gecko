@@ -10,6 +10,7 @@
 
 #include "mozilla/WeakPtr.h"
 #include "mozilla/ipc/SharedMemoryHandle.h"
+#include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
 #include "mozilla/webgpu/PWebGPUParent.h"
 #include "mozilla/webrender/WebRenderAPI.h"
@@ -56,6 +57,10 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
   ipc::IPCResult RecvAdapterDrop(RawId aAdapterId);
   ipc::IPCResult RecvDeviceDestroy(RawId aDeviceId);
   ipc::IPCResult RecvDeviceDrop(RawId aDeviceId);
+  ipc::IPCResult RecvDeviceCreateExternalTexture(
+      RawId aDeviceId, RawId aQueueId, RawId aExternalTextureId,
+      layers::SurfaceDescriptor aSd, RawId aPlane0Id, RawId aPlane1Id,
+      RawId aPlane2Id);
   ipc::IPCResult RecvDeviceCreateBuffer(
       RawId aDeviceId, RawId aBufferId, dom::GPUBufferDescriptor&& aDesc,
       ipc::MutableSharedMemoryHandle&& aShmem);
@@ -132,10 +137,6 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
       RawId aDeviceId, DevicePopErrorScopeResolver&& aResolver);
   ipc::IPCResult RecvGenerateError(Maybe<RawId> aDeviceId, dom::GPUErrorFilter,
                                    const nsCString& message);
-
-  ipc::IPCResult RecvCreateExternalTexture(
-      RawId aDeviceId, uint64_t aImageHandle,
-      Maybe<layers::VideoBridgeSource> aImageSource);
 
   ipc::IPCResult GetFrontBufferSnapshot(
       IProtocol* aProtocol, const layers::RemoteTextureOwnerId& aOwnerId,

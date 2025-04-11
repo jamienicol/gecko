@@ -10,6 +10,7 @@ using mozilla::layers::RemoteTextureId from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::RemoteTextureOwnerId from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::RemoteTextureTxnType from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::RemoteTextureTxnId from "mozilla/layers/LayersTypes.h";
+using mozilla::layers::SurfaceDescriptor from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::VideoBridgeSource from "mozilla/layers/VideoBridgeUtils.h";
 using mozilla::webgpu::RawId from "mozilla/webgpu/WebGPUTypes.h";
 using mozilla::dom::GPUErrorFilter from "mozilla/dom/WebGPUBinding.h";
@@ -49,6 +50,7 @@ parent:
   async ComputePass(RawId selfId, RawId aDeviceId, ByteBuf buf);
   async BumpImplicitBindGroupLayout(RawId pipelineId, bool isCompute, uint32_t index, RawId assignId);
 
+  async DeviceCreateExternalTexture(RawId selfId, RawId queueId, RawId externalTextureId, SurfaceDescriptor sd, RawId plane0Id, RawId plane1Id, RawId plane2Id);
   async DeviceCreateBuffer(RawId deviceId, RawId bufferId, GPUBufferDescriptor desc, MutableSharedMemoryHandle shm);
 
   async InstanceRequestAdapter(GPURequestAdapterOptions options, RawId aAdapterId) returns (ByteBuf byteBuf);
@@ -98,8 +100,6 @@ parent:
   // Generate an error on the Device timeline for `deviceId`.
   // The `message` parameter is interpreted as UTF-8.
   async GenerateError(RawId? deviceId, GPUErrorFilter type, nsCString message);
-  
-  async CreateExternalTexture(RawId selfId, uint64_t imageHandle, VideoBridgeSource? imageSource);
 
 child:
   async UncapturedError(RawId? aDeviceId, nsCString message);

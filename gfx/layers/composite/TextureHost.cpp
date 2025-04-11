@@ -277,8 +277,6 @@ already_AddRefed<TextureHost> CreateBackendIndependentTextureHost(
           size_t reqSize = SIZE_MAX;
           switch (desc.type()) {
             case BufferDescriptor::TYCbCrDescriptor: {
-              printf_stderr(
-                  "jamiedbg CreateBackendIndependentTextureHost() YCbCr\n");
               const YCbCrDescriptor& ycbcr = desc.get_YCbCrDescriptor();
               reqSize = ImageDataSerializer::ComputeYCbCrBufferSize(
                   ycbcr.ySize(), ycbcr.yStride(), ycbcr.cbCrSize(),
@@ -462,7 +460,6 @@ BufferTextureHost::BufferTextureHost(const BufferDescriptor& aDesc,
   mDescriptor = aDesc;
   switch (mDescriptor.type()) {
     case BufferDescriptor::TYCbCrDescriptor: {
-      printf_stderr("jamiedbg BufferTextureHost() YCbCr\n");
       const YCbCrDescriptor& ycbcr = mDescriptor.get_YCbCrDescriptor();
       mSize = ycbcr.display().Size();
       mFormat = gfx::SurfaceFormat::YUV420;

@@ -56,8 +56,6 @@ already_AddRefed<gfx::SourceSurface> DMABUFSurfaceImage::GetAsSourceSurface() {
 nsresult DMABUFSurfaceImage::BuildSurfaceDescriptorBuffer(
     SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
     const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
-  printf_stderr(
-      "jamiedbg DMABUFSurfaceImage::BuildSurfaceDescriptorBuffer()\n");
   return mSurface->BuildSurfaceDescriptorBuffer(aSdBuffer, aFlags, aAllocate);
 }
 

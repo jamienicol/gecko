@@ -248,7 +248,7 @@ pub struct BindGroupEntry {
     size: Option<wgt::BufferSize>,
     sampler: Option<id::SamplerId>,
     texture_view: Option<id::TextureViewId>,
-    external_texture: ExternalTextureBindGroupEntry,
+    external_texture: Option<id::ExternalTextureId>,
 }
 
 #[repr(C)]
@@ -318,6 +318,7 @@ struct IdentityHub {
     render_pipelines: IdentityManager<markers::RenderPipeline>,
     textures: IdentityManager<markers::Texture>,
     texture_views: IdentityManager<markers::TextureView>,
+    external_textures: IdentityManager<markers::ExternalTexture>,
     samplers: IdentityManager<markers::Sampler>,
     query_sets: IdentityManager<markers::QuerySet>,
 }
@@ -339,6 +340,7 @@ impl Default for IdentityHub {
             render_pipelines: IdentityManager::new(),
             textures: IdentityManager::new(),
             texture_views: IdentityManager::new(),
+            external_textures: IdentityManager::new(),
             samplers: IdentityManager::new(),
             query_sets: IdentityManager::new(),
         }
@@ -382,6 +384,7 @@ pub unsafe extern "C" fn wgpu_client_drop_action(client: &mut Client, byte_buf: 
             DropAction::Buffer(id) => identities.buffers.free(id),
             DropAction::Texture(id) => identities.textures.free(id),
             DropAction::TextureView(id) => identities.texture_views.free(id),
+            DropAction::ExternalTexture(id) => identities.external_textures.free(id),
             DropAction::Sampler(id) => identities.samplers.free(id),
         }
     }
@@ -552,6 +555,11 @@ pub extern "C" fn wgpu_client_free_buffer_id(client: &Client, id: id::BufferId) 
 }
 
 #[no_mangle]
+pub extern "C" fn wgpu_client_make_texture_id(client: &Client) -> id::TextureId {
+    client.identities.lock().textures.process()
+}
+
+#[no_mangle]
 pub extern "C" fn wgpu_client_create_texture(
     client: &Client,
     desc: &wgt::TextureDescriptor<Option<&nsACString>, crate::FfiSlice<TextureFormat>>,
@@ -611,6 +619,16 @@ pub extern "C" fn wgpu_client_create_texture_view(
 #[no_mangle]
 pub extern "C" fn wgpu_client_free_texture_view_id(client: &Client, id: id::TextureViewId) {
     client.identities.lock().texture_views.free(id)
+}
+
+#[no_mangle]
+pub extern "C" fn wgpu_client_make_external_texture_id(client: &Client) -> id::ExternalTextureId {
+    client.identities.lock().external_textures.process()
+}
+
+#[no_mangle]
+pub extern "C" fn wgpu_client_free_external_texture_id(client: &Client, id: id::ExternalTextureId) {
+    client.identities.lock().external_textures.free(id)
 }
 
 #[no_mangle]
@@ -1120,24 +1138,8 @@ pub unsafe extern "C" fn wgpu_client_create_bind_group(
                 wgc::binding_model::BindingResource::Sampler(id)
             } else if let Some(id) = entry.texture_view {
                 wgc::binding_model::BindingResource::TextureView(id)
-            } else if let Some(plane0) = entry.external_texture.plane0 {
-                let planes = match (entry.external_texture.plane1, entry.external_texture.plane2) {
-                    (Some(plane1), Some(plane2)) => {
-                        wgc::binding_model::ExternalTexturePlanes::Three(plane0, plane1, plane2)
-                    }
-                    (Some(plane1), None) => {
-                        wgc::binding_model::ExternalTexturePlanes::Two(plane0, plane1)
-                    }
-                    (None, None) => wgc::binding_model::ExternalTexturePlanes::One(plane0),
-                    _ => unreachable!(),
-                };
-                let params = wgc::binding_model::BufferBinding {
-                    buffer: entry.external_texture.params,
-                    offset: 0,
-                    // FIXME: don't hardcode
-                    size: BufferSize::new(4),
-                };
-                wgc::binding_model::BindingResource::ExternalTexture { planes, params }
+            } else if let Some(id) = entry.external_texture {
+                wgc::binding_model::BindingResource::ExternalTexture(id)
             } else {
                 panic!("Unexpected binding entry {:?}", entry);
             },

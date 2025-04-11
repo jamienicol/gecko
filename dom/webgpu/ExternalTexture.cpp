@@ -16,6 +16,7 @@
 #include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/layers/VideoBridgeUtils.h"
 #include "mozilla/webgpu/WebGPUParent.h"
+#include "mozilla/webgpu/WebGPUChild.h"
 #include "mozilla/webgpu/Buffer.h"
 #include "mozilla/webgpu/Texture.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
@@ -37,146 +38,155 @@ namespace mozilla::webgpu {
 
 GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 
-/* static */ already_AddRefed<ExtTex> CreateFromImage(Device* const aParent,
-                                                      layers::Image& aImage) {
-  dom::GPUTextureDescriptor texDesc;
-  texDesc.mLabel = u"ext-tex"_ns;
-  dom::OwningRangeEnforcedUnsignedLongSequenceOrGPUExtent3DDict size;
-  (void)size.SetAsGPUExtent3DDict();
-  size.GetAsGPUExtent3DDict().mWidth = aImage.GetSize().width;
-  size.GetAsGPUExtent3DDict().mHeight = aImage.GetSize().height;
-  size.GetAsGPUExtent3DDict().mDepthOrArrayLayers = 1;
-  texDesc.mSize = size;
-  texDesc.mMipLevelCount = 1;
-  texDesc.mSampleCount = 1;
-  texDesc.mFormat = dom::GPUTextureFormat::Bgra8unorm;
-  texDesc.mUsage =
-      WGPUTextureUsages_TEXTURE_BINDING | WGPUTextureUsages_COPY_DST;
-  // texDesc.mViewFormats = Sequence();
-  RefPtr<Texture> tex = aParent->CreateTexture(texDesc);
-
-  if (layers::GPUVideoImage* videoImage = aImage.AsGPUVideoImage()) {
-    // On my linux desktop the internal image type is PlanarYCbCrImage.
-    // On the webgpu samples videoUpload video at least.
-
-    printf_stderr("CreateFromImage() GPUVideoImage\n");
-    Maybe<layers::SurfaceDescriptor> desc = videoImage->GetDesc();
-    if (!desc) {
-      printf_stderr("jamiedbg failed to get desc\n");
-    }
-    if (desc->type() != layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo) {
-      printf_stderr("jamiedbg unexpected descriptor type\n");
-    }
-    layers::SurfaceDescriptorGPUVideo& gpuDesc =
-        desc->get_SurfaceDescriptorGPUVideo();
-    layers::SurfaceDescriptorRemoteDecoder& remoteDesc =
-        gpuDesc.get_SurfaceDescriptorRemoteDecoder();
-    uint64_t handle = remoteDesc.handle();
-    Maybe<layers::VideoBridgeSource> source = remoteDesc.source();
-    // FIXME: there's an id field too. is it useful?
-    aParent->GetBridge()->SendCreateExternalTexture(aParent->mId, handle,
-                                                    source);
-    printf_stderr("jamiedbg Remote Image handle: %" PRIu64 "\n", handle);
-  } else if (aImage.AsDMABUFSurfaceImage()) {
-    printf_stderr("CreateFromImage() DMABUFSurfaceImage\n");
-  } else {
-    printf_stderr("CreateFromImage() other image type\n");
-  }
-  RefPtr<gfx::SourceSurface> surface = aImage.GetAsSourceSurface();
-  RefPtr<gfx::DataSourceSurface> dataSurface =
-      surface ? surface->GetDataSurface() : nullptr;
-  if (dataSurface) {
-    printf_stderr("jamiedbg got source surface. isdata: %d\n",
-                  surface->IsDataSourceSurface());
-    gfx::DataSourceSurface::ScopedMap surface_map(dataSurface.get(),
-                                                  gfx::DataSourceSurface::READ);
-
-    auto shmem_handle = mozilla::ipc::shared_memory::Create(
-        surface_map.GetStride() * surface->GetSize().height);
-    auto shmem_map = shmem_handle.Map();
-    std::memcpy(shmem_map.DataAs<uint8_t>(), surface_map.GetData(),
-                shmem_handle.Size());
-
-    ipc::ByteBuf bb;
-    ffi::WGPUTexelCopyTextureInfo info = {
-        .texture = tex->mId,
-        .mip_level = 0,
-        .origin =
-            {
-                .x = 0,
-                .y = 0,
-                .z = 0,
-            },
-        .aspect = ffi::WGPUTextureAspect::WGPUTextureAspect_All,
-    };
-    uint32_t stride = surface_map.GetStride();
-    uint32_t height = surface->GetSize().height;
-    ffi::WGPUTexelCopyBufferLayout layout = {
-        .offset = 0,
-        .bytes_per_row = &stride,
-        .rows_per_image = &height,
-    };
-    ffi::WGPUExtent3d size = {
-        .width = tex->Width(),
-        .height = tex->Height(),
-        .depth_or_array_layers = 1,
-    };
-    ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
-    aParent->GetBridge()->SendQueueWriteAction(aParent->GetQueue()->mId,
-                                               aParent->mId, std::move(bb),
-                                               std::move(shmem_handle));
-  } else {
-    printf_stderr("jamiedbg failed to get data source surface\n");
-  }
-
-  RefPtr<ExtTex> ext = new ExtTex(aParent, tex);
-  return ext.forget();
-}
-
 /* static */ already_AddRefed<ExtTex> ExtTex::CreateFromVideoFrame(
     Device* const aParent, dom::VideoFrame& aVideoFrame) {
-  printf_stderr("jamiedbg ExtTex::CreateFromVideoFrame()\n");
+  RawId id = ffi::wgpu_client_make_external_texture_id(
+      aParent->GetBridge()->GetClient());
+  RefPtr<ExtTex> extTex = new ExtTex(aParent, id);
 
   RefPtr<layers::Image> image = aVideoFrame.GetImage();
-  return CreateFromImage(aParent, *image);
+  extTex->Init(image);
+  return extTex.forget();
 }
 
 /* static */ already_AddRefed<ExtTex> ExtTex::CreateFromHTMLVideoElement(
     Device* const aParent, dom::HTMLVideoElement& aVideoElement) {
-  printf_stderr("jamiedbg ExtTex::CreateFromHTMLVideoElement()\n");
+  RawId id = ffi::wgpu_client_make_external_texture_id(
+      aParent->GetBridge()->GetClient());
+  RefPtr<ExtTex> extTex = new ExtTex(aParent, id);
 
   RefPtr<layers::Image> image = aVideoElement.GetCurrentImage();
-  return CreateFromImage(aParent, *image);
+  extTex->Init(image);
+  return extTex.forget();
 }
 
-ExtTex::ExtTex(Device* const aParent, RefPtr<Texture> aPlane0)
-    : ChildOf(aParent), mPlane0(aPlane0) {
-  dom::GPUTextureViewDescriptor viewDesc;
-  viewDesc.mAspect = dom::GPUTextureAspect::All;
-  viewDesc.mBaseArrayLayer = 0;
-  viewDesc.mBaseMipLevel = 0;
-
-  if (mPlane0) {
-    mPlane0View = mPlane0->CreateView(viewDesc);
-  }
-  if (mPlane1) {
-    mPlane1View = mPlane1->CreateView(viewDesc);
-  }
-  if (mPlane2) {
-    mPlane2View = mPlane2->CreateView(viewDesc);
+void ExtTex::Init(layers::Image* aImage) {
+  if (!aImage) {
+    printf_stderr("jamiedbg Image is null\n");
+    return;
   }
 
-  dom::GPUBufferDescriptor bufferDesc;
-  bufferDesc.mUsage = WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST;
-  bufferDesc.mMappedAtCreation = false;
-  bufferDesc.mSize = 4;
-  ErrorResult res;
-  mParamsBuffer = aParent->CreateBuffer(bufferDesc, res);
-  // aParent->GetQueue()->WriteBuffer(*mParamsBuffer.get(), 0, const
-  // dom::ArrayBufferViewOrArrayBuffer &aData, uint64_t aDataOffset, const
-  // dom::Optional<uint64_t> &aSize, ErrorResult &aRv)
+  // dom::GPUTextureDescriptor texDesc;
+  // texDesc.mLabel = u"ext-tex"_ns;
+  // dom::OwningRangeEnforcedUnsignedLongSequenceOrGPUExtent3DDict size;
+  // (void)size.SetAsGPUExtent3DDict();
+  // size.GetAsGPUExtent3DDict().mWidth = aImage.GetSize().width;
+  // size.GetAsGPUExtent3DDict().mHeight = aImage.GetSize().height;
+  // size.GetAsGPUExtent3DDict().mDepthOrArrayLayers = 1;
+  // texDesc.mSize = size;
+  // texDesc.mMipLevelCount = 1;
+  // texDesc.mSampleCount = 1;
+  // texDesc.mFormat = dom::GPUTextureFormat::Bgra8unorm;
+  // texDesc.mUsage =
+  //     WGPUTextureUsages_TEXTURE_BINDING | WGPUTextureUsages_COPY_DST;
+  // // texDesc.mViewFormats = Sequence();
+  // RefPtr<Texture> tex = aParent->CreateTexture(texDesc);
+
+  // On my linux desktop the internal image type is PlanarYCbCrImage.
+  // On the webgpu samples videoUpload video at least.
+
+  printf_stderr("CreateFromImage() GPUVideoImage\n");
+  Maybe<layers::SurfaceDescriptor> desc = aImage->GetDesc();
+  if (!desc) {
+    printf_stderr("jamiedbg Failed to get SurfaceDescriptor from Image\n");
+    return;
+  }
+  switch (desc->type()) {
+    case layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo: {
+      printf_stderr("jamiedbg TSurfaceDescriptorGPUVideo\n");
+      layers::SurfaceDescriptorGPUVideo gpuVideoDesc =
+          desc->get_SurfaceDescriptorGPUVideo();
+      if (gpuVideoDesc.type() !=
+          layers::SurfaceDescriptorGPUVideo::TSurfaceDescriptorRemoteDecoder) {
+        printf_stderr(
+            "jamiedbg gpuVideoDesc type %d is not "
+            "TSurfaceDescriptorRemoteDecoder\n",
+            gpuVideoDesc.type());
+        return;
+      }
+      layers::SurfaceDescriptorRemoteDecoder remoteDecoderDesc =
+          gpuVideoDesc.get_SurfaceDescriptorRemoteDecoder();
+      layers::RemoteDecoderVideoSubDescriptor subDesc =
+          remoteDecoderDesc.subdesc();
+      switch (subDesc.type()) {
+        case layers::RemoteDecoderVideoSubDescriptor::Tnull_t:
+          printf_stderr("jamiedbg subDesc type is Tnull\n");
+          mParent->GetBridge()->SendDeviceCreateExternalTexture(
+              mParent->mId, mParent->GetQueue()->mId, mId, *desc, mPlane0Id,
+              mPlane1Id, mPlane2Id);
+          break;
+        default:
+          printf_stderr(
+              "jamiedbg Unsupported RemoteDecoderVideoSubDescriptor type %d\n",
+              subDesc.type());
+          return;
+      }
+      break;
+    }
+    default:
+      printf_stderr("jamiedbg Unsupported SurfaceDescriptor type %d\n",
+                    desc->type());
+      break;
+  }
+
+  // RefPtr<gfx::SourceSurface> surface = aImage.GetAsSourceSurface();
+  // RefPtr<gfx::DataSourceSurface> dataSurface =
+  //     surface ? surface->GetDataSurface() : nullptr;
+  // if (dataSurface) {
+  //   printf_stderr("jamiedbg got source surface. isdata: %d\n",
+  //                 surface->IsDataSourceSurface());
+  //   gfx::DataSourceSurface::ScopedMap surface_map(dataSurface.get(),
+  //                                                 gfx::DataSourceSurface::READ);
+
+  //   auto shmem_handle = mozilla::ipc::shared_memory::Create(
+  //       surface_map.GetStride() * surface->GetSize().height);
+  //   auto shmem_map = shmem_handle.Map();
+  //   std::memcpy(shmem_map.DataAs<uint8_t>(), surface_map.GetData(),
+  //               shmem_handle.Size());
+
+  //   ipc::ByteBuf bb;
+  //   ffi::WGPUTexelCopyTextureInfo info = {
+  //       .texture = tex->mId,
+  //       .mip_level = 0,
+  //       .origin =
+  //           {
+  //               .x = 0,
+  //               .y = 0,
+  //               .z = 0,
+  //           },
+  //       .aspect = ffi::WGPUTextureAspect::WGPUTextureAspect_All,
+  //   };
+  //   uint32_t stride = surface_map.GetStride();
+  //   uint32_t height = surface->GetSize().height;
+  //   ffi::WGPUTexelCopyBufferLayout layout = {
+  //       .offset = 0,
+  //       .bytes_per_row = &stride,
+  //       .rows_per_image = &height,
+  //   };
+  //   ffi::WGPUExtent3d size = {
+  //       .width = tex->Width(),
+  //       .height = tex->Height(),
+  //       .depth_or_array_layers = 1,
+  //   };
+  //   ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
+  //   aParent->GetBridge()->SendQueueWriteAction(aParent->GetQueue()->mId,
+  //                                              aParent->mId, std::move(bb),
+  //                                              std::move(shmem_handle));
+  // } else {
+  //   printf_stderr("jamiedbg failed to get data source surface\n");
+  // }
 }
 
+ExtTex::ExtTex(Device* const aParent, RawId aId) : ChildOf(aParent), mId(aId) {
+  mPlane0Id =
+      ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
+  mPlane1Id =
+      ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
+  mPlane2Id =
+      ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
+}
+
+// FIXME: cleanup
 ExtTex::~ExtTex() = default;
 
 JSObject* ExtTex::WrapObject(JSContext* cx, JS ::Handle<JSObject*> givenProto) {

@@ -1497,14 +1497,11 @@ already_AddRefed<TextureClient> TextureClient::CreateForYCbCr(
     gfx::ColorDepth aColorDepth, gfx::YUVColorSpace aYUVColorSpace,
     gfx::ColorRange aColorRange, gfx::ChromaSubsampling aSubsampling,
     TextureFlags aTextureFlags) {
-  printf_stderr("jamiedbg TextureClient::CreateForYCbCr()\n");
   if (!aAllocator || !aAllocator->GetLayersIPCActor()->IPCOpen()) {
-    printf_stderr("jamiedbg IPC not open\n");
     return nullptr;
   }
 
   if (!gfx::Factory::AllowedSurfaceSize(aYSize)) {
-    printf_stderr("jamiedbg Invalid surface size\n");
     return nullptr;
   }
 

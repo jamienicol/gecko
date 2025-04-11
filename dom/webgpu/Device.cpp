@@ -554,14 +554,8 @@ already_AddRefed<BindGroup> Device::CreateBindGroup(
     } else if (entry.mResource.IsGPUSampler()) {
       e.sampler = entry.mResource.GetAsGPUSampler()->mId;
     } else if (entry.mResource.IsGPUExternalTexture()) {
-      const auto& extTex = entry.mResource.GetAsGPUExternalTexture();
       // FIXME: handle textureview resource being bound as externaltexture.
-      e.external_texture = ffi::WGPUExternalTextureBindGroupEntry{
-          .plane0 = extTex->mPlane0View->mId,
-          .plane1 = extTex->mPlane1View ? extTex->mPlane1View->mId : 0,
-          .plane2 = extTex->mPlane2View ? extTex->mPlane2View->mId : 0,
-          .params = extTex->mParamsBuffer->mId,
-      };
+      e.external_texture = entry.mResource.GetAsGPUExternalTexture()->mId;
     } else {
       // Not a buffer, nor a texture view, nor a sampler. If we pass
       // this to wgpu_client, it'll panic. Log a warning instead and

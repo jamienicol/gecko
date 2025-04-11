@@ -14,6 +14,7 @@
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageDataSerializer.h"
+#include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/layers/RemoteTextureMap.h"
 #include "mozilla/layers/TextureHost.h"
 #include "mozilla/layers/VideoBridgeParent.h"
@@ -21,6 +22,7 @@
 #include "mozilla/layers/WebRenderTextureHost.h"
 #include "mozilla/webgpu/ExternalTexture.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
+#include "mozilla/ToString.h"
 
 #if defined(XP_WIN)
 #  include "mozilla/gfx/DeviceManagerDx.h"
@@ -544,6 +546,87 @@ ipc::IPCResult WebGPUParent::RecvDeviceDrop(RawId aDeviceId) {
 
   mErrorScopeStackByDevice.erase(aDeviceId);
   mLostDeviceIds.Remove(aDeviceId);
+  return IPC_OK();
+}
+
+ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
+    RawId aDeviceId, RawId aQueueId, RawId aExternalTextureId,
+    layers::SurfaceDescriptor aSd, RawId aPlane0Id, RawId aPlane1Id,
+    RawId aPlane2Id) {
+  printf_stderr("jamiedbg WebGPUParent::RecvCreateExternalTexture()\n");
+  switch (aSd.type()) {
+    case layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo: {
+      printf_stderr("jamiedbg TSurfaceDescriptorGPUVideo\n");
+      layers::SurfaceDescriptorGPUVideo gpuVideoDesc =
+          aSd.get_SurfaceDescriptorGPUVideo();
+      if (gpuVideoDesc.type() !=
+          layers::SurfaceDescriptorGPUVideo::TSurfaceDescriptorRemoteDecoder) {
+        printf_stderr(
+            "jamiedbg gpuVideoDesc type %d is not "
+            "TSurfaceDescriptorRemoteDecoder\n",
+            gpuVideoDesc.type());
+        return IPC_OK();
+      }
+      layers::SurfaceDescriptorRemoteDecoder remoteDecoderDesc =
+          gpuVideoDesc.get_SurfaceDescriptorRemoteDecoder();
+      layers::RemoteDecoderVideoSubDescriptor subDesc =
+          remoteDecoderDesc.subdesc();
+      switch (subDesc.type()) {
+        case layers::RemoteDecoderVideoSubDescriptor::Tnull_t: {
+          printf_stderr("jamiedbg subDesc type is Tnull\n");
+          auto videoBridge = layers::VideoBridgeParent::GetSingleton(
+              remoteDecoderDesc.source());
+          RefPtr<layers::TextureHost> textureHost = videoBridge->LookupTexture(
+              mContentId, remoteDecoderDesc.handle());
+          printf_stderr("jamiedbg Got TextureHost %p\n", textureHost.get());
+
+          auto bufferHost = textureHost->AsBufferTextureHost();
+          if (!bufferHost) {
+            printf_stderr("Unsupported TextureHost type\n");
+            return IPC_OK();
+          }
+          printf_stderr("jamiedbg Got BufferTextureHost\n");
+          printf_stderr("jamiedbg format: %s\n",
+                        mozilla::ToString(bufferHost->GetFormat()).c_str());
+          printf_stderr("jamiedbg size: %s\n",
+                        mozilla::ToString(bufferHost->GetSize()).c_str());
+          printf_stderr("jamiedbg yuv color space: %d\n",
+                        bufferHost->GetYUVColorSpace());
+          printf_stderr("jamiedbg color depth: %d\n",
+                        bufferHost->GetColorDepth());
+          printf_stderr("jamiedbg color range: %d\n",
+                        bufferHost->GetColorRange());
+          printf_stderr("jamiedbg chroma subsampling: %d\n",
+                        bufferHost->GetChromaSubsampling());
+
+          printf_stderr("jamiedbg y data: %p\n", bufferHost->GetYChannel());
+          printf_stderr("jamiedbg y stride: %d\n", bufferHost->GetYStride());
+          printf_stderr("jamiedbg cb data: %p\n", bufferHost->GetCbChannel());
+          printf_stderr("jamiedbg cr data: %p\n", bufferHost->GetCrChannel());
+          printf_stderr("jamiedbg cbcr stride: %d\n",
+                        bufferHost->GetCbCrStride());
+
+          ErrorBuffer error;
+          ffi::wgpu_server_device_create_external_texture(
+              mContext.get(), aDeviceId, aQueueId, aExternalTextureId,
+              aPlane0Id, aPlane1Id, aPlane2Id, error.ToFFI());
+          ForwardError(aDeviceId, error);
+          break;
+        }
+        default:
+          printf_stderr(
+              "jamiedbg Unsupported RemoteDecoderVideoSubDescriptor type %d\n",
+              subDesc.type());
+          return IPC_OK();
+      }
+      break;
+    }
+    default:
+      printf_stderr("jamiedbg Unsupported SurfaceDescriptor type %d\n",
+                    aSd.type());
+      break;
+  }
+
   return IPC_OK();
 }
 
@@ -1818,19 +1901,6 @@ ipc::IPCResult WebGPUParent::RecvGenerateError(const Maybe<RawId> aDeviceId,
                                                const dom::GPUErrorFilter aType,
                                                const nsCString& aMessage) {
   ReportError(aDeviceId, aType, aMessage);
-  return IPC_OK();
-}
-
-ipc::IPCResult WebGPUParent::RecvCreateExternalTexture(
-    RawId aDeviceId, uint64_t aImageHandle,
-    Maybe<layers::VideoBridgeSource> aImageSource) {
-  auto vb = layers::VideoBridgeParent::GetSingleton(aImageSource);
-  printf_stderr("jamiedbg Got VideoBridgeParent %p\n", vb.get());
-  printf_stderr("jamiedbg Looking up handle %" PRIu64 "\n", aImageHandle);
-  RefPtr<layers::TextureHost> host =
-      vb->LookupTexture(mContentId, aImageHandle);
-  printf_stderr("jamiedbg Got host %p\n", host.get());
-
   return IPC_OK();
 }
 

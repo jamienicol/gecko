@@ -162,8 +162,8 @@ mod foreign {
             CreateComputePipelineError, CreateRenderPipelineError, CreateShaderModuleError,
         },
         resource::{
-            BufferAccessError, CreateBufferError, CreateQuerySetError, CreateSamplerError,
-            CreateTextureError, CreateTextureViewError, DestroyError,
+            BufferAccessError, CreateBufferError, CreateExternalTextureError, CreateQuerySetError,
+            CreateSamplerError, CreateTextureError, CreateTextureViewError, DestroyError,
         },
     };
     use wgt::RequestAdapterError;
@@ -260,6 +260,17 @@ mod foreign {
                 | CreateTextureError::MultisampledNotRenderAttachment
                 | CreateTextureError::MissingFeatures(_, _)
                 | CreateTextureError::MissingDownlevelFlags(_) => ErrorBufferType::Validation,
+
+                // N.B: forced non-exhaustiveness
+                _ => ErrorBufferType::Validation,
+            }
+        }
+    }
+
+    impl HasErrorBufferType for CreateExternalTextureError {
+        fn error_type(&self) -> ErrorBufferType {
+            match self {
+                CreateExternalTextureError::Device(e) => e.error_type(),
 
                 // N.B: forced non-exhaustiveness
                 _ => ErrorBufferType::Validation,
