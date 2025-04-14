@@ -630,7 +630,6 @@ pub unsafe extern "C" fn wgpu_server_set_device_lost_callback(
 pub unsafe extern "C" fn wgpu_server_device_create_external_texture(
     global: &Global,
     self_id: id::DeviceId,
-    queue_id: id::QueueId,
     external_texture_id: id::ExternalTextureId,
     plane0_id: id::TextureId,
     plane1_id: id::TextureId,
@@ -640,66 +639,7 @@ pub unsafe extern "C" fn wgpu_server_device_create_external_texture(
 ) {
     println!("wgpu_server_device_create_external_texture()");
 
-    // let utf8_label = label.map(|utf16| utf16.to_string());
-    // let label = utf8_label.as_ref().map(|s| Cow::from(&s[..]));
-    //
-
-    let plane_desc = wgt::TextureDescriptor {
-        label: None,
-        size: wgt::Extent3d {
-            width: 640,
-            height: 480,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgt::TextureDimension::D2,
-        format: wgt::TextureFormat::Rgba8Unorm,
-        usage: wgt::TextureUsages::TEXTURE_BINDING | wgt::TextureUsages::COPY_DST,
-        view_formats: vec![],
-    };
-    let create_plane = |plane_id| {
-        let (id, error) = global.device_create_texture(self_id, &plane_desc, Some(plane_id));
-        // FIXME: handle error
-        id
-    };
-    let plane0 = create_plane(plane0_id);
-    let plane1 = create_plane(plane1_id);
-    let plane2 = create_plane(plane2_id);
-    for (i, plane) in [plane0, plane1, plane2].iter().enumerate() {
-        let mut data: Vec<u8> = Vec::with_capacity(
-            4 * plane_desc.size.width as usize * plane_desc.size.height as usize,
-        );
-        for _ in 0..(plane_desc.size.width as usize * plane_desc.size.height as usize) {
-            match i {
-                0 => data.extend([0xFF, 0x00, 0x00, 0xFF]),
-                1 => data.extend([0x00, 0xFF, 0x00, 0xFF]),
-                2 => data.extend([0x00, 0x00, 0xFF, 0xFF]),
-                _ => unreachable!(),
-            }
-            
-        }
-        global
-            .queue_write_texture(
-                queue_id,
-                &wgt::TexelCopyTextureInfo {
-                    texture: *plane,
-                    mip_level: 0,
-                    origin: wgt::Origin3d { x: 0, y: 0, z: 0 },
-                    aspect: wgt::TextureAspect::All,
-                },
-                &data,
-                &wgt::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4 * plane_desc.size.width),
-                    rows_per_image: None,
-                },
-                &plane_desc.size,
-            )
-            .unwrap();
-    }
-
-    let planes = wgc::resource::ExternalTexturePlanes::Three(plane0, plane1, plane2);
+    let planes = wgc::resource::ExternalTexturePlanes::Three(plane0_id, plane1_id, plane2_id);
 
     let desc = wgc::resource::ExternalTextureDescriptor {
         // FIXME: pass label through
@@ -2428,6 +2368,25 @@ impl Global {
             }
         }
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wgpu_server_device_create_texture(
+    global: &Global,
+    self_id: id::DeviceId,
+    id_in: id::TextureId,
+    desc: wgt::TextureDescriptor<Option<&nsACString>, crate::FfiSlice<wgt::TextureFormat>>,
+    error_buf: ErrorBuffer,
+) {
+    let label = wgpu_string(desc.label);
+    let view_formats = unsafe { desc.view_formats.as_slice() }.to_vec();
+
+    let action = DeviceAction::CreateTexture(
+        id_in,
+        desc.map_label_and_view_formats(|_| label, |_| view_formats),
+        None,
+    );
+    global.device_action(self_id, action, error_buf);
 }
 
 #[no_mangle]

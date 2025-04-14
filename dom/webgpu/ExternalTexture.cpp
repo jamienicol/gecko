@@ -5,8 +5,6 @@
 
 #include "ExternalTexture.h"
 
-#include "GPUVideoImage.h"
-#include "mozilla/layers/GPUVideoTextureClient.h"
 #include "Queue.h"
 #include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/VideoFrame.h"
@@ -14,13 +12,11 @@
 #include "mozilla/gfx/2D.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/LayersSurfaces.h"
-#include "mozilla/layers/VideoBridgeUtils.h"
 #include "mozilla/webgpu/WebGPUParent.h"
 #include "mozilla/webgpu/WebGPUChild.h"
 #include "mozilla/webgpu/Buffer.h"
 #include "mozilla/webgpu/Texture.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
-#include "mozilla/ToString.h"
 
 #ifdef XP_WIN
 #  include "mozilla/webgpu/ExternalTextureD3D11.h"
@@ -66,26 +62,6 @@ void ExtTex::Init(layers::Image* aImage) {
     return;
   }
 
-  // dom::GPUTextureDescriptor texDesc;
-  // texDesc.mLabel = u"ext-tex"_ns;
-  // dom::OwningRangeEnforcedUnsignedLongSequenceOrGPUExtent3DDict size;
-  // (void)size.SetAsGPUExtent3DDict();
-  // size.GetAsGPUExtent3DDict().mWidth = aImage.GetSize().width;
-  // size.GetAsGPUExtent3DDict().mHeight = aImage.GetSize().height;
-  // size.GetAsGPUExtent3DDict().mDepthOrArrayLayers = 1;
-  // texDesc.mSize = size;
-  // texDesc.mMipLevelCount = 1;
-  // texDesc.mSampleCount = 1;
-  // texDesc.mFormat = dom::GPUTextureFormat::Bgra8unorm;
-  // texDesc.mUsage =
-  //     WGPUTextureUsages_TEXTURE_BINDING | WGPUTextureUsages_COPY_DST;
-  // // texDesc.mViewFormats = Sequence();
-  // RefPtr<Texture> tex = aParent->CreateTexture(texDesc);
-
-  // On my linux desktop the internal image type is PlanarYCbCrImage.
-  // On the webgpu samples videoUpload video at least.
-
-  printf_stderr("CreateFromImage() GPUVideoImage\n");
   Maybe<layers::SurfaceDescriptor> desc = aImage->GetDesc();
   if (!desc) {
     printf_stderr("jamiedbg Failed to get SurfaceDescriptor from Image\n");
@@ -109,12 +85,13 @@ void ExtTex::Init(layers::Image* aImage) {
       layers::RemoteDecoderVideoSubDescriptor subDesc =
           remoteDecoderDesc.subdesc();
       switch (subDesc.type()) {
-        case layers::RemoteDecoderVideoSubDescriptor::Tnull_t:
+        case layers::RemoteDecoderVideoSubDescriptor::Tnull_t: {
           printf_stderr("jamiedbg subDesc type is Tnull\n");
           mParent->GetBridge()->SendDeviceCreateExternalTexture(
               mParent->mId, mParent->GetQueue()->mId, mId, *desc, mPlane0Id,
               mPlane1Id, mPlane2Id);
           break;
+        }
         default:
           printf_stderr(
               "jamiedbg Unsupported RemoteDecoderVideoSubDescriptor type %d\n",
@@ -128,53 +105,6 @@ void ExtTex::Init(layers::Image* aImage) {
                     desc->type());
       break;
   }
-
-  // RefPtr<gfx::SourceSurface> surface = aImage.GetAsSourceSurface();
-  // RefPtr<gfx::DataSourceSurface> dataSurface =
-  //     surface ? surface->GetDataSurface() : nullptr;
-  // if (dataSurface) {
-  //   printf_stderr("jamiedbg got source surface. isdata: %d\n",
-  //                 surface->IsDataSourceSurface());
-  //   gfx::DataSourceSurface::ScopedMap surface_map(dataSurface.get(),
-  //                                                 gfx::DataSourceSurface::READ);
-
-  //   auto shmem_handle = mozilla::ipc::shared_memory::Create(
-  //       surface_map.GetStride() * surface->GetSize().height);
-  //   auto shmem_map = shmem_handle.Map();
-  //   std::memcpy(shmem_map.DataAs<uint8_t>(), surface_map.GetData(),
-  //               shmem_handle.Size());
-
-  //   ipc::ByteBuf bb;
-  //   ffi::WGPUTexelCopyTextureInfo info = {
-  //       .texture = tex->mId,
-  //       .mip_level = 0,
-  //       .origin =
-  //           {
-  //               .x = 0,
-  //               .y = 0,
-  //               .z = 0,
-  //           },
-  //       .aspect = ffi::WGPUTextureAspect::WGPUTextureAspect_All,
-  //   };
-  //   uint32_t stride = surface_map.GetStride();
-  //   uint32_t height = surface->GetSize().height;
-  //   ffi::WGPUTexelCopyBufferLayout layout = {
-  //       .offset = 0,
-  //       .bytes_per_row = &stride,
-  //       .rows_per_image = &height,
-  //   };
-  //   ffi::WGPUExtent3d size = {
-  //       .width = tex->Width(),
-  //       .height = tex->Height(),
-  //       .depth_or_array_layers = 1,
-  //   };
-  //   ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
-  //   aParent->GetBridge()->SendQueueWriteAction(aParent->GetQueue()->mId,
-  //                                              aParent->mId, std::move(bb),
-  //                                              std::move(shmem_handle));
-  // } else {
-  //   printf_stderr("jamiedbg failed to get data source surface\n");
-  // }
 }
 
 ExtTex::ExtTex(Device* const aParent, RawId aId) : ChildOf(aParent), mId(aId) {

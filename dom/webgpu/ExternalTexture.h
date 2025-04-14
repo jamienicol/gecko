@@ -53,16 +53,9 @@ class ExtTex : public ObjectBase, public ChildOf<Device> {
   static already_AddRefed<ExtTex> CreateFromHTMLVideoElement(
       Device* const aParent, dom::HTMLVideoElement& aVideoElement);
 
-  RawId mPlane0Id;
-  RawId mPlane1Id;
-  RawId mPlane2Id;
-  // RefPtr<Texture> mPlane0;
-  // RefPtr<TextureView> mPlane0View;
-  // RefPtr<Texture> mPlane1;
-  // RefPtr<TextureView> mPlane1View;
-  // RefPtr<Texture> mPlane2;
-  // RefPtr<TextureView> mPlane2View;
-  // RefPtr<Buffer> mParamsBuffer;
+  RawId mPlane0Id = 0;
+  RawId mPlane1Id = 0;
+  RawId mPlane2Id = 0;
 
  private:
   ~ExtTex();

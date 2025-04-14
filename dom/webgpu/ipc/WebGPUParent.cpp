@@ -11,6 +11,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/FileHandleWrapper.h"
+#include "mozilla/gfx/Types.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageDataSerializer.h"
@@ -607,9 +608,126 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
                         bufferHost->GetCbCrStride());
 
           ErrorBuffer error;
+
+          ffi::WGPUTextureDescriptor yDesc{
+              .size =
+                  ffi::WGPUExtent3d{
+                      .width =
+                          static_cast<uint32_t>(bufferHost->GetSize().width),
+                      .height =
+                          static_cast<uint32_t>(bufferHost->GetSize().height),
+                      .depth_or_array_layers = 1,
+                  },
+              .mip_level_count = 1,
+              .sample_count = 1,
+              .dimension = ffi::WGPUTextureDimension_D2,
+              .format =
+                  ffi::WGPUTextureFormat{
+                      .tag = ffi::WGPUTextureFormat_R8Unorm,
+                  },
+              .usage = WGPUTextureUsages_TEXTURE_BINDING |
+                       WGPUTextureUsages_COPY_DST,
+          };
+
+          ffi::wgpu_server_device_create_texture(
+              mContext.get(), aDeviceId, aPlane0Id, yDesc, error.ToFFI());
+          ForwardError(aDeviceId, error);
+
+          auto uvSize = gfx::ChromaSize(bufferHost->GetSize(),
+                                        bufferHost->GetChromaSubsampling());
+          ffi::WGPUTextureDescriptor uvDesc{
+              .size =
+                  ffi::WGPUExtent3d{
+                      .width = static_cast<uint32_t>(uvSize.width),
+                      .height = static_cast<uint32_t>(uvSize.height),
+                      .depth_or_array_layers = 1,
+                  },
+              .mip_level_count = 1,
+              .sample_count = 1,
+              .dimension = ffi::WGPUTextureDimension_D2,
+              .format =
+                  ffi::WGPUTextureFormat{
+                      .tag = ffi::WGPUTextureFormat_R8Unorm,
+                  },
+              .usage = WGPUTextureUsages_TEXTURE_BINDING |
+                       WGPUTextureUsages_COPY_DST,
+          };
+          ffi::wgpu_server_device_create_texture(
+              mContext.get(), aDeviceId, aPlane1Id, uvDesc, error.ToFFI());
+          ForwardError(aDeviceId, error);
+          ffi::wgpu_server_device_create_texture(
+              mContext.get(), aDeviceId, aPlane2Id, uvDesc, error.ToFFI());
+          ForwardError(aDeviceId, error);
+
+          {
+            uint32_t y_stride = static_cast<uint32_t>(bufferHost->GetYStride());
+            ffi::WGPUTexelCopyTextureInfo info{
+                .texture = aPlane0Id,
+                .mip_level = 0,
+                .origin = ffi::WGPUOrigin3d{.x = 0, .y = 0, .z = 0},
+                .aspect = ffi::WGPUTextureAspect_All,
+            };
+            ffi::WGPUTexelCopyBufferLayout layout{
+                .offset = 0,
+                .bytes_per_row = &y_stride,
+                .rows_per_image = nullptr,
+            };
+            ffi::WGPUExtent3d size{
+                .width = static_cast<uint32_t>(bufferHost->GetSize().width),
+                .height = static_cast<uint32_t>(bufferHost->GetSize().height),
+                .depth_or_array_layers = 1,
+            };
+            ipc::ByteBuf bb;
+            ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
+            ffi::wgpu_server_queue_write_action(
+                mContext.get(), aQueueId, ToFFI(&bb), bufferHost->GetYChannel(),
+                bufferHost->GetYStride() * bufferHost->GetSize().height,
+                error.ToFFI());
+            ForwardError(aDeviceId, error);
+          }
+
+          {
+            uint32_t uv_stride =
+                static_cast<uint32_t>(bufferHost->GetCbCrStride());
+            auto uvSize = gfx::ChromaSize(bufferHost->GetSize(),
+                                          bufferHost->GetChromaSubsampling());
+            ffi::WGPUTexelCopyTextureInfo info{
+                .texture = aPlane1Id,
+                .mip_level = 0,
+                .origin = ffi::WGPUOrigin3d{.x = 0, .y = 0, .z = 0},
+                .aspect = ffi::WGPUTextureAspect_All,
+            };
+            ffi::WGPUTexelCopyBufferLayout layout{
+                .offset = 0,
+                .bytes_per_row = &uv_stride,
+                .rows_per_image = nullptr,
+            };
+            ffi::WGPUExtent3d size{
+                .width = static_cast<uint32_t>(uvSize.width),
+                .height = static_cast<uint32_t>(uvSize.height),
+                .depth_or_array_layers = 1,
+            };
+            ipc::ByteBuf bb;
+            ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
+            ffi::wgpu_server_queue_write_action(
+                mContext.get(), aQueueId, ToFFI(&bb),
+                bufferHost->GetCbChannel(),
+                bufferHost->GetCbCrStride() * uvSize.height, error.ToFFI());
+            ForwardError(aDeviceId, error);
+
+            info.texture = aPlane2Id;
+            ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
+            ffi::wgpu_server_queue_write_action(
+                mContext.get(), aQueueId, ToFFI(&bb),
+                bufferHost->GetCrChannel(),
+                bufferHost->GetCbCrStride() * uvSize.height, error.ToFFI());
+
+            ForwardError(aDeviceId, error);
+          }
+
           ffi::wgpu_server_device_create_external_texture(
-              mContext.get(), aDeviceId, aQueueId, aExternalTextureId,
-              aPlane0Id, aPlane1Id, aPlane2Id, error.ToFFI());
+              mContext.get(), aDeviceId, aExternalTextureId, aPlane0Id,
+              aPlane1Id, aPlane2Id, error.ToFFI());
           ForwardError(aDeviceId, error);
           break;
         }
