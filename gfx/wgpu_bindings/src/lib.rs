@@ -198,7 +198,6 @@ enum DropAction {
     Buffer(id::BufferId),
     Texture(id::TextureId),
     TextureView(id::TextureViewId),
-    ExternalTexture(id::ExternalTextureId),
     Sampler(id::SamplerId),
 }
 

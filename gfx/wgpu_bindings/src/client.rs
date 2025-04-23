@@ -230,25 +230,46 @@ pub struct BindGroupLayoutDescriptor<'a> {
     entries_length: usize,
 }
 
+// #[repr(C)]
+// #[derive(Debug)]
+// pub struct ExternalTextureBindGroupEntry {
+//     planes: [id::TextureViewId; 3],
+//     params: id::BufferId,
+// }
+
+// #[repr(C)]
+// #[derive(Debug)]
+// pub struct BindGroupEntry {
+//     binding: u32,
+//     buffer: Option<id::BufferId>,
+//     offset: wgt::BufferAddress,
+//     size: Option<wgt::BufferSize>,
+//     sampler: Option<id::SamplerId>,
+//     texture_view: Option<id::TextureViewId>,
+//     external_texture: ExternalTextureBindGroupEntry,
+// }
+
 #[repr(C)]
 #[derive(Debug)]
-pub struct ExternalTextureBindGroupEntry {
-    plane0: Option<id::TextureViewId>,
-    plane1: Option<id::TextureViewId>,
-    plane2: Option<id::TextureViewId>,
-    params: id::BufferId,
+pub enum BindGroupEntryResource {
+    Buffer {
+        id: id::BufferId,
+        offset: wgt::BufferAddress,
+        size: Option<wgt::BufferSize>,
+    },
+    Sampler(id::SamplerId),
+    Texture(id::TextureViewId),
+    ExternalTexture {
+        planes: [id::TextureViewId; 3],
+        params: id::BufferId,
+    },
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct BindGroupEntry {
     binding: u32,
-    buffer: Option<id::BufferId>,
-    offset: wgt::BufferAddress,
-    size: Option<wgt::BufferSize>,
-    sampler: Option<id::SamplerId>,
-    texture_view: Option<id::TextureViewId>,
-    external_texture: Option<id::ExternalTextureId>,
+    resource: BindGroupEntryResource,
 }
 
 #[repr(C)]
@@ -318,7 +339,6 @@ struct IdentityHub {
     render_pipelines: IdentityManager<markers::RenderPipeline>,
     textures: IdentityManager<markers::Texture>,
     texture_views: IdentityManager<markers::TextureView>,
-    external_textures: IdentityManager<markers::ExternalTexture>,
     samplers: IdentityManager<markers::Sampler>,
     query_sets: IdentityManager<markers::QuerySet>,
 }
@@ -340,7 +360,6 @@ impl Default for IdentityHub {
             render_pipelines: IdentityManager::new(),
             textures: IdentityManager::new(),
             texture_views: IdentityManager::new(),
-            external_textures: IdentityManager::new(),
             samplers: IdentityManager::new(),
             query_sets: IdentityManager::new(),
         }
@@ -384,7 +403,6 @@ pub unsafe extern "C" fn wgpu_client_drop_action(client: &mut Client, byte_buf: 
             DropAction::Buffer(id) => identities.buffers.free(id),
             DropAction::Texture(id) => identities.textures.free(id),
             DropAction::TextureView(id) => identities.texture_views.free(id),
-            DropAction::ExternalTexture(id) => identities.external_textures.free(id),
             DropAction::Sampler(id) => identities.samplers.free(id),
         }
     }
@@ -619,16 +637,6 @@ pub extern "C" fn wgpu_client_create_texture_view(
 #[no_mangle]
 pub extern "C" fn wgpu_client_free_texture_view_id(client: &Client, id: id::TextureViewId) {
     client.identities.lock().texture_views.free(id)
-}
-
-#[no_mangle]
-pub extern "C" fn wgpu_client_make_external_texture_id(client: &Client) -> id::ExternalTextureId {
-    client.identities.lock().external_textures.process()
-}
-
-#[no_mangle]
-pub extern "C" fn wgpu_client_free_external_texture_id(client: &Client, id: id::ExternalTextureId) {
-    client.identities.lock().external_textures.free(id)
 }
 
 #[no_mangle]
@@ -1128,20 +1136,30 @@ pub unsafe extern "C" fn wgpu_client_create_bind_group(
     for entry in make_slice(desc.entries, desc.entries_length) {
         entries.push(wgc::binding_model::BindGroupEntry {
             binding: entry.binding,
-            resource: if let Some(id) = entry.buffer {
-                wgc::binding_model::BindingResource::Buffer(wgc::binding_model::BufferBinding {
-                    buffer: id,
-                    offset: entry.offset,
-                    size: entry.size,
-                })
-            } else if let Some(id) = entry.sampler {
-                wgc::binding_model::BindingResource::Sampler(id)
-            } else if let Some(id) = entry.texture_view {
-                wgc::binding_model::BindingResource::TextureView(id)
-            } else if let Some(id) = entry.external_texture {
-                wgc::binding_model::BindingResource::ExternalTexture(id)
-            } else {
-                panic!("Unexpected binding entry {:?}", entry);
+            resource: match entry.resource {
+                BindGroupEntryResource::Buffer { id, offset, size } => {
+                    wgc::binding_model::BindingResource::Buffer(wgc::binding_model::BufferBinding {
+                        buffer: id,
+                        offset,
+                        size,
+                    })
+                }
+                BindGroupEntryResource::Sampler(id) => {
+                    wgc::binding_model::BindingResource::Sampler(id)
+                }
+                BindGroupEntryResource::Texture(id) => {
+                    wgc::binding_model::BindingResource::TextureView(id)
+                }
+                BindGroupEntryResource::ExternalTexture { planes, params } => {
+                    wgc::binding_model::BindingResource::ExternalTexture {
+                        planes,
+                        params: wgc::binding_model::BufferBinding {
+                            buffer: params,
+                            offset: 0,
+                            size: None,
+                        },
+                    }
+                }
             },
         });
     }

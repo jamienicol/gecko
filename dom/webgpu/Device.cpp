@@ -273,7 +273,8 @@ already_AddRefed<ExtTex> Device::ImportExternalTexture(
     // with device this and the following steps:
     // 1. Set result.[[expired]] to true, releasing ownership of the underlying
     // resource.
-    return ExtTex::CreateFromHTMLVideoElement(this, aDesc.mSource.GetAsHTMLVideoElement());
+    return ExtTex::CreateFromHTMLVideoElement(
+        this, aDesc.mSource.GetAsHTMLVideoElement());
   } else {
     return ExtTex::CreateFromVideoFrame(this, aDesc.mSource.GetAsVideoFrame());
   }
@@ -535,7 +536,8 @@ already_AddRefed<PipelineLayout> Device::CreatePipelineLayout(
 
 already_AddRefed<BindGroup> Device::CreateBindGroup(
     const dom::GPUBindGroupDescriptor& aDesc) {
-        // printf_stderr("jamiedbg Device::CreateBindGroup() bgl id: %" PRIu64 "\n", aDesc.mLayout);
+  // printf_stderr("jamiedbg Device::CreateBindGroup() bgl id: %" PRIu64 "\n",
+  // aDesc.mLayout);
   nsTArray<ffi::WGPUBindGroupEntry> entries(aDesc.mEntries.Length());
   for (const auto& entry : aDesc.mEntries) {
     ffi::WGPUBindGroupEntry e = {};
@@ -546,16 +548,28 @@ already_AddRefed<BindGroup> Device::CreateBindGroup(
         NS_WARNING("Buffer binding has no id -- ignoring.");
         continue;
       }
-      e.buffer = bufBinding.mBuffer->mId;
-      e.offset = bufBinding.mOffset;
-      e.size = bufBinding.mSize.WasPassed() ? bufBinding.mSize.Value() : 0;
+      e.resource.tag = ffi::WGPUBindGroupEntryResource_Buffer;
+      e.resource.buffer = ffi::WGPUBindGroupEntryResource_WGPUBuffer_Body{
+          .id = bufBinding.mBuffer->mId,
+          .offset = bufBinding.mOffset,
+          .size = bufBinding.mSize.WasPassed() ? bufBinding.mSize.Value() : 0,
+      };
     } else if (entry.mResource.IsGPUTextureView()) {
-      e.texture_view = entry.mResource.GetAsGPUTextureView()->mId;
+      e.resource.tag = ffi::WGPUBindGroupEntryResource_Texture;
+      e.resource.texture = entry.mResource.GetAsGPUTextureView()->mId;
     } else if (entry.mResource.IsGPUSampler()) {
-      e.sampler = entry.mResource.GetAsGPUSampler()->mId;
+      e.resource.tag = ffi::WGPUBindGroupEntryResource_Sampler;
+      e.resource.sampler = entry.mResource.GetAsGPUSampler()->mId;
     } else if (entry.mResource.IsGPUExternalTexture()) {
+      auto ext = entry.mResource.GetAsGPUExternalTexture();
+      e.resource.tag = ffi::WGPUBindGroupEntryResource_ExternalTexture;
       // FIXME: handle textureview resource being bound as externaltexture.
-      e.external_texture = entry.mResource.GetAsGPUExternalTexture()->mId;
+      e.resource.external_texture =
+          ffi::WGPUBindGroupEntryResource_WGPUExternalTexture_Body{
+              .planes = {ext->mPlane0ViewId, ext->mPlane1ViewId,
+                         ext->mPlane2ViewId},
+              .params = ext->mParamsId,
+          };
     } else {
       // Not a buffer, nor a texture view, nor a sampler. If we pass
       // this to wgpu_client, it'll panic. Log a warning instead and

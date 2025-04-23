@@ -44,18 +44,21 @@ class ExtTex : public ObjectBase, public ChildOf<Device> {
   GPU_DECL_CYCLE_COLLECTION(ExtTex)
   GPU_DECL_JS_WRAP(ExtTex)
 
-  explicit ExtTex(Device* const aParent, RawId aId);
+  explicit ExtTex(Device* const aParent);
   Device* GetDevice() { return mParent; }
-  const RawId mId;
 
   static already_AddRefed<ExtTex> CreateFromVideoFrame(
       Device* const aParent, dom::VideoFrame& aVideoFrame);
   static already_AddRefed<ExtTex> CreateFromHTMLVideoElement(
       Device* const aParent, dom::HTMLVideoElement& aVideoElement);
 
-  RawId mPlane0Id = 0;
-  RawId mPlane1Id = 0;
-  RawId mPlane2Id = 0;
+  RawId mPlane0TextureId = 0;
+  RawId mPlane1TextureId = 0;
+  RawId mPlane2TextureId = 0;
+  RawId mPlane0ViewId = 0;
+  RawId mPlane1ViewId = 0;
+  RawId mPlane2ViewId = 0;
+  RawId mParamsId = 0;
 
  private:
   ~ExtTex();

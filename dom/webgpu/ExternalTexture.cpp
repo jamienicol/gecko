@@ -10,6 +10,7 @@
 #include "mozilla/dom/VideoFrame.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/ipc/ByteBuf.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/webgpu/WebGPUParent.h"
@@ -36,9 +37,7 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 
 /* static */ already_AddRefed<ExtTex> ExtTex::CreateFromVideoFrame(
     Device* const aParent, dom::VideoFrame& aVideoFrame) {
-  RawId id = ffi::wgpu_client_make_external_texture_id(
-      aParent->GetBridge()->GetClient());
-  RefPtr<ExtTex> extTex = new ExtTex(aParent, id);
+  RefPtr<ExtTex> extTex = new ExtTex(aParent);
 
   RefPtr<layers::Image> image = aVideoFrame.GetImage();
   extTex->Init(image);
@@ -47,9 +46,7 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 
 /* static */ already_AddRefed<ExtTex> ExtTex::CreateFromHTMLVideoElement(
     Device* const aParent, dom::HTMLVideoElement& aVideoElement) {
-  RawId id = ffi::wgpu_client_make_external_texture_id(
-      aParent->GetBridge()->GetClient());
-  RefPtr<ExtTex> extTex = new ExtTex(aParent, id);
+  RefPtr<ExtTex> extTex = new ExtTex(aParent);
 
   RefPtr<layers::Image> image = aVideoElement.GetCurrentImage();
   extTex->Init(image);
@@ -88,8 +85,57 @@ void ExtTex::Init(layers::Image* aImage) {
         case layers::RemoteDecoderVideoSubDescriptor::Tnull_t: {
           printf_stderr("jamiedbg subDesc type is Tnull\n");
           mParent->GetBridge()->SendDeviceCreateExternalTexture(
-              mParent->mId, mParent->GetQueue()->mId, mId, *desc, mPlane0Id,
-              mPlane1Id, mPlane2Id);
+              mParent->mId, mParent->GetQueue()->mId, *desc, mPlane0TextureId,
+              mPlane1TextureId, mPlane2TextureId, mParamsId);
+          
+          {
+              ipc::ByteBuf bb;
+              ffi::WGPUTextureViewDescriptor desc = {
+                  // .label
+                  .format = nullptr,
+                  .dimension = nullptr,
+                  .aspect = ffi::WGPUTextureAspect_All,
+                  .base_mip_level = 0,
+                  .mip_level_count = nullptr,
+                  .base_array_layer = 0,
+                  .array_layer_count = nullptr,
+              };
+              mPlane0ViewId = ffi::wgpu_client_create_texture_view(mParent->GetBridge()->GetClient(),
+                  &desc, ToFFI(&bb));
+              mParent->GetBridge()->SendTextureAction(mPlane0TextureId, mParent->mId, std::move(bb));
+          }
+          {
+              ipc::ByteBuf bb;
+              ffi::WGPUTextureViewDescriptor desc = {
+                  // .label
+                  .format = nullptr,
+                  .dimension = nullptr,
+                  .aspect = ffi::WGPUTextureAspect_All,
+                  .base_mip_level = 0,
+                  .mip_level_count = nullptr,
+                  .base_array_layer = 0,
+                  .array_layer_count = nullptr,
+              };
+              mPlane1ViewId = ffi::wgpu_client_create_texture_view(mParent->GetBridge()->GetClient(),
+                  &desc, ToFFI(&bb));
+              mParent->GetBridge()->SendTextureAction(mPlane1TextureId, mParent->mId, std::move(bb));
+          }
+          {
+              ipc::ByteBuf bb;
+              ffi::WGPUTextureViewDescriptor desc = {
+                  // .label
+                  .format = nullptr,
+                  .dimension = nullptr,
+                  .aspect = ffi::WGPUTextureAspect_All,
+                  .base_mip_level = 0,
+                  .mip_level_count = nullptr,
+                  .base_array_layer = 0,
+                  .array_layer_count = nullptr,
+              };
+              mPlane2ViewId = ffi::wgpu_client_create_texture_view(mParent->GetBridge()->GetClient(),
+                  &desc, ToFFI(&bb));
+              mParent->GetBridge()->SendTextureAction(mPlane2TextureId, mParent->mId, std::move(bb));
+          }
           break;
         }
         default:
@@ -107,13 +153,14 @@ void ExtTex::Init(layers::Image* aImage) {
   }
 }
 
-ExtTex::ExtTex(Device* const aParent, RawId aId) : ChildOf(aParent), mId(aId) {
-  mPlane0Id =
+ExtTex::ExtTex(Device* const aParent) : ChildOf(aParent) {
+  mPlane0TextureId =
       ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
-  mPlane1Id =
+  mPlane1TextureId =
       ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
-  mPlane2Id =
+  mPlane2TextureId =
       ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
+  mParamsId = ffi::wgpu_client_make_buffer_id(aParent->GetBridge()->GetClient());
 }
 
 // FIXME: cleanup

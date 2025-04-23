@@ -12,6 +12,7 @@
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/gfx/FileHandleWrapper.h"
 #include "mozilla/gfx/Types.h"
+#include "mozilla/ipc/ByteBuf.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageDataSerializer.h"
@@ -551,9 +552,8 @@ ipc::IPCResult WebGPUParent::RecvDeviceDrop(RawId aDeviceId) {
 }
 
 ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
-    RawId aDeviceId, RawId aQueueId, RawId aExternalTextureId,
-    layers::SurfaceDescriptor aSd, RawId aPlane0Id, RawId aPlane1Id,
-    RawId aPlane2Id) {
+    RawId aDeviceId, RawId aQueueId, layers::SurfaceDescriptor aSd,
+    RawId aPlane0Id, RawId aPlane1Id, RawId aPlane2Id, RawId aParamsId) {
   printf_stderr("jamiedbg WebGPUParent::RecvCreateExternalTexture()\n");
   switch (aSd.type()) {
     case layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo: {
@@ -725,10 +725,18 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
             ForwardError(aDeviceId, error);
           }
 
-          ffi::wgpu_server_device_create_external_texture(
-              mContext.get(), aDeviceId, aExternalTextureId, aPlane0Id,
-              aPlane1Id, aPlane2Id, error.ToFFI());
-          ForwardError(aDeviceId, error);
+          {
+            ipc::ByteBuf bb;
+            ffi::wgpu_server_device_create_buffer(
+                mContext.get(), aDeviceId, aParamsId,
+                // fixme: add label
+                nullptr,
+                // fixme: get correct size from somewhere
+                68, WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST,
+                /* mapped_at_creation */ false,
+                /* shm_allocation_failed */ false, error.ToFFI());
+            ForwardError(aDeviceId, error);
+          }
           break;
         }
         default:

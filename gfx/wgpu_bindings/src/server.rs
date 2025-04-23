@@ -626,33 +626,6 @@ pub unsafe extern "C" fn wgpu_server_set_device_lost_callback(
     global.device_set_device_lost_closure(self_id, closure);
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn wgpu_server_device_create_external_texture(
-    global: &Global,
-    self_id: id::DeviceId,
-    external_texture_id: id::ExternalTextureId,
-    plane0_id: id::TextureId,
-    plane1_id: id::TextureId,
-    plane2_id: id::TextureId,
-    // label: Option<&nsACString>,
-    mut error_buf: ErrorBuffer,
-) {
-    println!("wgpu_server_device_create_external_texture()");
-
-    let planes = wgc::resource::ExternalTexturePlanes::Three(plane0_id, plane1_id, plane2_id);
-
-    let desc = wgc::resource::ExternalTextureDescriptor {
-        // FIXME: pass label through
-        label: None,
-    };
-
-    let (_, error) =
-        global.device_create_external_texture(self_id, &desc, planes, Some(external_texture_id));
-    if let Some(err) = error {
-        error_buf.init(err);
-    }
-}
-
 impl ShaderModuleCompilationMessage {
     fn set_error(&mut self, error: &CreateShaderModuleError, source: &str) {
         // The WebGPU spec says that if the message doesn't point to a particular position in
