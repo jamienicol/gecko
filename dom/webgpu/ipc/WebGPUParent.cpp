@@ -721,7 +721,6 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
                 mContext.get(), aQueueId, ToFFI(&bb),
                 bufferHost->GetCrChannel(),
                 bufferHost->GetCbCrStride() * uvSize.height, error.ToFFI());
-
             ForwardError(aDeviceId, error);
           }
 
@@ -735,6 +734,28 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
                 68, WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST,
                 /* mapped_at_creation */ false,
                 /* shm_allocation_failed */ false, error.ToFFI());
+            ForwardError(aDeviceId, error);
+          }
+
+          {
+            struct Params {
+              float yuv_conversion_matrix[16];
+              uint32_t num_planes;
+            };
+            const Params params = {
+                .yuv_conversion_matrix = {1.164383f, 1.164383f, 1.164383f,
+                                          0.000000f, 0.000000f, -0.391762f,
+                                          2.017232f, 0.000000f, 1.596027f,
+                                          -0.812968f, 0.000000f, 0.000000f,
+                                          -0.870752f, 0.529593f, -1.081389f,
+                                          1.000000f},
+                .num_planes = 3,
+            };
+            ipc::ByteBuf bb;
+            ffi::wgpu_queue_write_buffer(aParamsId, 0, ToFFI(&bb));
+            ffi::wgpu_server_queue_write_action(mContext.get(), aQueueId,
+                                                ToFFI(&bb), (uint8_t*)&params,
+                                                sizeof params, error.ToFFI());
             ForwardError(aDeviceId, error);
           }
           break;
