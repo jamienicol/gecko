@@ -4401,6 +4401,11 @@ version = "0.5.0"
 notes = "I looked through all the sources of the v0.5.0 crate."
 
 [[audits.raw-window-handle]]
+who = "Jamie Nicol <jnicol@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.6.2"
+
+[[audits.raw-window-handle]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.0 -> 0.5.2"
