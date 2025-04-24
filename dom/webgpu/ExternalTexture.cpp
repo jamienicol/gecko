@@ -87,54 +87,115 @@ void ExtTex::Init(layers::Image* aImage) {
           mParent->GetBridge()->SendDeviceCreateExternalTexture(
               mParent->mId, mParent->GetQueue()->mId, *desc, mPlane0TextureId,
               mPlane1TextureId, mPlane2TextureId, mParamsId);
-          
+
           {
-              ipc::ByteBuf bb;
-              ffi::WGPUTextureViewDescriptor desc = {
-                  // .label
-                  .format = nullptr,
-                  .dimension = nullptr,
-                  .aspect = ffi::WGPUTextureAspect_All,
-                  .base_mip_level = 0,
-                  .mip_level_count = nullptr,
-                  .base_array_layer = 0,
-                  .array_layer_count = nullptr,
-              };
-              mPlane0ViewId = ffi::wgpu_client_create_texture_view(mParent->GetBridge()->GetClient(),
-                  &desc, ToFFI(&bb));
-              mParent->GetBridge()->SendTextureAction(mPlane0TextureId, mParent->mId, std::move(bb));
+            ipc::ByteBuf bb;
+            ffi::WGPUTextureViewDescriptor desc = {
+                // .label
+                .format = nullptr,
+                .dimension = nullptr,
+                .aspect = ffi::WGPUTextureAspect_All,
+                .base_mip_level = 0,
+                .mip_level_count = nullptr,
+                .base_array_layer = 0,
+                .array_layer_count = nullptr,
+            };
+            mPlane0ViewId = ffi::wgpu_client_create_texture_view(
+                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
+            mParent->GetBridge()->SendTextureAction(
+                mPlane0TextureId, mParent->mId, std::move(bb));
           }
           {
-              ipc::ByteBuf bb;
-              ffi::WGPUTextureViewDescriptor desc = {
-                  // .label
-                  .format = nullptr,
-                  .dimension = nullptr,
-                  .aspect = ffi::WGPUTextureAspect_All,
-                  .base_mip_level = 0,
-                  .mip_level_count = nullptr,
-                  .base_array_layer = 0,
-                  .array_layer_count = nullptr,
-              };
-              mPlane1ViewId = ffi::wgpu_client_create_texture_view(mParent->GetBridge()->GetClient(),
-                  &desc, ToFFI(&bb));
-              mParent->GetBridge()->SendTextureAction(mPlane1TextureId, mParent->mId, std::move(bb));
+            ipc::ByteBuf bb;
+            ffi::WGPUTextureViewDescriptor desc = {
+                // .label
+                .format = nullptr,
+                .dimension = nullptr,
+                .aspect = ffi::WGPUTextureAspect_All,
+                .base_mip_level = 0,
+                .mip_level_count = nullptr,
+                .base_array_layer = 0,
+                .array_layer_count = nullptr,
+            };
+            mPlane1ViewId = ffi::wgpu_client_create_texture_view(
+                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
+            mParent->GetBridge()->SendTextureAction(
+                mPlane1TextureId, mParent->mId, std::move(bb));
           }
           {
-              ipc::ByteBuf bb;
-              ffi::WGPUTextureViewDescriptor desc = {
-                  // .label
-                  .format = nullptr,
-                  .dimension = nullptr,
-                  .aspect = ffi::WGPUTextureAspect_All,
-                  .base_mip_level = 0,
-                  .mip_level_count = nullptr,
-                  .base_array_layer = 0,
-                  .array_layer_count = nullptr,
-              };
-              mPlane2ViewId = ffi::wgpu_client_create_texture_view(mParent->GetBridge()->GetClient(),
-                  &desc, ToFFI(&bb));
-              mParent->GetBridge()->SendTextureAction(mPlane2TextureId, mParent->mId, std::move(bb));
+            ipc::ByteBuf bb;
+            ffi::WGPUTextureViewDescriptor desc = {
+                // .label
+                .format = nullptr,
+                .dimension = nullptr,
+                .aspect = ffi::WGPUTextureAspect_All,
+                .base_mip_level = 0,
+                .mip_level_count = nullptr,
+                .base_array_layer = 0,
+                .array_layer_count = nullptr,
+            };
+            mPlane2ViewId = ffi::wgpu_client_create_texture_view(
+                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
+            mParent->GetBridge()->SendTextureAction(
+                mPlane2TextureId, mParent->mId, std::move(bb));
+          }
+          break;
+        }
+        case layers::RemoteDecoderVideoSubDescriptor::
+            TSurfaceDescriptorDMABuf: {
+          mParent->GetBridge()->SendDeviceCreateExternalTexture(
+              mParent->mId, mParent->GetQueue()->mId, *desc, mPlane0TextureId,
+              mPlane1TextureId, mPlane2TextureId, mParamsId);
+          {
+            ipc::ByteBuf bb;
+            ffi::WGPUTextureViewDescriptor desc = {
+                // .label
+                .format = nullptr,
+                .dimension = nullptr,
+                .aspect = ffi::WGPUTextureAspect_All,
+                .base_mip_level = 0,
+                .mip_level_count = nullptr,
+                .base_array_layer = 0,
+                .array_layer_count = nullptr,
+            };
+            mPlane0ViewId = ffi::wgpu_client_create_texture_view(
+                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
+            mParent->GetBridge()->SendTextureAction(
+                mPlane0TextureId, mParent->mId, std::move(bb));
+          }
+          {
+            ipc::ByteBuf bb;
+            ffi::WGPUTextureViewDescriptor desc = {
+                // .label
+                .format = nullptr,
+                .dimension = nullptr,
+                .aspect = ffi::WGPUTextureAspect_All,
+                .base_mip_level = 0,
+                .mip_level_count = nullptr,
+                .base_array_layer = 0,
+                .array_layer_count = nullptr,
+            };
+            mPlane1ViewId = ffi::wgpu_client_create_texture_view(
+                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
+            mParent->GetBridge()->SendTextureAction(
+                mPlane1TextureId, mParent->mId, std::move(bb));
+          }
+          {
+            ipc::ByteBuf bb;
+            ffi::WGPUTextureViewDescriptor desc = {
+                // .label
+                .format = nullptr,
+                .dimension = nullptr,
+                .aspect = ffi::WGPUTextureAspect_All,
+                .base_mip_level = 0,
+                .mip_level_count = nullptr,
+                .base_array_layer = 0,
+                .array_layer_count = nullptr,
+            };
+            mPlane2ViewId = ffi::wgpu_client_create_texture_view(
+                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
+            mParent->GetBridge()->SendTextureAction(
+                mPlane2TextureId, mParent->mId, std::move(bb));
           }
           break;
         }
@@ -160,7 +221,8 @@ ExtTex::ExtTex(Device* const aParent) : ChildOf(aParent) {
       ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
   mPlane2TextureId =
       ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
-  mParamsId = ffi::wgpu_client_make_buffer_id(aParent->GetBridge()->GetClient());
+  mParamsId =
+      ffi::wgpu_client_make_buffer_id(aParent->GetBridge()->GetClient());
 }
 
 // FIXME: cleanup

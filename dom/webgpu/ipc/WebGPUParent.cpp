@@ -555,10 +555,16 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
     RawId aDeviceId, RawId aQueueId, layers::SurfaceDescriptor aSd,
     RawId aPlane0Id, RawId aPlane1Id, RawId aPlane2Id, RawId aParamsId) {
   printf_stderr("jamiedbg WebGPUParent::RecvCreateExternalTexture()\n");
+
+  static const std::array<float, 16> YUV2RGB_BT601_LimitedRange_WithBias = {
+      1.164383f,  1.164383f, 1.164383f,  0.000000f,  0.000000f, -0.391762f,
+      2.017232f,  0.000000f, 1.596027f,  -0.812968f, 0.000000f, 0.000000f,
+      -0.870752f, 0.529593f, -1.081389f, 1.000000f};
+
   switch (aSd.type()) {
     case layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo: {
       printf_stderr("jamiedbg TSurfaceDescriptorGPUVideo\n");
-      layers::SurfaceDescriptorGPUVideo gpuVideoDesc =
+      layers::SurfaceDescriptorGPUVideo& gpuVideoDesc =
           aSd.get_SurfaceDescriptorGPUVideo();
       if (gpuVideoDesc.type() !=
           layers::SurfaceDescriptorGPUVideo::TSurfaceDescriptorRemoteDecoder) {
@@ -568,9 +574,9 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
             gpuVideoDesc.type());
         return IPC_OK();
       }
-      layers::SurfaceDescriptorRemoteDecoder remoteDecoderDesc =
+      layers::SurfaceDescriptorRemoteDecoder& remoteDecoderDesc =
           gpuVideoDesc.get_SurfaceDescriptorRemoteDecoder();
-      layers::RemoteDecoderVideoSubDescriptor subDesc =
+      layers::RemoteDecoderVideoSubDescriptor& subDesc =
           remoteDecoderDesc.subdesc();
       switch (subDesc.type()) {
         case layers::RemoteDecoderVideoSubDescriptor::Tnull_t: {
@@ -739,17 +745,125 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
 
           {
             struct Params {
-              float yuv_conversion_matrix[16];
+              std::array<float, 16> yuv_conversion_matrix;
               uint32_t num_planes;
             };
             const Params params = {
-                .yuv_conversion_matrix = {1.164383f, 1.164383f, 1.164383f,
-                                          0.000000f, 0.000000f, -0.391762f,
-                                          2.017232f, 0.000000f, 1.596027f,
-                                          -0.812968f, 0.000000f, 0.000000f,
-                                          -0.870752f, 0.529593f, -1.081389f,
-                                          1.000000f},
+                .yuv_conversion_matrix = YUV2RGB_BT601_LimitedRange_WithBias,
                 .num_planes = 3,
+            };
+            ipc::ByteBuf bb;
+            ffi::wgpu_queue_write_buffer(aParamsId, 0, ToFFI(&bb));
+            ffi::wgpu_server_queue_write_action(mContext.get(), aQueueId,
+                                                ToFFI(&bb), (uint8_t*)&params,
+                                                sizeof params, error.ToFFI());
+            ForwardError(aDeviceId, error);
+          }
+          break;
+        }
+        case layers::RemoteDecoderVideoSubDescriptor::
+            TSurfaceDescriptorDMABuf: {
+          layers::SurfaceDescriptorDMABuf& dmabufDesc =
+              subDesc.get_SurfaceDescriptorDMABuf();
+
+          printf_stderr("jamiedbg Got SurfaceDescriptorDMABUF\n");
+          printf_stderr("jamiedbg buffer type: %u\n", dmabufDesc.bufferType());
+          switch (dmabufDesc.fourccFormat()) {
+            // case DRM_FORMAT_NV12:
+            //   printf_stderr("jamiedbg fourcc format: DRM_FORMAT_NV12\n");
+            //   break;
+            // case DRM_FORMAT_NV21:
+            //   printf_stderr("jamiedbg fourcc format: DRM_FORMAT_NV21\n");
+            //   break;
+            default:
+              printf_stderr("jamiedbg fourcc format: 0x%x\n",
+                            dmabufDesc.fourccFormat());
+          }
+          printf_stderr("jamiedbg widths: %s\n",
+                        mozilla::ToString(dmabufDesc.width()).c_str());
+          printf_stderr("jamiedbg heights: %s\n",
+                        mozilla::ToString(dmabufDesc.height()).c_str());
+          printf_stderr("jamiedbg formats: %s\n",
+                        mozilla::ToString(dmabufDesc.format()).c_str());
+          printf_stderr("jamiedbg yuv color space: %d\n",
+                        dmabufDesc.yUVColorSpace());
+          printf_stderr("jamiedbg color range: %d\n", dmabufDesc.colorRange());
+          printf_stderr("jamiedbg color primaries: %d\n",
+                        dmabufDesc.colorPrimaries());
+          printf_stderr("jamiedbg transfer function: %d\n",
+                        dmabufDesc.transferFunction());
+          printf_stderr("jamiedbg buffer modifiers: %s\n",
+                        mozilla::ToString(dmabufDesc.modifier()).c_str());
+          printf_stderr("jamiedbg FDs: %s\n",
+                        mozilla::ToString(dmabufDesc.fds()).c_str());
+
+          ErrorBuffer error;
+
+          ffi::WGPUDMABufPlane plane0{
+              .fd = dmabufDesc.fds()[0]->ClonePlatformHandle().release(),
+              .width = dmabufDesc.width()[0],
+              .height = dmabufDesc.height()[0],
+              .format = dmabufDesc.format()[0],
+              .offset = dmabufDesc.offsets()[0],
+              .stride = dmabufDesc.strides()[0],
+              .modifier = dmabufDesc.modifier()[0],
+          };
+          ffi::wgpu_server_import_external_texture_from_dmabuf(
+              mContext.get(), aDeviceId, aPlane0Id, plane0);
+
+          ffi::WGPUDMABufPlane plane1{
+              .fd = dmabufDesc.fds()[1]->ClonePlatformHandle().release(),
+              .width = dmabufDesc.width()[1],
+              .height = dmabufDesc.height()[1],
+              .format = dmabufDesc.format()[1],
+              .offset = dmabufDesc.offsets()[1],
+              .stride = dmabufDesc.strides()[1],
+              .modifier = dmabufDesc.modifier()[1],
+          };
+          ffi::wgpu_server_import_external_texture_from_dmabuf(
+              mContext.get(), aDeviceId, aPlane1Id, plane1);
+
+          // FIXME: Because I've just made planes a fixed size array rather 
+          // than variable size, we need a 3rd plane to avoid crashing. Just 
+          // import the 2nd plane again - it won't be used.
+          ffi::WGPUDMABufPlane plane2{
+              .fd = dmabufDesc.fds()[1]->ClonePlatformHandle().release(),
+              .width = dmabufDesc.width()[1],
+              .height = dmabufDesc.height()[1],
+              .format = dmabufDesc.format()[1],
+              .offset = dmabufDesc.offsets()[1],
+              .stride = dmabufDesc.strides()[1],
+              .modifier = dmabufDesc.modifier()[1],
+          };
+          ffi::wgpu_server_import_external_texture_from_dmabuf(
+              mContext.get(), aDeviceId, aPlane2Id, plane2);
+
+          {
+            ipc::ByteBuf bb;
+            ffi::wgpu_server_device_create_buffer(
+                mContext.get(), aDeviceId, aParamsId,
+                // fixme: add label
+                nullptr,
+                // fixme: get correct size from somewhere
+                68, WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST,
+                /* mapped_at_creation */ false,
+                /* shm_allocation_failed */ false, error.ToFFI());
+            ForwardError(aDeviceId, error);
+          }
+          {
+            struct Params {
+              std::array<float, 16> yuv_conversion_matrix;
+              uint32_t num_planes;
+            };
+            // overall fourcc format: 0x3231564e
+            // NV12
+            // BT601
+            // Limited range
+            // Primaries: CP_RESERVED_MIN ???
+            // BT709
+            const Params params = {
+                .yuv_conversion_matrix = YUV2RGB_BT601_LimitedRange_WithBias,
+                .num_planes = 2,
             };
             ipc::ByteBuf bb;
             ffi::wgpu_queue_write_buffer(aParamsId, 0, ToFFI(&bb));

@@ -1534,6 +1534,149 @@ impl VkImageHolder {
     }
 }
 
+#[derive(Debug)]
+#[repr(C)]
+pub struct DMABufPlane {
+    fd: i32,
+    width: u32,
+    height: u32,
+    format: u32,
+    offset: u32,
+    stride: u32,
+    modifier: u64,
+}
+
+#[cfg(target_os = "linux")]
+#[no_mangle]
+pub unsafe extern "C" fn wgpu_server_import_external_texture_from_dmabuf(
+    global: &Global,
+    device_id: id::DeviceId,
+    texture_id: id::TextureId,
+    plane: DMABufPlane,
+) -> bool {
+    let (vk_format, wgpu_format) = match plane.format {
+        // DRM_FORMAT_R8
+        0x20203852 => (ash::vk::Format::R8_UNORM, wgt::TextureFormat::R8Unorm),
+        // DRM_FORMAT_GR88
+        0x38385247 => (ash::vk::Format::R8G8_UNORM, wgt::TextureFormat::Rg8Unorm),
+        _ => todo!("Unhandled format {:x}", plane.format),
+    };
+
+    let hal_texture = unsafe {
+        global.device_as_hal::<wgc::api::Vulkan, _, _>(device_id, |hal_device| {
+            let hal_device = hal_device.unwrap();
+            let device = hal_device.raw_device();
+            let physical_device = hal_device.raw_physical_device();
+            let instance = hal_device.shared_instance().raw_instance();
+
+            let mut external_image_create_info = vk::ExternalMemoryImageCreateInfo::default()
+                .handle_types(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+
+            let image_create_flags = vk::ImageCreateFlags::empty();
+
+            let plane_layouts = [vk::SubresourceLayout {
+                offset: plane.offset as ash::vk::DeviceSize,
+                row_pitch: plane.stride as ash::vk::DeviceSize,
+                ..Default::default()
+            }];
+            let mut modifier_info = vk::ImageDrmFormatModifierExplicitCreateInfoEXT::default()
+                .drm_format_modifier(plane.modifier)
+                .plane_layouts(&plane_layouts);
+
+            let extent = vk::Extent3D {
+                width: plane.width,
+                height: plane.height,
+                depth: 1,
+            };
+
+            let image_create_info = vk::ImageCreateInfo::default()
+                .flags(image_create_flags)
+                .image_type(ash::vk::ImageType::TYPE_2D)
+                .format(vk_format)
+                .extent(extent)
+                .mip_levels(1)
+                .array_layers(1)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .tiling(vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT)
+                .usage(vk::ImageUsageFlags::SAMPLED)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                // VK_IMAGE_CREATE_DISJOINT_BIT if importing multiple FDs (1 for each plane)
+                .push_next(&mut modifier_info)
+                .push_next(&mut external_image_create_info);
+
+            let image = device.create_image(&image_create_info, None).unwrap();
+            let memory_req = device.get_image_memory_requirements(image);
+            let mem_properties = instance.get_physical_device_memory_properties(physical_device);
+
+            // FIXME: what does this do?
+            let memory_type_index = mem_properties
+                .memory_types
+                .iter()
+                .enumerate()
+                .position(|(i, t)| {
+                    ((1 << i) & memory_req.memory_type_bits) != 0
+                        && t.property_flags
+                            .contains(vk::MemoryPropertyFlags::DEVICE_LOCAL)
+                })
+                .unwrap();
+
+            let mut dedicated_memory_info = vk::MemoryDedicatedAllocateInfo::default().image(image);
+            let mut import_memory_fd_info = vk::ImportMemoryFdInfoKHR::default()
+                .handle_type(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
+                .fd(plane.fd);
+
+            let memory_allocate_info = vk::MemoryAllocateInfo::default()
+                .allocation_size(memory_req.size)
+                .memory_type_index(memory_type_index as u32)
+                .push_next(&mut dedicated_memory_info)
+                .push_next(&mut import_memory_fd_info);
+
+            let memory = device.allocate_memory(&memory_allocate_info, None).unwrap();
+            device.bind_image_memory(image, memory, 0).unwrap();
+
+            let hal_desc = wgh::TextureDescriptor {
+                label: None,
+                size: wgt::Extent3d {
+                    width: plane.width,
+                    height: plane.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgt::TextureDimension::D2,
+                format: wgpu_format,
+                usage: wgt::TextureUses::RESOURCE,
+                memory_flags: wgh::MemoryFlags::empty(),
+                view_formats: vec![],
+            };
+
+            <wgh::api::Vulkan as wgh::Api>::Device::texture_from_raw(image, &hal_desc, None)
+        })
+    };
+    let desc = wgt::TextureDescriptor {
+        label: None,
+        size: wgt::Extent3d {
+            width: plane.width,
+            height: plane.height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgt::TextureDimension::D2,
+        format: wgpu_format,
+        usage: wgt::TextureUsages::TEXTURE_BINDING,
+        view_formats: vec![],
+    };
+    let (texture_id, error) = unsafe {
+        global.create_texture_from_hal(Box::new(hal_texture), device_id, &desc, Some(texture_id))
+    };
+    match error {
+        Some(err) => todo!(), // FIXME: error handling
+        _ => true,
+    }
+}
+
 impl Global {
     #[cfg(target_os = "windows")]
     fn create_texture_with_external_texture_d3d11(
