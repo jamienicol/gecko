@@ -259,10 +259,7 @@ pub enum BindGroupEntryResource {
     },
     Sampler(id::SamplerId),
     Texture(id::TextureViewId),
-    ExternalTexture {
-        planes: [id::TextureViewId; 3],
-        params: id::BufferId,
-    },
+    ExternalTexture(id::ExternalTextureId),
 }
 
 #[repr(C)]
@@ -339,6 +336,7 @@ struct IdentityHub {
     render_pipelines: IdentityManager<markers::RenderPipeline>,
     textures: IdentityManager<markers::Texture>,
     texture_views: IdentityManager<markers::TextureView>,
+    external_textures: IdentityManager<markers::ExternalTexture>,
     samplers: IdentityManager<markers::Sampler>,
     query_sets: IdentityManager<markers::QuerySet>,
 }
@@ -360,6 +358,7 @@ impl Default for IdentityHub {
             render_pipelines: IdentityManager::new(),
             textures: IdentityManager::new(),
             texture_views: IdentityManager::new(),
+            external_textures: IdentityManager::new(),
             samplers: IdentityManager::new(),
             query_sets: IdentityManager::new(),
         }
@@ -573,8 +572,8 @@ pub extern "C" fn wgpu_client_free_buffer_id(client: &Client, id: id::BufferId) 
 }
 
 #[no_mangle]
-pub extern "C" fn wgpu_client_make_texture_id(client: &Client) -> id::TextureId {
-    client.identities.lock().textures.process()
+pub extern "C" fn wgpu_client_make_external_texture_id(client: &Client) -> id::ExternalTextureId {
+    client.identities.lock().external_textures.process()
 }
 
 #[no_mangle]
@@ -1150,15 +1149,8 @@ pub unsafe extern "C" fn wgpu_client_create_bind_group(
                 BindGroupEntryResource::Texture(id) => {
                     wgc::binding_model::BindingResource::TextureView(id)
                 }
-                BindGroupEntryResource::ExternalTexture { planes, params } => {
-                    wgc::binding_model::BindingResource::ExternalTexture {
-                        planes,
-                        params: wgc::binding_model::BufferBinding {
-                            buffer: params,
-                            offset: 0,
-                            size: None,
-                        },
-                    }
+                BindGroupEntryResource::ExternalTexture(id) => {
+                    wgc::binding_model::BindingResource::ExternalTexture(id)
                 }
             },
         });

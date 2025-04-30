@@ -50,7 +50,7 @@ parent:
   async ComputePass(RawId selfId, RawId aDeviceId, ByteBuf buf);
   async BumpImplicitBindGroupLayout(RawId pipelineId, bool isCompute, uint32_t index, RawId assignId);
 
-  async DeviceCreateExternalTexture(RawId selfId, RawId queueId, SurfaceDescriptor sd, RawId plane0Id, RawId plane1Id, RawId plane2Id, RawId paramsId);
+  async DeviceCreateExternalTexture(RawId selfId, RawId externalTextureId, SurfaceDescriptor sd);
   async DeviceCreateBuffer(RawId deviceId, RawId bufferId, GPUBufferDescriptor desc, MutableSharedMemoryHandle shm);
 
   async InstanceRequestAdapter(GPURequestAdapterOptions options, RawId aAdapterId) returns (ByteBuf byteBuf);

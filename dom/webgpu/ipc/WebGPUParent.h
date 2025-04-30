@@ -57,9 +57,9 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
   ipc::IPCResult RecvAdapterDrop(RawId aAdapterId);
   ipc::IPCResult RecvDeviceDestroy(RawId aDeviceId);
   ipc::IPCResult RecvDeviceDrop(RawId aDeviceId);
-  ipc::IPCResult RecvDeviceCreateExternalTexture(
-      RawId aDeviceId, RawId aQueueId, layers::SurfaceDescriptor aSd,
-      RawId aPlane0Id, RawId aPlane1Id, RawId aPlane2Id, RawId aParamsId);
+  ipc::IPCResult RecvDeviceCreateExternalTexture(RawId aDeviceId,
+                                                 RawId aExternalTextureId,
+                                                 layers::SurfaceDescriptor aSd);
   ipc::IPCResult RecvDeviceCreateBuffer(
       RawId aDeviceId, RawId aBufferId, dom::GPUBufferDescriptor&& aDesc,
       ipc::MutableSharedMemoryHandle&& aShmem);

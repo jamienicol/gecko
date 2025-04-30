@@ -552,28 +552,18 @@ ipc::IPCResult WebGPUParent::RecvDeviceDrop(RawId aDeviceId) {
 }
 
 ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
-    RawId aDeviceId, RawId aQueueId, layers::SurfaceDescriptor aSd,
-    RawId aPlane0Id, RawId aPlane1Id, RawId aPlane2Id, RawId aParamsId) {
+    RawId aDeviceId, RawId aExternalTextureId, layers::SurfaceDescriptor aSd) {
   printf_stderr("jamiedbg WebGPUParent::RecvCreateExternalTexture()\n");
 
-  static const std::array<float, 16> YUV2RGB_BT601_LimitedRange_WithBias = {
-      1.164383f,  1.164383f, 1.164383f,  0.000000f,  0.000000f, -0.391762f,
-      2.017232f,  0.000000f, 1.596027f,  -0.812968f, 0.000000f, 0.000000f,
-      -0.870752f, 0.529593f, -1.081389f, 1.000000f};
+  // FIXME: is label passed from JS in descriptor?
+  nsCString label;
+  label.Assign("External texture");
 
   switch (aSd.type()) {
     case layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo: {
       printf_stderr("jamiedbg TSurfaceDescriptorGPUVideo\n");
       layers::SurfaceDescriptorGPUVideo& gpuVideoDesc =
           aSd.get_SurfaceDescriptorGPUVideo();
-      if (gpuVideoDesc.type() !=
-          layers::SurfaceDescriptorGPUVideo::TSurfaceDescriptorRemoteDecoder) {
-        printf_stderr(
-            "jamiedbg gpuVideoDesc type %d is not "
-            "TSurfaceDescriptorRemoteDecoder\n",
-            gpuVideoDesc.type());
-        return IPC_OK();
-      }
       layers::SurfaceDescriptorRemoteDecoder& remoteDecoderDesc =
           gpuVideoDesc.get_SurfaceDescriptorRemoteDecoder();
       layers::RemoteDecoderVideoSubDescriptor& subDesc =
@@ -613,152 +603,40 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
           printf_stderr("jamiedbg cbcr stride: %d\n",
                         bufferHost->GetCbCrStride());
 
-          ErrorBuffer error;
-
-          ffi::WGPUTextureDescriptor yDesc{
-              .size =
-                  ffi::WGPUExtent3d{
-                      .width =
-                          static_cast<uint32_t>(bufferHost->GetSize().width),
-                      .height =
-                          static_cast<uint32_t>(bufferHost->GetSize().height),
-                      .depth_or_array_layers = 1,
-                  },
-              .mip_level_count = 1,
-              .sample_count = 1,
-              .dimension = ffi::WGPUTextureDimension_D2,
-              .format =
-                  ffi::WGPUTextureFormat{
-                      .tag = ffi::WGPUTextureFormat_R8Unorm,
-                  },
-              .usage = WGPUTextureUsages_TEXTURE_BINDING |
-                       WGPUTextureUsages_COPY_DST,
-          };
-
-          ffi::wgpu_server_device_create_texture(
-              mContext.get(), aDeviceId, aPlane0Id, yDesc, error.ToFFI());
-          ForwardError(aDeviceId, error);
-
-          auto uvSize = gfx::ChromaSize(bufferHost->GetSize(),
-                                        bufferHost->GetChromaSubsampling());
-          ffi::WGPUTextureDescriptor uvDesc{
-              .size =
-                  ffi::WGPUExtent3d{
-                      .width = static_cast<uint32_t>(uvSize.width),
-                      .height = static_cast<uint32_t>(uvSize.height),
-                      .depth_or_array_layers = 1,
-                  },
-              .mip_level_count = 1,
-              .sample_count = 1,
-              .dimension = ffi::WGPUTextureDimension_D2,
-              .format =
-                  ffi::WGPUTextureFormat{
-                      .tag = ffi::WGPUTextureFormat_R8Unorm,
-                  },
-              .usage = WGPUTextureUsages_TEXTURE_BINDING |
-                       WGPUTextureUsages_COPY_DST,
-          };
-          ffi::wgpu_server_device_create_texture(
-              mContext.get(), aDeviceId, aPlane1Id, uvDesc, error.ToFFI());
-          ForwardError(aDeviceId, error);
-          ffi::wgpu_server_device_create_texture(
-              mContext.get(), aDeviceId, aPlane2Id, uvDesc, error.ToFFI());
-          ForwardError(aDeviceId, error);
-
-          {
-            uint32_t y_stride = static_cast<uint32_t>(bufferHost->GetYStride());
-            ffi::WGPUTexelCopyTextureInfo info{
-                .texture = aPlane0Id,
-                .mip_level = 0,
-                .origin = ffi::WGPUOrigin3d{.x = 0, .y = 0, .z = 0},
-                .aspect = ffi::WGPUTextureAspect_All,
-            };
-            ffi::WGPUTexelCopyBufferLayout layout{
-                .offset = 0,
-                .bytes_per_row = &y_stride,
-                .rows_per_image = nullptr,
-            };
-            ffi::WGPUExtent3d size{
-                .width = static_cast<uint32_t>(bufferHost->GetSize().width),
-                .height = static_cast<uint32_t>(bufferHost->GetSize().height),
-                .depth_or_array_layers = 1,
-            };
-            ipc::ByteBuf bb;
-            ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
-            ffi::wgpu_server_queue_write_action(
-                mContext.get(), aQueueId, ToFFI(&bb), bufferHost->GetYChannel(),
-                bufferHost->GetYStride() * bufferHost->GetSize().height,
-                error.ToFFI());
-            ForwardError(aDeviceId, error);
-          }
-
-          {
-            uint32_t uv_stride =
-                static_cast<uint32_t>(bufferHost->GetCbCrStride());
-            auto uvSize = gfx::ChromaSize(bufferHost->GetSize(),
+          auto ySize = bufferHost->GetSize();
+          auto cbCrSize = gfx::ChromaSize(bufferHost->GetSize(),
                                           bufferHost->GetChromaSubsampling());
-            ffi::WGPUTexelCopyTextureInfo info{
-                .texture = aPlane1Id,
-                .mip_level = 0,
-                .origin = ffi::WGPUOrigin3d{.x = 0, .y = 0, .z = 0},
-                .aspect = ffi::WGPUTextureAspect_All,
-            };
-            ffi::WGPUTexelCopyBufferLayout layout{
-                .offset = 0,
-                .bytes_per_row = &uv_stride,
-                .rows_per_image = nullptr,
-            };
-            ffi::WGPUExtent3d size{
-                .width = static_cast<uint32_t>(uvSize.width),
-                .height = static_cast<uint32_t>(uvSize.height),
-                .depth_or_array_layers = 1,
-            };
-            ipc::ByteBuf bb;
-            ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
-            ffi::wgpu_server_queue_write_action(
-                mContext.get(), aQueueId, ToFFI(&bb),
-                bufferHost->GetCbChannel(),
-                bufferHost->GetCbCrStride() * uvSize.height, error.ToFFI());
-            ForwardError(aDeviceId, error);
+          ffi::WGPUExternalTextureDescriptor externalTextureDesc{
+              .label = &label,
+              .width = static_cast<uint32_t>(ySize.width),
+              .height = static_cast<uint32_t>(ySize.height),
+              .format = ffi::WGPUExternalTextureFormat_Yu12,
+          };
+          ffi::WGPUExternalTexturePlaneInitData plane0_init{
+              .data = bufferHost->GetYChannel(),
+              .length = static_cast<uintptr_t>(bufferHost->GetYStride() *
+                                               ySize.height),
+              .stride = static_cast<uintptr_t>(bufferHost->GetYStride()),
+          };
+          ffi::WGPUExternalTexturePlaneInitData plane1_init{
+              .data = bufferHost->GetCbChannel(),
+              .length = static_cast<uintptr_t>(bufferHost->GetCbCrStride() *
+                                               cbCrSize.height),
+              .stride = static_cast<uintptr_t>(bufferHost->GetCbCrStride()),
+          };
+          ffi::WGPUExternalTexturePlaneInitData plane2_init{
+              .data = bufferHost->GetCrChannel(),
+              .length = static_cast<uintptr_t>(bufferHost->GetCbCrStride() *
+                                               cbCrSize.height),
+              .stride = static_cast<uintptr_t>(bufferHost->GetCbCrStride()),
+          };
 
-            info.texture = aPlane2Id;
-            ffi::wgpu_queue_write_texture(info, layout, size, ToFFI(&bb));
-            ffi::wgpu_server_queue_write_action(
-                mContext.get(), aQueueId, ToFFI(&bb),
-                bufferHost->GetCrChannel(),
-                bufferHost->GetCbCrStride() * uvSize.height, error.ToFFI());
-            ForwardError(aDeviceId, error);
-          }
-
-          {
-            ipc::ByteBuf bb;
-            ffi::wgpu_server_device_create_buffer(
-                mContext.get(), aDeviceId, aParamsId,
-                // fixme: add label
-                nullptr,
-                // fixme: get correct size from somewhere
-                68, WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST,
-                /* mapped_at_creation */ false,
-                /* shm_allocation_failed */ false, error.ToFFI());
-            ForwardError(aDeviceId, error);
-          }
-
-          {
-            struct Params {
-              std::array<float, 16> yuv_conversion_matrix;
-              uint32_t num_planes;
-            };
-            const Params params = {
-                .yuv_conversion_matrix = YUV2RGB_BT601_LimitedRange_WithBias,
-                .num_planes = 3,
-            };
-            ipc::ByteBuf bb;
-            ffi::wgpu_queue_write_buffer(aParamsId, 0, ToFFI(&bb));
-            ffi::wgpu_server_queue_write_action(mContext.get(), aQueueId,
-                                                ToFFI(&bb), (uint8_t*)&params,
-                                                sizeof params, error.ToFFI());
-            ForwardError(aDeviceId, error);
-          }
+          ErrorBuffer error;
+          ffi::wgpu_server_device_create_external_texture(
+              mContext.get(), aDeviceId, aExternalTextureId,
+              &externalTextureDesc, &plane0_init, &plane1_init, &plane2_init,
+              error.ToFFI());
+          ForwardError(aDeviceId, error);
           break;
         }
         case layers::RemoteDecoderVideoSubDescriptor::
@@ -788,7 +666,7 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
           printf_stderr("jamiedbg yuv color space: %d\n",
                         dmabufDesc.yUVColorSpace());
           printf_stderr("jamiedbg color range: %d\n", dmabufDesc.colorRange());
-          printf_stderr("jamiedbg color primaries: %d\n",
+          printf_stderr("jamiedbg color primaries: %d\n ",
                         dmabufDesc.colorPrimaries());
           printf_stderr("jamiedbg transfer function: %d\n",
                         dmabufDesc.transferFunction());
@@ -797,8 +675,13 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
           printf_stderr("jamiedbg FDs: %s\n",
                         mozilla::ToString(dmabufDesc.fds()).c_str());
 
-          ErrorBuffer error;
-
+          ffi::WGPUExternalTextureDescriptor externalTextureDesc{
+              .label = &label,
+              .width = static_cast<uint32_t>(dmabufDesc.width()[0]),
+              .height = static_cast<uint32_t>(dmabufDesc.height()[0]),
+              // FIXME: don't hardcode format or num planes
+              .format = ffi::WGPUExternalTextureFormat_Nv12,
+          };
           ffi::WGPUDMABufPlane plane0{
               .fd = dmabufDesc.fds()[0]->ClonePlatformHandle().release(),
               .width = dmabufDesc.width()[0],
@@ -808,9 +691,6 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
               .stride = dmabufDesc.strides()[0],
               .modifier = dmabufDesc.modifier()[0],
           };
-          ffi::wgpu_server_import_external_texture_from_dmabuf(
-              mContext.get(), aDeviceId, aPlane0Id, plane0);
-
           ffi::WGPUDMABufPlane plane1{
               .fd = dmabufDesc.fds()[1]->ClonePlatformHandle().release(),
               .width = dmabufDesc.width()[1],
@@ -820,58 +700,11 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateExternalTexture(
               .stride = dmabufDesc.strides()[1],
               .modifier = dmabufDesc.modifier()[1],
           };
+          ErrorBuffer error;
           ffi::wgpu_server_import_external_texture_from_dmabuf(
-              mContext.get(), aDeviceId, aPlane1Id, plane1);
-
-          // FIXME: Because I've just made planes a fixed size array rather 
-          // than variable size, we need a 3rd plane to avoid crashing. Just 
-          // import the 2nd plane again - it won't be used.
-          ffi::WGPUDMABufPlane plane2{
-              .fd = dmabufDesc.fds()[1]->ClonePlatformHandle().release(),
-              .width = dmabufDesc.width()[1],
-              .height = dmabufDesc.height()[1],
-              .format = dmabufDesc.format()[1],
-              .offset = dmabufDesc.offsets()[1],
-              .stride = dmabufDesc.strides()[1],
-              .modifier = dmabufDesc.modifier()[1],
-          };
-          ffi::wgpu_server_import_external_texture_from_dmabuf(
-              mContext.get(), aDeviceId, aPlane2Id, plane2);
-
-          {
-            ipc::ByteBuf bb;
-            ffi::wgpu_server_device_create_buffer(
-                mContext.get(), aDeviceId, aParamsId,
-                // fixme: add label
-                nullptr,
-                // fixme: get correct size from somewhere
-                68, WGPUBufferUsages_UNIFORM | WGPUBufferUsages_COPY_DST,
-                /* mapped_at_creation */ false,
-                /* shm_allocation_failed */ false, error.ToFFI());
-            ForwardError(aDeviceId, error);
-          }
-          {
-            struct Params {
-              std::array<float, 16> yuv_conversion_matrix;
-              uint32_t num_planes;
-            };
-            // overall fourcc format: 0x3231564e
-            // NV12
-            // BT601
-            // Limited range
-            // Primaries: CP_RESERVED_MIN ???
-            // BT709
-            const Params params = {
-                .yuv_conversion_matrix = YUV2RGB_BT601_LimitedRange_WithBias,
-                .num_planes = 2,
-            };
-            ipc::ByteBuf bb;
-            ffi::wgpu_queue_write_buffer(aParamsId, 0, ToFFI(&bb));
-            ffi::wgpu_server_queue_write_action(mContext.get(), aQueueId,
-                                                ToFFI(&bb), (uint8_t*)&params,
-                                                sizeof params, error.ToFFI());
-            ForwardError(aDeviceId, error);
-          }
+              mContext.get(), aDeviceId, aExternalTextureId,
+              &externalTextureDesc, plane0, plane1, error.ToFFI());
+          ForwardError(aDeviceId, error);
           break;
         }
         default:

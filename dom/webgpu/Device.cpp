@@ -268,15 +268,17 @@ already_AddRefed<ExtTex> Device::ImportExternalTexture(
   //         perform conversion later.
   //    5. Let result be a new GPUExternalTexture object wrapping data.
 
+  RawId id = ffi::wgpu_client_make_external_texture_id(mBridge->GetClient());
   if (aDesc.mSource.IsHTMLVideoElement()) {
     // TODO: If source is an HTMLVideoElement, queue an automatic expiry task
     // with device this and the following steps:
     // 1. Set result.[[expired]] to true, releasing ownership of the underlying
     // resource.
     return ExtTex::CreateFromHTMLVideoElement(
-        this, aDesc.mSource.GetAsHTMLVideoElement());
+        this, id, aDesc.mSource.GetAsHTMLVideoElement());
   } else {
-    return ExtTex::CreateFromVideoFrame(this, aDesc.mSource.GetAsVideoFrame());
+    return ExtTex::CreateFromVideoFrame(this, id,
+                                        aDesc.mSource.GetAsVideoFrame());
   }
 }
 
@@ -561,15 +563,10 @@ already_AddRefed<BindGroup> Device::CreateBindGroup(
       e.resource.tag = ffi::WGPUBindGroupEntryResource_Sampler;
       e.resource.sampler = entry.mResource.GetAsGPUSampler()->mId;
     } else if (entry.mResource.IsGPUExternalTexture()) {
-      auto ext = entry.mResource.GetAsGPUExternalTexture();
       e.resource.tag = ffi::WGPUBindGroupEntryResource_ExternalTexture;
       // FIXME: handle textureview resource being bound as externaltexture.
       e.resource.external_texture =
-          ffi::WGPUBindGroupEntryResource_WGPUExternalTexture_Body{
-              .planes = {ext->mPlane0ViewId, ext->mPlane1ViewId,
-                         ext->mPlane2ViewId},
-              .params = ext->mParamsId,
-          };
+          entry.mResource.GetAsGPUExternalTexture()->mId;
     } else {
       // Not a buffer, nor a texture view, nor a sampler. If we pass
       // this to wgpu_client, it'll panic. Log a warning instead and

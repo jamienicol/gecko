@@ -36,8 +36,8 @@ namespace mozilla::webgpu {
 GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 
 /* static */ already_AddRefed<ExtTex> ExtTex::CreateFromVideoFrame(
-    Device* const aParent, dom::VideoFrame& aVideoFrame) {
-  RefPtr<ExtTex> extTex = new ExtTex(aParent);
+    Device* const aParent, RawId aId, dom::VideoFrame& aVideoFrame) {
+  RefPtr<ExtTex> extTex = new ExtTex(aParent, aId);
 
   RefPtr<layers::Image> image = aVideoFrame.GetImage();
   extTex->Init(image);
@@ -45,8 +45,8 @@ GPU_IMPL_CYCLE_COLLECTION(ExtTex, mParent)
 }
 
 /* static */ already_AddRefed<ExtTex> ExtTex::CreateFromHTMLVideoElement(
-    Device* const aParent, dom::HTMLVideoElement& aVideoElement) {
-  RefPtr<ExtTex> extTex = new ExtTex(aParent);
+    Device* const aParent, RawId aId, dom::HTMLVideoElement& aVideoElement) {
+  RefPtr<ExtTex> extTex = new ExtTex(aParent, aId);
 
   RefPtr<layers::Image> image = aVideoElement.GetCurrentImage();
   extTex->Init(image);
@@ -69,14 +69,6 @@ void ExtTex::Init(layers::Image* aImage) {
       printf_stderr("jamiedbg TSurfaceDescriptorGPUVideo\n");
       layers::SurfaceDescriptorGPUVideo gpuVideoDesc =
           desc->get_SurfaceDescriptorGPUVideo();
-      if (gpuVideoDesc.type() !=
-          layers::SurfaceDescriptorGPUVideo::TSurfaceDescriptorRemoteDecoder) {
-        printf_stderr(
-            "jamiedbg gpuVideoDesc type %d is not "
-            "TSurfaceDescriptorRemoteDecoder\n",
-            gpuVideoDesc.type());
-        return;
-      }
       layers::SurfaceDescriptorRemoteDecoder remoteDecoderDesc =
           gpuVideoDesc.get_SurfaceDescriptorRemoteDecoder();
       layers::RemoteDecoderVideoSubDescriptor subDesc =
@@ -84,119 +76,14 @@ void ExtTex::Init(layers::Image* aImage) {
       switch (subDesc.type()) {
         case layers::RemoteDecoderVideoSubDescriptor::Tnull_t: {
           printf_stderr("jamiedbg subDesc type is Tnull\n");
-          mParent->GetBridge()->SendDeviceCreateExternalTexture(
-              mParent->mId, mParent->GetQueue()->mId, *desc, mPlane0TextureId,
-              mPlane1TextureId, mPlane2TextureId, mParamsId);
-
-          {
-            ipc::ByteBuf bb;
-            ffi::WGPUTextureViewDescriptor desc = {
-                // .label
-                .format = nullptr,
-                .dimension = nullptr,
-                .aspect = ffi::WGPUTextureAspect_All,
-                .base_mip_level = 0,
-                .mip_level_count = nullptr,
-                .base_array_layer = 0,
-                .array_layer_count = nullptr,
-            };
-            mPlane0ViewId = ffi::wgpu_client_create_texture_view(
-                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-            mParent->GetBridge()->SendTextureAction(
-                mPlane0TextureId, mParent->mId, std::move(bb));
-          }
-          {
-            ipc::ByteBuf bb;
-            ffi::WGPUTextureViewDescriptor desc = {
-                // .label
-                .format = nullptr,
-                .dimension = nullptr,
-                .aspect = ffi::WGPUTextureAspect_All,
-                .base_mip_level = 0,
-                .mip_level_count = nullptr,
-                .base_array_layer = 0,
-                .array_layer_count = nullptr,
-            };
-            mPlane1ViewId = ffi::wgpu_client_create_texture_view(
-                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-            mParent->GetBridge()->SendTextureAction(
-                mPlane1TextureId, mParent->mId, std::move(bb));
-          }
-          {
-            ipc::ByteBuf bb;
-            ffi::WGPUTextureViewDescriptor desc = {
-                // .label
-                .format = nullptr,
-                .dimension = nullptr,
-                .aspect = ffi::WGPUTextureAspect_All,
-                .base_mip_level = 0,
-                .mip_level_count = nullptr,
-                .base_array_layer = 0,
-                .array_layer_count = nullptr,
-            };
-            mPlane2ViewId = ffi::wgpu_client_create_texture_view(
-                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-            mParent->GetBridge()->SendTextureAction(
-                mPlane2TextureId, mParent->mId, std::move(bb));
-          }
+          mParent->GetBridge()->SendDeviceCreateExternalTexture(mParent->mId,
+                                                                mId, *desc);
           break;
         }
         case layers::RemoteDecoderVideoSubDescriptor::
             TSurfaceDescriptorDMABuf: {
-          mParent->GetBridge()->SendDeviceCreateExternalTexture(
-              mParent->mId, mParent->GetQueue()->mId, *desc, mPlane0TextureId,
-              mPlane1TextureId, mPlane2TextureId, mParamsId);
-          {
-            ipc::ByteBuf bb;
-            ffi::WGPUTextureViewDescriptor desc = {
-                // .label
-                .format = nullptr,
-                .dimension = nullptr,
-                .aspect = ffi::WGPUTextureAspect_All,
-                .base_mip_level = 0,
-                .mip_level_count = nullptr,
-                .base_array_layer = 0,
-                .array_layer_count = nullptr,
-            };
-            mPlane0ViewId = ffi::wgpu_client_create_texture_view(
-                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-            mParent->GetBridge()->SendTextureAction(
-                mPlane0TextureId, mParent->mId, std::move(bb));
-          }
-          {
-            ipc::ByteBuf bb;
-            ffi::WGPUTextureViewDescriptor desc = {
-                // .label
-                .format = nullptr,
-                .dimension = nullptr,
-                .aspect = ffi::WGPUTextureAspect_All,
-                .base_mip_level = 0,
-                .mip_level_count = nullptr,
-                .base_array_layer = 0,
-                .array_layer_count = nullptr,
-            };
-            mPlane1ViewId = ffi::wgpu_client_create_texture_view(
-                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-            mParent->GetBridge()->SendTextureAction(
-                mPlane1TextureId, mParent->mId, std::move(bb));
-          }
-          {
-            ipc::ByteBuf bb;
-            ffi::WGPUTextureViewDescriptor desc = {
-                // .label
-                .format = nullptr,
-                .dimension = nullptr,
-                .aspect = ffi::WGPUTextureAspect_All,
-                .base_mip_level = 0,
-                .mip_level_count = nullptr,
-                .base_array_layer = 0,
-                .array_layer_count = nullptr,
-            };
-            mPlane2ViewId = ffi::wgpu_client_create_texture_view(
-                mParent->GetBridge()->GetClient(), &desc, ToFFI(&bb));
-            mParent->GetBridge()->SendTextureAction(
-                mPlane2TextureId, mParent->mId, std::move(bb));
-          }
+          mParent->GetBridge()->SendDeviceCreateExternalTexture(mParent->mId,
+                                                                mId, *desc);
           break;
         }
         default:
@@ -214,16 +101,7 @@ void ExtTex::Init(layers::Image* aImage) {
   }
 }
 
-ExtTex::ExtTex(Device* const aParent) : ChildOf(aParent) {
-  mPlane0TextureId =
-      ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
-  mPlane1TextureId =
-      ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
-  mPlane2TextureId =
-      ffi::wgpu_client_make_texture_id(aParent->GetBridge()->GetClient());
-  mParamsId =
-      ffi::wgpu_client_make_buffer_id(aParent->GetBridge()->GetClient());
-}
+ExtTex::ExtTex(Device* const aParent, RawId aId) : ChildOf(aParent), mId(aId) {}
 
 // FIXME: cleanup
 ExtTex::~ExtTex() = default;
